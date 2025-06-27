@@ -3,6 +3,7 @@ import { MoreVertical, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoManSharp, IoWomanSharp } from 'react-icons/io5';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 // Mock data for floors and rooms
 const initialFloors = [
@@ -44,6 +45,7 @@ const Rooms: React.FC = () => {
   const [selectedFloor, setSelectedFloor] = useState('');
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [editFloor, setEditFloor] = useState<any>(null);
+  const navigate = useNavigate();
 
   // Add new floor
   const handleAddFloor = (e: React.FormEvent) => {
@@ -137,16 +139,24 @@ const Rooms: React.FC = () => {
         </div>
         <div className="space-y-6">
           {floors.map((floor) => (
-            <div key={floor.floor} className="bg-gray-50 dark:bg-slate-800 rounded-lg p-4 border border-gray-200 dark:border-slate-700 relative">
+            <div
+              key={floor.floor}
+              className="bg-gray-50 dark:bg-slate-800 rounded-lg p-4 border border-gray-200 dark:border-slate-700 relative group cursor-pointer hover:shadow-lg transition-all"
+              onClick={e => {
+                // Prevent navigation if menu or action button is clicked
+                if ((e.target as HTMLElement).closest('.floor-actions')) return;
+                navigate(`/rooms/${floor.floor}`);
+              }}
+            >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{floor.floor}-qavat</h2>
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${floor.gender === 'Qizlar' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-200' : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'}`}>{floor.gender}</span>
                 </div>
-                <div className="relative">
+                <div className="relative floor-actions">
                   <button
                     className="p-2 rounded hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400 transition-colors"
-                    onClick={() => setMenuOpen(menuOpen === floor.floor ? null : floor.floor)}
+                    onClick={e => { e.stopPropagation(); setMenuOpen(menuOpen === floor.floor ? null : floor.floor); }}
                   >
                     <MoreVertical size={20} />
                   </button>
