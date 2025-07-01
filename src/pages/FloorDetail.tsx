@@ -1,6 +1,7 @@
 import React from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { mockStudents } from '../data/mockStudents';
+import BackButton from '../components/UI/BackButton';
 
 // Mock data for floors and rooms (should be moved to a shared file in real app)
 const initialFloors = [
@@ -41,7 +42,7 @@ const FloorDetail = () => {
   if (!floor) {
     return (
       <div className="p-8 text-center text-red-500">
-        Qavat topilmadi. <button className="underline" onClick={() => navigate(-1)}>Orqaga qaytish</button>
+        Qavat topilmadi. <BackButton label="Orqaga qaytish" className="mx-auto mt-4" />
       </div>
     );
   }
@@ -49,7 +50,7 @@ const FloorDetail = () => {
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto">
       <div className="mb-6 flex items-center gap-4">
-        <button onClick={() => navigate(-1)} className="text-blue-600 hover:underline">&larr; Orqaga</button>
+        <BackButton className="w-max" />
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{floor.floor}-qavat xonalari</h2>
         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${floor.gender === 'Qizlar' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-200' : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'}`}>{floor.gender}</span>
       </div>

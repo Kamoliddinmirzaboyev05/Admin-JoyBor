@@ -32,8 +32,8 @@ const Navbar: React.FC = () => {
               animate={{ opacity: 1, scale: 1 }}
               className="flex items-center space-x-2"
             >
-              <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">JB</span>
+              <div className="w-8 h-8 bg-gr rounded-lg flex items-center justify-center">
+             <img src="/logo.svg" alt="logo" className='w-full h-full object-cover' />
               </div>
               <div className="hidden sm:block">
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">JoyBor</h1>
