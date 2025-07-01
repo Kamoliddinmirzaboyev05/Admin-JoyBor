@@ -5,6 +5,7 @@ import { useAppStore } from '../stores/useAppStore';
 import DataTable from '../components/UI/DataTable';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
+import { Link } from 'react-router-dom';
 
 // react-select custom styles for dark mode
 const selectStyles = {
@@ -111,7 +112,7 @@ const Students: React.FC = () => {
       title: 'Ism Familiya',
       sortable: true,
       render: (_, row: any) => (
-        <span className="font-medium text-gray-900 dark:text-white">{row.firstName} {row.lastName}</span>
+        <Link to={`/profile/${row.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">{row.firstName} {row.lastName}</Link>
       ),
     },
     {

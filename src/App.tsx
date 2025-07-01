@@ -7,6 +7,7 @@ import Payments from './pages/Payments';
 import Rooms from './pages/Rooms';
 import FloorDetail from './pages/FloorDetail';
 import { Toaster } from 'sonner';
+import Profile from './pages/Profile';
 
 function App() {
   return (
@@ -22,7 +23,7 @@ function App() {
           <Route path="applications" element={<div className="p-8 text-center text-gray-500">Arizalar sahifasi tez orada...</div>} />
           <Route path="reports" element={<div className="p-8 text-center text-gray-500">Hisobotlar sahifasi tez orada...</div>} />
           <Route path="settings" element={<div className="p-8 text-center text-gray-500">Sozlamalar sahifasi tez orada...</div>} />
-          <Route path="profile" element={<div className="p-8 text-center text-gray-500">Profil sahifasi tez orada...</div>} />
+          <Route path="profile/:studentId" element={<Profile />} />
         </Route>
       </Routes>
     </>
