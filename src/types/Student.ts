@@ -18,4 +18,6 @@ export interface Student {
   passport: string; // Passport ma'lumoti
   isPrivileged: boolean; // Imtiyozli yoki yo'q
   privilegeShare?: number; // Imtiyoz ulushi (foiz)
+  direction: string; // Yo'nalish
+  floor: string; // Qavat
 } 

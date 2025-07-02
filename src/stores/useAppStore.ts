@@ -35,6 +35,8 @@ interface Payment {
   status: 'paid' | 'pending' | 'overdue';
   paymentDate: string;
   transactionId?: string;
+  validUntil: string;
+  paymentType?: string;
 }
 
 interface Application {
@@ -158,6 +160,8 @@ const samplePayments: Payment[] = [
     status: 'paid',
     paymentDate: '2024-12-01T00:00:00Z',
     transactionId: 'TXN001',
+    validUntil: '2025-12-01',
+    paymentType: 'cash',
   },
   {
     id: '2',
@@ -167,6 +171,8 @@ const samplePayments: Payment[] = [
     month: '2024-12',
     status: 'pending',
     paymentDate: '2024-12-15T00:00:00Z',
+    validUntil: '2025-12-15',
+    paymentType: 'online',
   },
   {
     id: '3',
@@ -176,6 +182,8 @@ const samplePayments: Payment[] = [
     month: '2024-11',
     status: 'overdue',
     paymentDate: '2024-11-30T00:00:00Z',
+    validUntil: '2024-12-30',
+    paymentType: 'cash',
   },
 ];
 

@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../stores/useAppStore';
 import DataTable from '../components/UI/DataTable';
-import { CreditCard, Plus, X } from 'lucide-react';
+import { CreditCard, Plus, X, Wallet, Calendar } from 'lucide-react';
 import Select from 'react-select';
 import { motion, AnimatePresence } from 'framer-motion';
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import '../index.css';
 
 const Payments: React.FC = () => {
   const { payments, students, addPayment } = useAppStore();
@@ -11,30 +14,20 @@ const Payments: React.FC = () => {
   const [form, setForm] = useState({
     studentId: '',
     amount: '',
-    month: '',
-    status: 'paid',
-    paymentDate: '',
-    transactionId: '',
+    validUntil: '',
+    paymentType: '',
   });
   const [error, setError] = useState('');
 
   const columns = [
     { key: 'studentName', title: 'Talaba', sortable: true },
     { key: 'amount', title: 'Miqdor', sortable: true, render: (v: number) => v.toLocaleString() + ' so‘m' },
-    { key: 'month', title: 'Oy', sortable: true },
-    { key: 'status', title: 'Holat', sortable: true, render: (v: string) => (
-      <span className={
-        v === 'paid' ? 'text-green-600 font-semibold' : v === 'pending' ? 'text-yellow-600 font-semibold' : 'text-red-600 font-semibold'
-      }>
-        {v === 'paid' ? 'To‘langan' : v === 'pending' ? 'Kutilmoqda' : 'Kechikkan'}
-      </span>
-    ) },
     { key: 'paymentDate', title: 'To‘lov sanasi', sortable: true, render: (v: string) => new Date(v).toLocaleDateString('uz-UZ') },
     { key: 'transactionId', title: 'Tranzaksiya ID', sortable: false },
   ];
 
   const handleOpen = () => {
-    setForm({ studentId: '', amount: '', month: '', status: 'paid', paymentDate: '', transactionId: '' });
+    setForm({ studentId: '', amount: '', validUntil: '', paymentType: '' });
     setError('');
     setShowModal(true);
   };
@@ -51,7 +44,7 @@ const Payments: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.studentId || !form.amount || !form.month || !form.status || !form.paymentDate) {
+    if (!form.studentId || !form.amount || !form.validUntil || !form.paymentType) {
       setError('Barcha maydonlarni to‘ldiring!');
       return;
     }
@@ -59,10 +52,8 @@ const Payments: React.FC = () => {
       studentId: form.studentId,
       studentName: students.find(s => s.id === form.studentId)?.firstName + ' ' + students.find(s => s.id === form.studentId)?.lastName,
       amount: Number(form.amount),
-      month: form.month,
-      status: form.status as any,
-      paymentDate: form.paymentDate,
-      transactionId: form.transactionId,
+      validUntil: form.validUntil,
+      paymentType: form.paymentType,
     });
     setShowModal(false);
   };
@@ -73,16 +64,12 @@ const Payments: React.FC = () => {
   const selectStyles = {
     control: (base: any, state: any) => ({
       ...base,
-      backgroundColor: 'var(--tw-bg-opacity,1) #fff',
-      borderColor: state.isFocused ? '#3b82f6' : '#d1d5db',
-      boxShadow: state.isFocused ? '0 0 0 2px #3b82f6' : undefined,
+      backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
+      color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
+      borderColor: state.isFocused ? (document.documentElement.classList.contains('dark') ? '#60a5fa' : '#3b82f6') : (document.documentElement.classList.contains('dark') ? '#374151' : '#d1d5db'),
+      boxShadow: state.isFocused ? `0 0 0 2px ${document.documentElement.classList.contains('dark') ? '#60a5fa' : '#3b82f6'}` : undefined,
       minHeight: 40,
       fontSize: 15,
-      ...(document.documentElement.classList.contains('dark') && {
-        backgroundColor: '#1f2937',
-        color: '#fff',
-        borderColor: state.isFocused ? '#60a5fa' : '#374151',
-      })
     }),
     menu: (base: any) => ({
       ...base,
@@ -92,6 +79,14 @@ const Payments: React.FC = () => {
     singleValue: (base: any) => ({
       ...base,
       color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
+    }),
+    input: (base: any) => ({
+      ...base,
+      color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
+    }),
+    placeholder: (base: any) => ({
+      ...base,
+      color: document.documentElement.classList.contains('dark') ? '#d1d5db' : '#6b7280',
     }),
     option: (base: any, state: any) => ({
       ...base,
@@ -144,18 +139,18 @@ const Payments: React.FC = () => {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 40, opacity: 0 }}
               transition={{ duration: 0.25, ease: 'easeInOut' }}
-              className="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-6 w-full max-w-md relative"
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-md relative flex flex-col gap-6 max-h-[90vh] overflow-y-auto"
             >
               <button
                 onClick={handleClose}
-                className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                className="absolute top-4 right-4 text-gray-400 hover:text-red-500 dark:hover:text-red-400 bg-transparent rounded-full p-1 transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Yangi to‘lov qo‘shish</h2>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-6">Yangi to‘lov qo‘shish</h2>
+              <form onSubmit={handleSubmit} className="flex flex-col gap-6 pb-8">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Talaba</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">Talaba</label>
                   <Select
                     options={studentOptions}
                     value={studentOptions.find(opt => opt.value === form.studentId) || null}
@@ -167,68 +162,178 @@ const Payments: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Miqdor (so‘m)</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">Miqdor (so‘m)</label>
                   <input
                     type="number"
                     name="amount"
                     value={form.amount}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     required
                     min={0}
+                    placeholder="0"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Oy</label>
-                  <input
-                    type="text"
-                    name="month"
-                    value={form.month}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                    placeholder="2024-12"
-                    required
-                  />
+                  <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">To‘lov amal qilish sanasi</label>
+                  <LocalizationProvider dateAdapter={AdapterDateFns}>
+                    <DatePicker
+                      value={form.validUntil ? new Date(form.validUntil) : null}
+                      onChange={date => setForm(f => ({ ...f, validUntil: date ? date.toISOString().slice(0, 10) : '' }))}
+                      format="yyyy-MM-dd"
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          variant: 'outlined',
+                          placeholder: 'Sanani tanlang',
+                          InputProps: {
+                            startAdornment: (
+                              <span className="pl-2 pr-2 flex items-center">
+                                <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-300" />
+                              </span>
+                            ),
+                            className: 'rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent h-11 text-base',
+                            style: { paddingLeft: 0, height: '44px', fontSize: '1rem' },
+                          },
+                          InputLabelProps: {
+                            shrink: true,
+                            className: 'text-gray-900 dark:text-gray-200',
+                          },
+                          sx: {
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: '0.5rem',
+                              backgroundColor: 'var(--mui-bg, #fff)',
+                              color: 'var(--mui-text, #111827)',
+                              minHeight: '44px',
+                              fontSize: '1rem',
+                              padding: 0,
+                            },
+                            '& .MuiOutlinedInput-notchedOutline': {
+                              borderColor: 'var(--mui-border, #d1d5db)',
+                            },
+                            '& .MuiInputBase-input': {
+                              color: 'var(--mui-text, #111827)',
+                              backgroundColor: 'transparent',
+                              minHeight: '44px',
+                              fontSize: '1rem',
+                              padding: 0,
+                            },
+                            '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                              borderColor: '#2563eb',
+                            },
+                            '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': {
+                              borderColor: '#2563eb',
+                            },
+                            '& .MuiOutlinedInput-root.Mui-focused': {
+                              boxShadow: '0 0 0 2px #2563eb33',
+                            },
+                            // Dark mode overrides
+                            '@media (prefers-color-scheme: dark)': {
+                              '& .MuiOutlinedInput-root': {
+                                backgroundColor: '#1f2937',
+                                color: '#fff',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#374151',
+                              },
+                              '& .MuiInputBase-input': {
+                                color: '#fff',
+                              },
+                            },
+                          },
+                        },
+                        popper: {
+                          sx: {
+                            '& .MuiPaper-root': {
+                              backgroundColor: 'var(--mui-bg, #fff)',
+                              color: 'var(--mui-text, #111827)',
+                              borderRadius: '0.75rem',
+                              boxShadow: '0 8px 32px 0 rgba(0,0,0,0.18)',
+                              border: '1px solid var(--mui-border, #d1d5db)',
+                              minWidth: '280px',
+                            },
+                            '& .MuiPickersDay-root': {
+                              fontSize: '1rem',
+                              borderRadius: '0.5rem',
+                              color: '#111827',
+                            },
+                            '& .MuiPickersDay-root.Mui-selected': {
+                              backgroundColor: '#2563eb',
+                              color: '#fff',
+                            },
+                            '& .MuiPickersDay-root:focus': {
+                              outline: '2px solid #2563eb',
+                            },
+                            '& .MuiPickersDay-root:hover': {
+                              backgroundColor: '#2563eb22',
+                            },
+                            '& .MuiPickersCalendarHeader-label': {
+                              fontWeight: 600,
+                              fontSize: '1rem',
+                            },
+                            // Dark mode overrides
+                            '@media (prefers-color-scheme: dark)': {
+                              '& .MuiPaper-root': {
+                                backgroundColor: '#1f2937',
+                                color: '#fff',
+                                border: '1px solid #374151',
+                              },
+                              '& .MuiPickersDay-root': {
+                                color: '#e5e7eb',
+                              },
+                              '& .MuiPickersDay-root.Mui-selected': {
+                                backgroundColor: '#2563eb',
+                                color: '#fff',
+                              },
+                              '& .MuiPickersDay-root:focus': {
+                                outline: '2px solid #2563eb',
+                              },
+                              '& .MuiPickersDay-root:hover': {
+                                backgroundColor: '#2563eb44',
+                              },
+                              '& .MuiPickersCalendarHeader-label': {
+                                color: '#fff',
+                              },
+                            },
+                          },
+                        },
+                      }}
+                    />
+                  </LocalizationProvider>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Holat</label>
-                  <select
-                    name="status"
-                    value={form.status}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                    required
-                  >
-                    <option value="paid">To‘langan</option>
-                    <option value="pending">Kutilmoqda</option>
-                    <option value="overdue">Kechikkan</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">To‘lov sanasi</label>
-                  <input
-                    type="date"
-                    name="paymentDate"
-                    value={form.paymentDate}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Tranzaksiya ID (ixtiyoriy)</label>
-                  <input
-                    type="text"
-                    name="transactionId"
-                    value={form.transactionId}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  />
+                  <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">To‘lov turi</label>
+                  <div className="flex gap-4 mt-2">
+                    <label className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors cursor-pointer select-none shadow-sm focus-within:ring-2 focus-within:ring-primary-500 ${form.paymentType === 'cash' ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/30' : 'border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800'}` }>
+                      <Wallet className={`w-5 h-5 ${form.paymentType === 'cash' ? 'text-primary-600' : 'text-gray-400 dark:text-gray-500'}`} />
+                      <input
+                        type="radio"
+                        name="paymentType"
+                        value="cash"
+                        checked={form.paymentType === 'cash'}
+                        onChange={handleChange}
+                        className="hidden"
+                      />
+                      <span className={`text-sm font-medium ${form.paymentType === 'cash' ? 'text-primary-700 dark:text-primary-300' : 'text-gray-700 dark:text-gray-200'}`}>Naqd</span>
+                    </label>
+                    <label className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors cursor-pointer select-none shadow-sm focus-within:ring-2 focus-within:ring-primary-500 ${form.paymentType === 'card' ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/30' : 'border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800'}` }>
+                      <CreditCard className={`w-5 h-5 ${form.paymentType === 'card' ? 'text-primary-600' : 'text-gray-400 dark:text-gray-500'}`} />
+                      <input
+                        type="radio"
+                        name="paymentType"
+                        value="card"
+                        checked={form.paymentType === 'card'}
+                        onChange={handleChange}
+                        className="hidden"
+                      />
+                      <span className={`text-sm font-medium ${form.paymentType === 'card' ? 'text-primary-700 dark:text-primary-300' : 'text-gray-700 dark:text-gray-200'}`}>Karta</span>
+                    </label>
+                  </div>
                 </div>
                 {error && <div className="text-red-600 text-sm text-center">{error}</div>}
                 <button
                   type="submit"
-                  className="w-full py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors"
+                  className="w-full py-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors text-lg mt-2 shadow"
                 >
                   Qo‘shish
                 </button>
