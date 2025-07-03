@@ -13,7 +13,8 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import Navbar from './Navbar';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -23,116 +24,116 @@ const navigation = [
   { name: 'Arizalar', href: '/applications', icon: FileText },
   { name: 'Hisobotlar', href: '/reports', icon: BarChart3 },
   { name: 'Sozlamalar', href: '/settings', icon: Settings },
-  { name: 'Profil', href: '/profile', icon: User },
 ];
+
+const SIDEBAR_WIDTH = 260;
+const SIDEBAR_COLLAPSED = 72;
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { sidebarCollapsed, toggleSidebar } = useAppStore();
 
-  const handleNavigation = (href: string) => {
-    navigate(href);
+  // Mobil uchun
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const isMobile = typeof window !== 'undefined' ? window.innerWidth < 1024 : false;
+  React.useEffect(() => {
+    const handleResize = () => setMobileOpen(false);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Mobil va desktop uchun alohida toggle
+  const handleSidebarToggle = () => {
+    if (isMobile) setMobileOpen((v) => !v);
+    else toggleSidebar();
   };
 
-  return (
-    <>
-      {/* Mobile Backdrop */}
-      {!sidebarCollapsed && (
-        <div
-          className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
-          onClick={toggleSidebar}
-        />
-      )}
+  const handleNavigation = (href: string) => {
+    navigate(href);
+    if (isMobile) setMobileOpen(false);
+  };
 
-      {/* Sidebar */}
-      <motion.div
-        initial={false}
-        animate={{
-          width: sidebarCollapsed ? '4rem' : '16rem',
-          x: 0,
-        }}
-        className={`fixed left-0 top-16 z-30 h-[calc(100vh-4rem)] bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-r border-gray-200 dark:border-gray-700 transition-all duration-300
-        ${sidebarCollapsed ? 'w-16' : 'w-64'}
-        ${!sidebarCollapsed ? 'block' : 'hidden'}
-        lg:block`
-        }
-      >
-        {/* Toggle Button */}
-        <button
-          onClick={toggleSidebar}
-          className="absolute -right-3 top-4 z-40 w-6 h-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow"
-        >
-          {sidebarCollapsed ? (
-            <ChevronRight className="w-3 h-3 text-gray-600 dark:text-gray-300" />
-          ) : (
-            <ChevronLeft className="w-3 h-3 text-gray-600 dark:text-gray-300" />
-          )}
-        </button>
-
-        {/* Navigation */}
-        <nav className="mt-8 px-3">
-          <ul className="space-y-2">
-            {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
-              const Icon = item.icon;
-
-              return (
-                <li key={item.name}>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleNavigation(item.href)}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${
+  // Sidebar content
+  const sidebarContent = (
+    <motion.aside
+      initial={false}
+      animate={{
+        width: sidebarCollapsed && !mobileOpen ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH,
+        boxShadow: '0 8px 32px 0 rgba(0,0,0,0.12)',
+      }}
+      transition={{ type: 'spring', stiffness: 90, damping: 18, mass: 0.7 }}
+      className="h-full flex flex-col bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-r border-gray-200 dark:border-gray-700 rounded-r-2xl shadow-2xl overflow-hidden relative transition-all duration-300"
+      style={{
+        minWidth: sidebarCollapsed && !mobileOpen ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH,
+        maxWidth: sidebarCollapsed && !mobileOpen ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH,
+      }}
+    >
+      {/* Navigation */}
+      <nav className="mt-10 px-3 flex-1">
+        <ul className="space-y-2">
+          {navigation.map((item, idx) => {
+            const isActive = location.pathname === item.href;
+            const Icon = item.icon;
+            return (
+              <li key={item.name} className="relative flex items-center">
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => handleNavigation(item.href)}
+                  className={`w-full flex items-center space-x-3 px-3 py-3 rounded-xl text-base font-medium transition-all duration-200 group ${
+                    isActive
+                      ? 'bg-gradient-to-r from-blue-500 to-blue-700 text-white shadow'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  <Icon
+                    className={`w-6 h-6 flex-shrink-0 ${
                       isActive
-                        ? 'bg-gradient-to-r from-primary-500 to-secondary-500 text-white shadow-lg'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        ? 'text-white'
+                        : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'
                     }`}
-                  >
-                    <Icon
-                      className={`w-5 h-5 flex-shrink-0 ${
-                        isActive
-                          ? 'text-white'
-                          : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300'
-                      }`}
-                    />
-                    {!sidebarCollapsed && (
-                      <span className="truncate">{item.name}</span>
-                    )}
-                    {isActive && !sidebarCollapsed && (
-                      <motion.div
-                        layoutId="activeIndicator"
-                        className="ml-auto w-2 h-2 bg-white rounded-full"
-                      />
-                    )}
-                  </motion.button>
-                  
-                  {/* Tooltip for collapsed state */}
-                  {sidebarCollapsed && (
-                    <div className="absolute left-16 ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-                      {item.name}
-                    </div>
+                  />
+                  {(!sidebarCollapsed || mobileOpen) && (
+                    <span className="truncate">{item.name}</span>
                   )}
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+                  {isActive && !sidebarCollapsed && !mobileOpen && (
+                    <motion.div
+                      layoutId="activeIndicator"
+                      className="ml-auto w-2 h-2 bg-white rounded-full"
+                    />
+                  )}
+                </motion.button>
+                {/* Tooltip for collapsed state (desktop) */}
+                {sidebarCollapsed && !mobileOpen && (
+                  <div className="absolute left-20 ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                    {item.name}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
 
-        {/* Footer */}
-        {!sidebarCollapsed && (
+      {/* Footer */}
+      <AnimatePresence>
+        {(!sidebarCollapsed || mobileOpen) && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute bottom-4 left-3 right-3"
+            key="sidebar-footer"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ duration: 0.55, ease: 'easeInOut' }}
+            className="mt-auto mb-5 px-3"
           >
-            <div className="bg-gradient-to-br from-primary-50 to-secondary-50 dark:from-primary-900/20 dark:to-secondary-900/20 rounded-lg p-3 border border-primary-200 dark:border-primary-800">
+            <div className="bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-900/40 rounded-xl p-3 border border-blue-200 dark:border-blue-800">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-xs">TTU</span>
+                <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">TTU</span>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-gray-900 dark:text-white">
+                  <p className="text-xs font-semibold text-gray-900 dark:text-white">
                     Toshkent TTU
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -143,7 +144,45 @@ const Sidebar: React.FC = () => {
             </div>
           </motion.div>
         )}
-      </motion.div>
+      </AnimatePresence>
+    </motion.aside>
+  );
+
+  return (
+    <>
+      {/* Navbarga handleSidebarToggle propini uzataman */}
+      <Navbar handleSidebarToggle={handleSidebarToggle} />
+      {/* Mobile sidebar & backdrop */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div
+              key="sidebar-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+              onClick={() => setMobileOpen(false)}
+            />
+            <motion.div
+              key="sidebar-mobile"
+              initial={{ x: -SIDEBAR_WIDTH }}
+              animate={{ x: 0 }}
+              exit={{ x: -SIDEBAR_WIDTH }}
+              transition={{ type: 'spring', stiffness: 200, damping: 30 }}
+              className="fixed top-0 left-0 z-50 h-full"
+              style={{ width: SIDEBAR_WIDTH, minWidth: SIDEBAR_WIDTH, maxWidth: SIDEBAR_WIDTH }}
+            >
+              {sidebarContent}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+      {/* Desktop sidebar */}
+      <div className="hidden lg:block fixed top-16 left-0 z-30 h-[calc(100vh-4rem)]">
+        {sidebarContent}
+      </div>
     </>
   );
 };

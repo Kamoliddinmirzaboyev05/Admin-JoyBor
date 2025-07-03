@@ -48,9 +48,10 @@ const Payments: React.FC = () => {
       setError('Barcha maydonlarni to‘ldiring!');
       return;
     }
+    const student = students.find(s => s.id === form.studentId);
     addPayment({
       studentId: form.studentId,
-      studentName: students.find(s => s.id === form.studentId)?.firstName + ' ' + students.find(s => s.id === form.studentId)?.lastName,
+      studentName: student ? `${student.firstName} ${student.lastName}` : '',
       amount: Number(form.amount),
       validUntil: form.validUntil,
       paymentType: form.paymentType,
@@ -133,6 +134,7 @@ const Payments: React.FC = () => {
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.25, ease: 'easeInOut' }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            onClick={handleClose}
           >
             <motion.div
               initial={{ y: 40, opacity: 0 }}
@@ -140,6 +142,7 @@ const Payments: React.FC = () => {
               exit={{ y: 40, opacity: 0 }}
               transition={{ duration: 0.25, ease: 'easeInOut' }}
               className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-md relative flex flex-col gap-6 max-h-[90vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
             >
               <button
                 onClick={handleClose}

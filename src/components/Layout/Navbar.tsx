@@ -1,12 +1,18 @@
 import React from 'react';
-import { Bell, Moon, Sun, User, Settings, LogOut, Monitor, Menu } from 'lucide-react';
+import { Bell, Moon, Sun, User, Settings, LogOut, Monitor, Menu, LayoutDashboard, PanelLeft } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
-const Navbar: React.FC = () => {
-  const { isDark, toggleTheme, notifications, markNotificationRead, toggleSidebar } = useAppStore();
+interface NavbarProps {
+  handleSidebarToggle?: () => void;
+}
+
+const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
+  const { isDark, toggleTheme, notifications, markNotificationRead } = useAppStore();
   const [showNotifications, setShowNotifications] = React.useState(false);
   const [showProfile, setShowProfile] = React.useState(false);
+  const navigate = useNavigate();
   
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -20,13 +26,6 @@ const Navbar: React.FC = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo and Title */}
           <div className="flex items-center space-x-4">
-            {/* Hamburger icon for mobile */}
-            <button
-              className="lg:hidden mr-2 p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              onClick={toggleSidebar}
-            >
-              <Menu className="w-6 h-6" />
-            </button>
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -44,6 +43,16 @@ const Navbar: React.FC = () => {
 
           {/* Right side items */}
           <div className="flex items-center space-x-4">
+            {/* Sidebar toggle icon (Theme toggle chapida, bir xil dizayn) */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleSidebarToggle}
+              className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Sidebar ochish/yopish"
+            >
+              <PanelLeft className="w-5 h-5" />
+            </motion.button>
             {/* Theme Toggle */}
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -136,26 +145,36 @@ const Navbar: React.FC = () => {
 
               {/* Profile Dropdown */}
               {showProfile && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1"
-                >
-                  <button className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2">
-                    <User className="w-4 h-4" />
-                    <span>Profil</span>
-                  </button>
-                  <button className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2">
-                    <Settings className="w-4 h-4" />
-                    <span>Sozlamalar</span>
-                  </button>
-                  <hr className="my-1 border-gray-200 dark:border-gray-700" />
-                  <button className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2">
-                    <LogOut className="w-4 h-4" />
-                    <span>Chiqish</span>
-                  </button>
-                </motion.div>
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowProfile(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <button
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"
+                      onClick={() => {
+                        setShowProfile(false);
+                        navigate('/profile');
+                      }}
+                    >
+                      <User className="w-4 h-4" />
+                      <span>Profil</span>
+                    </button>
+                    <button className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2">
+                      <Settings className="w-4 h-4" />
+                      <span>Sozlamalar</span>
+                    </button>
+                    <hr className="my-1 border-gray-200 dark:border-gray-700" />
+                    <button className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2">
+                      <LogOut className="w-4 h-4" />
+                      <span>Chiqish</span>
+                    </button>
+                  </motion.div>
+                </>
               )}
             </div>
           </div>

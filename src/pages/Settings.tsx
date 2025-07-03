@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Edit, Image as ImageIcon, DollarSign, ListChecks, Phone, Mail, MapPin, Plus, Wifi, BookOpen, WashingMachine, Tv, Coffee } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const dormImages = [
   '/public/logo.png',
@@ -94,7 +95,13 @@ const Settings: React.FC = () => {
   const addRule = () => setRules([...rules, '']);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto w-full">
+    <motion.div
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 40 }}
+      transition={{ duration: 0.4, ease: 'easeInOut' }}
+      className="p-6 max-w-6xl mx-auto w-full"
+    >
       <h1 className="text-3xl font-extrabold mb-10 text-gray-900 dark:text-white text-center tracking-tight">Yotoqxona Sozlamalari</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Images */}
@@ -301,7 +308,7 @@ const Settings: React.FC = () => {
           )}
         </SectionCard>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

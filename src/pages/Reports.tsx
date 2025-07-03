@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Calendar, Users, CreditCard, Home } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const mockStats = [
   { icon: <Users className="w-6 h-6" />, label: 'Jami talabalar', value: 120 },
@@ -23,7 +24,13 @@ const Reports: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-10">
+    <motion.div
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 40 }}
+      transition={{ duration: 0.4, ease: 'easeInOut' }}
+      className="min-h-screen bg-gray-50 dark:bg-gray-900 py-10"
+    >
       <div className="max-w-5xl mx-auto w-full bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-8 border border-gray-100 dark:border-slate-700">
         <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Hisobotlar</h1>
         {/* Stats */}
@@ -80,7 +87,7 @@ const Reports: React.FC = () => {
           </table>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

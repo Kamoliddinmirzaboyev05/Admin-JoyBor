@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAppStore } from '../../stores/useAppStore';
-import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 
 const Layout: React.FC = () => {
@@ -18,7 +17,6 @@ const Layout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-      <Navbar />
       <Sidebar />
       
       {/* Main Content */}
