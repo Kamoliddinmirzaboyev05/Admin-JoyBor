@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Phone, Mail, User, Camera, X } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../stores/useAppStore';
 import DataTable from '../components/UI/DataTable';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast as sonnerToast } from 'sonner';
+import NProgress from 'nprogress';
 
 // react-select custom styles for dark mode
 const selectStyles = {
@@ -306,6 +307,28 @@ const Students: React.FC = () => {
     { value: '301-xona', label: '301-xona' },
     { value: '302-xona', label: '302-xona' },
   ];
+
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  // Simulate loading for demonstration
+  useEffect(() => {
+    NProgress.start();
+    const timer = setTimeout(() => {
+      setLoading(false);
+      NProgress.done();
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Show only loading bar and spinner until data is loaded
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

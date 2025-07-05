@@ -4,11 +4,32 @@ import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import { useAppStore } from '../stores/useAppStore';
 import StatsCard from '../components/UI/StatsCard';
+import NProgress from 'nprogress';
+import { useEffect, useState } from 'react';
 
 const Dashboard: React.FC = () => {
   const { students, rooms, payments, applications } = useAppStore();
+  const [loading, setLoading] = useState(true);
 
-  // Calculate statistics
+  // Simulate loading for demonstration
+  useEffect(() => {
+    NProgress.start();
+    const timer = setTimeout(() => {
+      setLoading(false);
+      NProgress.done();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Show only loading bar and spinner until data is loaded
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+      </div>
+    );
+  }
+
   const activeStudents = students.filter(s => s.status === 'active').length;
   const inactiveStudents = students.filter(s => s.status === 'inactive').length;
   const suspendedStudents = students.filter(s => s.status === 'suspended').length;
@@ -35,7 +56,6 @@ const Dashboard: React.FC = () => {
   const rejectedApplications = applications.filter(a => a.status === 'rejected').length;
   const allApplications = applications.length;
 
-  // Chart data
   const monthlyRevenue = [
     { month: 'Yan', revenue: 25000000 },
     { month: 'Fev', revenue: 28000000 },

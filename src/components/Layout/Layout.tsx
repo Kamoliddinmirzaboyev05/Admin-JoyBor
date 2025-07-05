@@ -1,11 +1,17 @@
 import React, { useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation, useNavigationType } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAppStore } from '../../stores/useAppStore';
 import Sidebar from './Sidebar';
+import NProgress from 'nprogress';
+import 'nprogress/nprogress.css';
+
+NProgress.configure({ showSpinner: false, trickleSpeed: 120 });
 
 const Layout: React.FC = () => {
   const { isDark, sidebarCollapsed } = useAppStore();
+  const location = useLocation();
+  const navigationType = useNavigationType();
 
   useEffect(() => {
     if (isDark) {
@@ -15,11 +21,18 @@ const Layout: React.FC = () => {
     }
   }, [isDark]);
 
+  // NProgress for route changes
+  useEffect(() => {
+    NProgress.start();
+    return () => {
+      NProgress.done();
+    };
+  }, [location, navigationType]);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       <Sidebar />
       
-      {/* Main Content */}
       <main
         className={`pt-16 transition-all duration-300 ${
           sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'

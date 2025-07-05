@@ -5,6 +5,7 @@ import { IoManSharp, IoWomanSharp } from 'react-icons/io5';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { get, post, put, del } from '../data/api';
+import NProgress from 'nprogress';
 
 interface Floor {
   id: number;
@@ -41,9 +42,16 @@ const genderLabels: Record<string, { label: string; icon: React.ReactNode }> = {
   female: { label: 'Qizlar', icon: <IoWomanSharp className="inline w-5 h-5 mr-1" /> },
 };
 
+// Add Uzbek status labels
+const statusLabels: Record<string, string> = {
+  OCCUPIED: "To'lgan",
+  PARTIALLY_OCCUPIED: "To'lmagan",
+  EMPTY: "Bo'sh",
+};
+
 const Rooms: React.FC = () => {
   const [floors, setFloors] = useState<Floor[]>([]);
-  const [roomsByFloor, setRoomsByFloor] = useState<Record<number, Room[]>>({});
+  const [roomsByFloor, setRoomsByFloor] = useState<Record<number, Room[] | undefined>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showFloorModal, setShowFloorModal] = useState(false);
@@ -52,108 +60,161 @@ const Rooms: React.FC = () => {
   const [newFloorGender, setNewFloorGender] = useState<'male' | 'female'>('male');
   const [newRoom, setNewRoom] = useState('');
   const [selectedFloor, setSelectedFloor] = useState('');
+  const [newRoomCapacity, setNewRoomCapacity] = useState('');
+  const [addingRoom, setAddingRoom] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [editFloor, setEditFloor] = useState<any>(null);
+  const [addingFloor, setAddingFloor] = useState(false);
   const navigate = useNavigate();
 
+  // Helper: check if all rooms for all floors are loaded
+  const allRoomsLoaded = floors.length > 0 && floors.every(f => Array.isArray(roomsByFloor[f.id]));
+
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchFloors = async () => {
       setLoading(true);
       setError(null);
       try {
-        // 1. Qavatlarni olish
         const floorsRes = await get('/floors/');
         let floorsData: Floor[] = floorsRes;
-        // 2. Qavatlarni raqam bo'yicha sort qilish
         floorsData = floorsData.sort((a, b) => {
           const aNum = parseInt(a.name);
           const bNum = parseInt(b.name);
           return (isNaN(aNum) || isNaN(bNum)) ? a.name.localeCompare(b.name) : aNum - bNum;
         });
         setFloors(floorsData);
-        // 3. Har bir qavat uchun xonalarni olish
-        const roomsObj: Record<number, Room[]> = {};
-        await Promise.all(
-          floorsData.map(async (floor) => {
-            const res = await get(`/rooms/?floor=${floor.id}`);
-            roomsObj[floor.id] = res;
-          })
-        );
-        setRoomsByFloor(roomsObj);
+        // Rooms loading moved to per-floor incremental loading
+        setRoomsByFloor({});
       } catch (err: any) {
-        setError('Maʼlumotlarni yuklashda xatolik.');
+        setError(err?.toString() || 'Qavatlarni yuklashda xatolik.');
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
+    fetchFloors();
   }, []);
 
+  // Incremental loading: fetch rooms for each floor as soon as floors are loaded
+  useEffect(() => {
+    if (floors.length === 0) return;
+    floors.forEach(async (floor) => {
+      try {
+        setRoomsByFloor(prev => ({ ...prev, [floor.id]: undefined })); // undefined = loading
+        const res = await get(`/rooms/?floor=${floor.id}`);
+        const rooms = (res || []).map((room: any) => {
+          const students = room.students || [];
+          const capacity = room.capacity || 0;
+          const currentOccupancy = students.length;
+          let status = 'EMPTY';
+          if (currentOccupancy === 0) status = 'EMPTY';
+          else if (currentOccupancy === capacity && capacity > 0) status = 'OCCUPIED';
+          else status = 'PARTIALLY_OCCUPIED';
+          return {
+            ...room,
+            students,
+            capacity,
+            currentOccupancy,
+            status,
+          };
+        });
+        setRoomsByFloor(prev => ({ ...prev, [floor.id]: rooms }));
+      } catch (err) {
+        setRoomsByFloor(prev => ({ ...prev, [floor.id]: [] }));
+      }
+    });
+  }, [floors]);
+
+  // Show only loading bar and spinner until all data is loaded
+  if (loading || !allRoomsLoaded) {
+    NProgress.start();
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+      </div>
+    );
+  } else {
+    NProgress.done();
+  }
+
   // Add new floor
-  const handleAddFloor = (e: React.FormEvent) => {
+  const handleAddFloor = async (e: React.FormEvent) => {
     e.preventDefault();
     const floorStr = newFloor.trim();
     if (!floorStr) return;
-    if (editFloor) {
-      setFloors(floors => floors.map(f =>
-        f.id === editFloor.id
-          ? { ...f, name: floorStr, gender: newFloorGender }
-          : f
-      ).sort((a, b) => Number(a.id) - Number(b.id)));
-      setEditFloor(null);
-      toast.success('Qavat muvaffaqiyatli tahrirlandi!');
-      setShowFloorModal(false);
-      setNewFloor('');
-      setNewFloorGender('male');
-    } else {
-      if (floors.some(f => f.name === floorStr)) {
-        toast.error('Bunday qavat allaqachon mavjud!');
-        return;
-      }
-      setFloors(prev => [
-        ...prev,
-        { id: prev.length + 1, name: floorStr, gender: newFloorGender },
-      ].sort((a, b) => Number(a.id) - Number(b.id)));
+    setAddingFloor(true);
+    try {
+      await post('/floor/create/', { name: floorStr, gender: newFloorGender });
       toast.success('Qavat muvaffaqiyatli qo\'shildi!');
+      // Refresh floors from API
+      const floorsRes = await get('/floors/');
+      let floorsData = floorsRes;
+      floorsData = floorsData.sort((a: any, b: any) => {
+        const aNum = parseInt(a.name);
+        const bNum = parseInt(b.name);
+        return (isNaN(aNum) || isNaN(bNum)) ? a.name.localeCompare(b.name) : aNum - bNum;
+      });
+      setFloors(floorsData);
       setShowFloorModal(false);
       setNewFloor('');
       setNewFloorGender('male');
+    } catch (err: any) {
+      toast.error('Qavat qo\'shishda xatolik!');
+    } finally {
+      setAddingFloor(false);
     }
   };
 
   // Add new room
-  const handleAddRoom = (e: React.FormEvent) => {
+  const handleAddRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     const roomStr = newRoom.trim();
-    if (!selectedFloor || !roomStr) return;
-    // Dublikat xona raqami tekshiruvi
-    const floorObj = floors.find(f => f.name === selectedFloor);
-    if (!floorObj) return;
-    if (roomsByFloor[floorObj.id] && roomsByFloor[floorObj.id].some(r => r.name === roomStr)) {
-      toast.error('Bu xona allaqachon mavjud!');
+    const capacity = parseInt(newRoomCapacity);
+    if (!selectedFloor || !roomStr || isNaN(capacity) || capacity <= 0) {
+      toast.error('Barcha maydonlarni to\'g\'ri to\'ldiring!');
       return;
     }
-    setRoomsByFloor(rooms => ({
-      ...rooms,
-      [floorObj.id]: [
-        ...(roomsByFloor[floorObj.id] || []),
-        {
-          id: (roomsByFloor[floorObj.id]?.length || 0) + 1,
-          name: roomStr,
-          floor: floorObj,
-          capacity: 0,
-          currentOccupancy: 0,
-          room_type: '',
-          gender: floorObj.gender,
-          status: 'EMPTY',
-          students: [],
-        } as Room,
-      ],
-    }));
-    setNewRoom('');
-    setSelectedFloor('');
-    setShowRoomModal(false);
-    toast.success('Xona muvaffaqiyatli qo\'shildi!');
+    setAddingRoom(true);
+    try {
+      const floorObj = floors.find(f => f.name === selectedFloor);
+      if (!floorObj) {
+        toast.error('Qavat topilmadi!');
+        return;
+      }
+      await post('/room/create/', {
+        name: roomStr,
+        floor: floorObj.id,
+        capacity: capacity,
+        room_type: '3-Kishilik',
+      });
+      toast.success('Xona muvaffaqiyatli qo\'shildi!');
+      setNewRoom('');
+      setSelectedFloor('');
+      setNewRoomCapacity('');
+      setShowRoomModal(false);
+      // Refresh rooms for the selected floor
+      const res = await get(`/rooms/?floor=${floorObj.id}`);
+      const rooms = (res || []).map((room: any) => {
+        const students = room.students || [];
+        const roomCapacity = room.capacity || 0;
+        const currentOccupancy = students.length;
+        let status = 'EMPTY';
+        if (currentOccupancy === 0) status = 'EMPTY';
+        else if (currentOccupancy === roomCapacity && roomCapacity > 0) status = 'OCCUPIED';
+        else status = 'PARTIALLY_OCCUPIED';
+        return {
+          ...room,
+          students,
+          capacity: roomCapacity,
+          currentOccupancy,
+          status,
+        };
+      });
+      setRoomsByFloor(prev => ({ ...prev, [floorObj.id]: rooms }));
+    } catch (err: any) {
+      toast.error('Xona qo\'shishda xatolik!');
+    } finally {
+      setAddingRoom(false);
+    }
   };
 
   // Edit floor handler
@@ -246,36 +307,24 @@ const Rooms: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-4">
-                  {roomsByFloor[floor.id]?.length === 0 ? (
-                    <span className="text-gray-400 dark:text-slate-500">Xona yo'q</span>
-                  ) : (
-                    roomsByFloor[floor.id]?.map((room) => (
-                      <div
-                        key={room.id}
-                        className="px-5 py-3 rounded-lg bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-sm min-w-[180px] max-w-xs flex flex-col gap-2 hover:shadow-md transition cursor-pointer"
-                        title={room.students.length > 0 ? room.students.map(s => `${s.name} ${s.last_name}`).join(', ') : undefined}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-gray-900 dark:text-white">{room.name}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${statusColors[room.status] || 'bg-gray-200 text-gray-700'}`}>{room.status.replace('_', ' ').toLowerCase()}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                          <span>{room.room_type}</span>
-                          <span>•</span>
-                          <span>{room.currentOccupancy}/{room.capacity} band</span>
-                        </div>
-                        {room.students.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {room.students.map((s) => (
-                              <span key={s.id} className="bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200 rounded px-2 py-0.5 text-xs">
-                                {s.name} {s.last_name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
+                   {(() => {
+                     const rooms = roomsByFloor[floor.id];
+                     if (!Array.isArray(rooms) || rooms.length === 0) {
+                       return <span className="text-gray-400 dark:text-slate-500">Xona yo'q</span>;
+                     }
+                     return rooms.map((room) => (
+                       <div
+                         key={room.id}
+                         className="px-5 py-4 rounded-lg bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-sm min-w-[160px] max-w-xs flex flex-col gap-2 hover:shadow-md transition cursor-pointer items-center justify-center"
+                         title={room.name}
+                       >
+                         <span className="font-medium text-lg text-gray-900 dark:text-white mb-2">{room.name}</span>
+                         <span className={`text-xs px-3 py-1 rounded-full font-semibold ${statusColors[room.status] || 'bg-gray-200 text-gray-700'}`}>
+                           {statusLabels[room.status] || room.status}
+                         </span>
+                       </div>
+                     ));
+                   })()}
                 </div>
               </motion.div>
             ))
@@ -365,9 +414,10 @@ const Rooms: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors"
+                    disabled={addingFloor}
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors disabled:opacity-60"
                   >
-                    Qo'shish
+                    {addingFloor ? 'Qo\'shilmoqda...' : 'Qo\'shish'}
                   </button>
                 </div>
               </form>
@@ -375,7 +425,90 @@ const Rooms: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
-      {/* Xona qo'shish modal (unchanged) */}
+      {/* Xona qo'shish modal */}
+      <AnimatePresence>
+        {showRoomModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowRoomModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 40 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded transition-colors"
+                onClick={() => setShowRoomModal(false)}
+              >
+                <X size={22} />
+              </button>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Yangi xona qo'shish</h2>
+              <form onSubmit={handleAddRoom} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Qavat tanlang</label>
+                  <select
+                    value={selectedFloor}
+                    onChange={e => setSelectedFloor(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">Qavat tanlang</option>
+                    {floors.map(floor => (
+                      <option key={floor.id} value={floor.name}>
+                        {floor.name}-qavat ({floor.gender === 'female' ? 'Qizlar' : 'Yigitlar'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona nomi yoki raqami</label>
+                  <input
+                    type="text"
+                    value={newRoom}
+                    onChange={e => setNewRoom(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Masalan: 101, 102, A1..."
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona sigimi</label>
+                  <input
+                    type="number"
+                    value={newRoomCapacity}
+                    onChange={e => setNewRoomCapacity(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Masalan: 3, 5, 8..."
+                    min="1"
+                    max="20"
+                    required
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowRoomModal(false)}
+                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={addingRoom}
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors disabled:opacity-60"
+                  >
+                    {addingRoom ? 'Qo\'shilmoqda...' : 'Qo\'shish'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
