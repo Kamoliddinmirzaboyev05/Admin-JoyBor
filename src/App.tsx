@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import Layout from "./components/Layout/Layout";
 import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
@@ -14,11 +14,17 @@ import ApplicationDetail from "./pages/ApplicationDetail";
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 
+function RequireAuth() {
+  const isAuth = localStorage.getItem('isAuth') === 'true';
+  return isAuth ? <Outlet /> : <Navigate to="/login" replace />;
+}
+
 function App() {
   return (
     <>
       <Toaster position="top-center" richColors />
       <Routes>
+        <Route element={<RequireAuth />}>
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="students" element={<Students />} />
@@ -31,6 +37,7 @@ function App() {
           <Route path="reports" element={<Reports />} />
           <Route path="profile" element={<Profile />} />
           <Route path="profile/:studentId" element={<StudentProfile />} />
+          </Route>
         </Route>
       </Routes>
     </>
