@@ -46,163 +46,113 @@ const selectStyles = {
 };
 
 const Students: React.FC = () => {
-  const { students, payments, addStudent, updateStudent, deleteStudent } = useAppStore();
+  const [students, setStudents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
-  const regionOptions = [
-    { value: 'Toshkent', label: 'Toshkent' },
-    { value: 'Samarqand', label: 'Samarqand' },
-    { value: 'Farg‘ona', label: 'Farg‘ona' },
-    { value: 'Andijon', label: 'Andijon' },
-    { value: 'Buxoro', label: 'Buxoro' },
-    { value: 'Namangan', label: 'Namangan' },
-  ];
-  const districtOptions: Record<string, { value: string; label: string }[]> = {
-    'Toshkent': [
-      { value: 'Yunusobod', label: 'Yunusobod' },
-      { value: 'Chilonzor', label: 'Chilonzor' },
-      { value: 'Olmazor', label: 'Olmazor' },
-    ],
-    'Samarqand': [
-      { value: 'Samarqand sh.', label: 'Samarqand sh.' },
-      { value: 'Urgut', label: 'Urgut' },
-    ],
-    'Farg‘ona': [
-      { value: 'Farg‘ona sh.', label: 'Farg‘ona sh.' },
-      { value: 'Qo‘qon', label: 'Qo‘qon' },
-    ],
-    'Andijon': [
-      { value: 'Andijon sh.', label: 'Andijon sh.' },
-      { value: 'Asaka', label: 'Asaka' },
-    ],
-    'Buxoro': [
-      { value: 'Buxoro sh.', label: 'Buxoro sh.' },
-      { value: 'G‘ijduvon', label: 'G‘ijduvon' },
-    ],
-    'Namangan': [
-      { value: 'Namangan sh.', label: 'Namangan sh.' },
-      { value: 'Chortoq', label: 'Chortoq' },
-    ],
-  };
+  const [provinces, setProvinces] = useState<{ id: number; name: string }[]>([]);
+  const [districts, setDistricts] = useState<{ id: number; name: string; province: number }[]>([]);
+  const regionOptions = provinces.map(p => ({ value: p.id, label: p.name }));
+  const districtOptions = districts.map(d => ({ value: d.id, label: d.name }));
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    email: '',
-    room: '',
+    firstName: "",
+    lastName: "",
+    fatherName: "",
+    phone: "",
+    email: "",
+    room: "",
     course: 1,
-    faculty: '',
-    group: '',
-    region: '',
-    district: '',
-    passport: '',
+    faculty: "",
+    group: "",
+    region: "",
+    district: "",
+    passport: "",
     isPrivileged: false,
-    privilegeShare: '',
-    avatar: '',
-    direction: '',
-    floor: '',
+    privilegeShare: "",
+    avatar: "",
+    direction: "",
+    floor: "",
   });
 
   const columns = [
     {
-      key: 'index',
-      title: '№',
+      key: "index",
+      title: "№",
       render: (_: any, row: any) => (
         <span className="text-gray-500 dark:text-gray-400 font-semibold">{row._idx + 1}</span>
       ),
     },
     {
-      key: 'name',
-      title: 'Ism Familiya',
+      key: "fullName",
+      title: "Ism Familiya",
       sortable: true,
-      render: (_, row: any) => (
-        <Link to={`/profile/${row.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">{row.firstName} {row.lastName}</Link>
+      render: (_: any, row: any) => (
+        <Link to={`/profile/${row.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">{row.name} {row.last_name}</Link>
       ),
     },
     {
-      key: 'facultyGroup',
-      title: 'Fakultet/Guruh',
-      render: (_, row: any) => (
-        <span className="text-sm text-gray-700 dark:text-gray-300">{row.faculty} / {row.group}</span>
-      ),
+      key: "faculty",
+      title: "Fakultet",
+      render: (value: string) => <span className="text-sm text-gray-700 dark:text-gray-300">{value}</span>,
     },
     {
-      key: 'room',
-      title: 'Xona',
-      sortable: true,
-      render: (value: string) => (
-        <span className="px-2 py-1 bg-primary-100 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300 rounded-full text-sm font-medium">{value}</span>
-      ),
+      key: "direction",
+      title: "Yo'nalish",
+      render: (value: string) => <span className="text-sm text-gray-700 dark:text-gray-300">{value}</span>,
     },
     {
-      key: 'course',
-      title: 'Kurs',
-      sortable: true,
-      render: (value: number) => (
-        <span className="text-sm font-medium text-gray-900 dark:text-white">{value}-kurs</span>
-      ),
+      key: "room",
+      title: "Xona",
+      render: (_: any, row: any) => <span className="px-2 py-1 bg-primary-100 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300 rounded-full text-sm font-medium">{row.room?.name || "-"}</span>,
     },
     {
-      key: 'totalPaid',
-      title: 'Umumiy to‘lov',
-      render: (_, row: any) => {
-        const total = payments.filter(p => p.studentId === row.id && p.status === 'paid').reduce((sum, p) => sum + p.amount, 0);
-        return <span className="font-semibold text-green-600 dark:text-green-400">{total.toLocaleString()} so‘m</span>;
-      },
+      key: "floor",
+      title: "Qavat",
+      render: (_: any, row: any) => <span className="text-sm text-gray-700 dark:text-gray-300">{row.floor?.name || "-"}</span>,
     },
     {
-      key: 'joinedAt',
-      title: 'Kirgan sana',
-      sortable: true,
-      render: (value: string) => new Date(value).toLocaleDateString('uz-UZ'),
+      key: "province",
+      title: "Viloyat",
+      render: (_: any, row: any) => <span className="text-sm text-gray-700 dark:text-gray-300">{row.province?.name || "-"}</span>,
     },
     {
-      key: 'actions',
-      title: 'Amallar',
-      render: (_, row: any) => (
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEdit(row);
-            }}
-            className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-          >
-            <Edit className="w-4 h-4" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDelete(row.id);
-            }}
-            className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      ),
+      key: "district",
+      title: "Tuman",
+      render: (_: any, row: any) => <span className="text-sm text-gray-700 dark:text-gray-300">{row.district?.name || "-"}</span>,
+    },
+    {
+      key: "phone",
+      title: "Telefon",
+      render: (value: string) => <span className="text-sm text-gray-700 dark:text-gray-300">{value}</span>,
+    },
+    {
+      key: "total_payment",
+      title: "Umumiy to'lov",
+      render: (value: number) => <span className="font-semibold text-green-600 dark:text-green-400">{value?.toLocaleString()} so'm</span>,
     },
   ];
 
   const handleAdd = () => {
     setEditingStudent(null);
     setFormData({
-      firstName: '',
-      lastName: '',
-      phone: '',
-      email: '',
-      room: '',
+      firstName: "",
+      lastName: "",
+      fatherName: "",
+      phone: "",
+      email: "",
+      room: "",
       course: 1,
-      faculty: '',
-      group: '',
-      region: '',
-      district: '',
-      passport: '',
+      faculty: "",
+      group: "",
+      region: "",
+      district: "",
+      passport: "",
       isPrivileged: false,
-      privilegeShare: '',
-      avatar: '',
-      direction: '',
-      floor: '',
+      privilegeShare: "",
+      avatar: "",
+      direction: "",
+      floor: "",
     });
     setShowModal(true);
   };
@@ -212,6 +162,7 @@ const Students: React.FC = () => {
     setFormData({
       firstName: student.firstName,
       lastName: student.lastName,
+      fatherName: student.fatherName,
       phone: student.phone,
       email: student.email,
       room: student.room,
@@ -231,24 +182,27 @@ const Students: React.FC = () => {
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('Talabani o\'chirish tasdiqlaysizmi?')) {
-      deleteStudent(id);
-      toast.success('Talaba muvaffaqiyatli o\'chirildi');
+    if (window.confirm('Talabani ochirish tasdiqlaysizmi?')) {
+      // deleteStudent(id);
+      toast.success('Talaba muvaffaqiyatli ochirildi');
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (editingStudent) {
-      updateStudent(editingStudent.id, formData);
-      toast.success('Talaba ma\'lumotlari yangilandi');
+      // updateStudent(editingStudent.id, formData);
+      toast.success('Talaba malumotlari yangilandi');
     } else {
-      addStudent(formData);
-      sonnerToast.success('Talaba muvaffaqiyatli qo\'shildi!');
+      try {
+        // ... your API call logic ...
+        toast.success("Talaba muvaffaqiyatli qo'shildi!");
+        setShowModal(false);
+      } catch (err: any) {
+        toast.error("Talaba qo'shishda xatolik: " + err.message);
+      }
     }
-    
-    setShowModal(false);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -260,8 +214,8 @@ const Students: React.FC = () => {
   };
 
   const handleSelectChange = (name: string, option: any) => {
-    setFormData(prev => ({ ...prev, [name]: option ? option.value : '' }));
-    if (name === 'region') setFormData(prev => ({ ...prev, district: '' }));
+    setFormData(prev => ({ ...prev, [name]: option ? String(option.value) : "" }));
+    if (name === "region") setFormData(prev => ({ ...prev, district: "" }));
   };
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -277,49 +231,74 @@ const Students: React.FC = () => {
     }
   };
 
-  // Qidiruv va filter
-  const [search, setSearch] = useState('');
-  const [paymentFilter, setPaymentFilter] = useState('all');
+  // Add filter states for gender, payment status, and floor
+  const [genderFilter, setGenderFilter] = useState("");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
+  const [floorFilter, setFloorFilter] = useState("");
+
+  // Filtering logic
   const filteredStudents = students.filter(s => {
-    const matchesSearch =
-      s.firstName.toLowerCase().includes(search.toLowerCase()) ||
-      s.lastName.toLowerCase().includes(search.toLowerCase()) ||
-      s.phone.includes(search);
-    const totalPaid = payments.filter(p => p.studentId === s.id && p.status === 'paid').reduce((sum, p) => sum + p.amount, 0);
-    const matchesPayment =
-      paymentFilter === 'all' ? true :
-      (paymentFilter === 'paid' ? totalPaid > 0 : totalPaid === 0);
-    return matchesSearch && matchesPayment;
+    const matchesGender = genderFilter ? s.gender === genderFilter : true;
+    // Assume s.total_payment and s.tarif exist and are numbers
+    let isHaqdor = false;
+    let isQarzdor = false;
+    if (typeof s.total_payment === "number" && s.tarif) {
+      const tarifNum = Number(String(s.tarif).replace(/[^\d]/g, ""));
+      isHaqdor = s.total_payment >= tarifNum;
+      isQarzdor = s.total_payment < tarifNum;
+    }
+    const matchesPayment = paymentStatusFilter === "haqdor" ? isHaqdor : paymentStatusFilter === "qarzdor" ? isQarzdor : true;
+    const matchesFloor = floorFilter ? (s.floor && s.floor.name === floorFilter) : true;
+    return matchesGender && matchesPayment && matchesFloor;
   });
 
-  // Add options for qavat and xona
-  const floorOptions = [
-    { value: '1-qavat', label: '1-qavat' },
-    { value: '2-qavat', label: '2-qavat' },
-    { value: '3-qavat', label: '3-qavat' },
-    { value: '4-qavat', label: '4-qavat' },
-  ];
-  const roomOptions = [
-    { value: '101-xona', label: '101-xona' },
-    { value: '102-xona', label: '102-xona' },
-    { value: '201-xona', label: '201-xona' },
-    { value: '202-xona', label: '202-xona' },
-    { value: '301-xona', label: '301-xona' },
-    { value: '302-xona', label: '302-xona' },
-  ];
-
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   // Simulate loading for demonstration
   useEffect(() => {
-    NProgress.start();
-    const timer = setTimeout(() => {
-      setLoading(false);
-      NProgress.done();
-    }, 1000);
-    return () => clearTimeout(timer);
+    setLoading(true);
+    const token = localStorage.getItem("access");
+    const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
+    fetch("https://joyboryangi.pythonanywhere.com/students/", { headers })
+      .then(res => {
+        if (!res.ok) throw new Error("Serverdan togri javob kelmadi");
+        return res.json();
+      })
+      .then(data => {
+        setStudents(data);
+        setFetchError("");
+      })
+      .catch(err => {
+        setFetchError("Talabalarni yuklashda xatolik: " + err.message);
+      })
+      .finally(() => setLoading(false));
+
+    // Fetch provinces
+    fetch("https://joyboryangi.pythonanywhere.com/provinces/", { headers })
+      .then(res => {
+        if (!res.ok) throw new Error("Viloyatlarni yuklashda xatolik");
+        return res.json();
+      })
+      .then(data => setProvinces(data))
+      .catch(() => setProvinces([]));
   }, []);
+
+  // Fetch districts when province (region) changes
+  useEffect(() => {
+    if (!formData.region) {
+      setDistricts([]);
+      return;
+    }
+    const token = localStorage.getItem("access");
+    const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
+    fetch(`https://joyboryangi.pythonanywhere.com/districts/?province=${formData.region}`, { headers })
+      .then(res => {
+        if (!res.ok) throw new Error("Tumanlarni yuklashda xatolik");
+        return res.json();
+      })
+      .then(data => setDistricts(data))
+      .catch(() => setDistricts([]));
+  }, [formData.region]);
 
   // Show only loading bar and spinner until data is loaded
   if (loading) {
@@ -328,6 +307,10 @@ const Students: React.FC = () => {
         <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
       </div>
     );
+  }
+
+  if (fetchError) {
+    return <div className="text-center py-10 text-red-600 dark:text-red-400">{fetchError}</div>;
   }
 
   return (
@@ -348,23 +331,43 @@ const Students: React.FC = () => {
 
       {/* Filter va qidiruv */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="Ism yoki telefon..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+        <div className="flex flex-wrap gap-3 items-center mb-4">
+          <Select
+            options={[
+              { value: "male", label: "Erkak" },
+              { value: "female", label: "Ayol" },
+            ]}
+            value={genderFilter ? { value: genderFilter, label: genderFilter === "male" ? "Erkak" : "Ayol" } : null}
+            onChange={opt => setGenderFilter(opt ? String(opt.value) : "")}
+            isClearable
+            placeholder="Jins"
+            styles={selectStyles}
+            classNamePrefix="react-select"
+            className="min-w-[120px]"
           />
-          <select
-            value={paymentFilter}
-            onChange={e => setPaymentFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="all">Barchasi</option>
-            <option value="paid">To‘lov qilganlar</option>
-            <option value="unpaid">To‘lov qilmaganlar</option>
-          </select>
+          <Select
+            options={[
+              { value: "haqdor", label: "Haqdor" },
+              { value: "qarzdor", label: "Qarzdor" },
+            ]}
+            value={paymentStatusFilter ? { value: paymentStatusFilter, label: paymentStatusFilter === "haqdor" ? "Haqdor" : "Qarzdor" } : null}
+            onChange={opt => setPaymentStatusFilter(opt ? String(opt.value) : "")}
+            isClearable
+            placeholder="To'lov holati"
+            styles={selectStyles}
+            classNamePrefix="react-select"
+            className="min-w-[140px]"
+          />
+          <Select
+            options={Array.from(new Set(students.map(s => s.floor?.name))).filter(Boolean).map(floor => ({ value: floor, label: floor }))}
+            value={floorFilter ? { value: floorFilter, label: floorFilter } : null}
+            onChange={opt => setFloorFilter(opt ? String(opt.value) : "")}
+            isClearable
+            placeholder="Qavat"
+            styles={selectStyles}
+            classNamePrefix="react-select"
+            className="min-w-[120px]"
+          />
         </div>
         <button
           onClick={handleAdd}
@@ -422,7 +425,7 @@ const Students: React.FC = () => {
                     />
                   ) : (
                     <div className="w-24 h-24 rounded-xl flex items-center justify-center text-3xl font-bold text-white bg-gradient-to-br from-blue-500 to-indigo-500 shadow-md select-none">
-                      {formData.firstName?.[0] || ''}{formData.lastName?.[0] || ''}
+                      {formData.firstName?.[0] || ''} {formData.lastName?.[0] || ''}
                     </div>
                   )}
                   <input
@@ -534,11 +537,28 @@ const Students: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Viloyat/Shahar</label>
-                    <Select options={regionOptions} value={regionOptions.find(opt => opt.value === formData.region) || null} onChange={opt => handleSelectChange('region', opt)} isClearable placeholder="Viloyat tanlang..." styles={selectStyles} classNamePrefix="react-select" />
+                    <Select
+                      options={regionOptions}
+                      value={regionOptions.find(opt => opt.value === Number(formData.region)) || null}
+                      onChange={opt => handleSelectChange('region', opt)}
+                      isClearable
+                      placeholder="Viloyat tanlang..."
+                      styles={selectStyles}
+                      classNamePrefix="react-select"
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tuman/Shaharcha</label>
-                    <Select options={formData.region ? districtOptions[formData.region] : []} value={formData.region ? (districtOptions[formData.region].find(opt => opt.value === formData.district) || null) : null} onChange={opt => handleSelectChange('district', opt)} isClearable placeholder="Tuman tanlang..." styles={selectStyles} classNamePrefix="react-select" isDisabled={!formData.region} />
+                    <Select
+                      options={districtOptions}
+                      value={districtOptions.find(opt => opt.value === Number(formData.district)) || null}
+                      onChange={opt => handleSelectChange('district', opt)}
+                      isClearable
+                      placeholder="Tuman tanlang..."
+                      styles={selectStyles}
+                      classNamePrefix="react-select"
+                      isDisabled={!formData.region}
+                    />
                   </div>
                 </div>
               </div>

@@ -22,7 +22,7 @@ function RequireAuth() {
 function App() {
   return (
     <>
-      <Toaster position="top-center" richColors />
+      <Toaster position="top-center" />
       <Routes>
         <Route element={<RequireAuth />}>
         <Route path="/" element={<Layout />}>

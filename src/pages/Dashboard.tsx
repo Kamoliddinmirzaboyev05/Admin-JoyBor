@@ -65,10 +65,10 @@ const Dashboard: React.FC = () => {
     { month: 'Iyun', revenue: 38000000 },
   ];
 
-  const roomStatus = [
-    { name: 'Bo\'sh', value: availableRooms, color: '#10b981' },
-    { name: 'Band', value: rooms.filter(r => r.status === 'full').length, color: '#f59e0b' },
-    { name: 'Ta\'mir', value: rooms.filter(r => r.status === 'maintenance').length, color: '#ef4444' },
+  const roomStatus = [  
+    { name: "Bo'sh", value: availableRooms, color: '#10b981' },
+    { name: "To'la", value: rooms.filter(r => r.status === 'full').length, color: '#f59e0b' },
+    { name: "To'lmagan", value: rooms.filter(r => r.status === 'maintenance').length, color: '#ef4444' },
   ];
 
   const paymentTrend = [7, 12, 8, 15, 10, 18, 14];
@@ -120,9 +120,9 @@ const Dashboard: React.FC = () => {
             color="secondary"
             trend={undefined}
             subStats={[
-              { label: 'Bo\'sh', value: availableRooms },
-              { label: 'Band', value: fullRooms },
-              { label: 'Ta\'mirda', value: maintenanceRooms },
+              { label: "Bo'sh", value: availableRooms },
+              { label: "To'la", value: fullRooms },
+              { label: "To'lmagan", value: maintenanceRooms },
             ]}
           />
           <StatsCard

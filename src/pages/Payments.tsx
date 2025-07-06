@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../stores/useAppStore';
 import DataTable from '../components/UI/DataTable';
 import { CreditCard, Plus, X, Wallet, Calendar } from 'lucide-react';
@@ -7,34 +7,102 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import '../index.css';
+import { toast } from 'sonner';
+import NProgress from 'nprogress';
 
 const Payments: React.FC = () => {
-  const { payments, students, addPayment } = useAppStore();
+  // const { students, addPayment } = useAppStore();
+  const [payments, setPayments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
     studentId: '',
     amount: '',
     validUntil: '',
     paymentType: '',
+    comment: '',
   });
   const [error, setError] = useState('');
+  const [students, setStudents] = useState<any[]>([]);
 
   const columns = [
-    { key: 'studentName', title: 'Talaba', sortable: true },
-    { key: 'amount', title: 'Miqdor', sortable: true, render: (v: number) => v.toLocaleString() + ' so‘m' },
-    { key: 'paymentDate', title: 'To‘lov sanasi', sortable: true, render: (v: string) => new Date(v).toLocaleDateString('uz-UZ') },
-    { key: 'transactionId', title: 'Tranzaksiya ID', sortable: false },
+    {
+      key: 'student',
+      title: 'Talaba',
+      render: (_: any, row: any) => row.student ? `${row.student.name} ${row.student.last_name}` : '-',
+      sortable: true,
+    },
+    {
+      key: 'amount',
+      title: 'Miqdor',
+      render: (v: number) => v?.toLocaleString() + ' so‘m',
+      sortable: true,
+    },
+    {
+      key: 'paid_date',
+      title: 'To‘lov sanasi',
+      render: (v: string) => v ? new Date(v).toLocaleDateString('uz-UZ') : '-',
+      sortable: true,
+    },
+    {
+      key: 'method',
+      title: 'To‘lov turi',
+      render: (v: string) => v || '-',
+      sortable: true,
+    },
+    {
+      key: 'status',
+      title: 'Status',
+      render: (v: string) => v || '-',
+      sortable: true,
+    },
+    {
+      key: 'comment',
+      title: 'Izoh',
+      render: (v: string) => v || '-',
+      sortable: false,
+    },
   ];
 
+  useEffect(() => {
+    NProgress.start();
+    const token = localStorage.getItem("access");
+    const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
+    fetch('https://joyboryangi.pythonanywhere.com/payments/', { headers })
+      .then(res => {
+        if (!res.ok) throw new Error('Serverdan to\'g\'ri javob kelmadi');
+        return res.json();
+      })
+      .then(data => {
+        setPayments(data);
+        setFetchError('');
+      })
+      .catch(err => {
+        setFetchError('To\'lovlarni yuklashda xatolik: ' + err.message);
+      })
+      .finally(() => {
+        setLoading(false);
+        NProgress.done();
+      });
+  }, []);
+
   const handleOpen = () => {
-    setForm({ studentId: '', amount: '', validUntil: '', paymentType: '' });
+    setForm({ studentId: '', amount: '', validUntil: '', paymentType: '', comment: '' });
     setError('');
     setShowModal(true);
+    // Fetch students when modal opens
+    const token = localStorage.getItem("access");
+    const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
+    fetch("https://joyboryangi.pythonanywhere.com/students/", { headers })
+      .then(res => res.json())
+      .then(data => setStudents(data))
+      .catch(() => setStudents([]));
   };
 
   const handleClose = () => setShowModal(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
@@ -42,24 +110,48 @@ const Payments: React.FC = () => {
     setForm({ ...form, studentId: option ? option.value : '' });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.studentId || !form.amount || !form.validUntil || !form.paymentType) {
       setError('Barcha maydonlarni to‘ldiring!');
+      toast.error('Barcha maydonlarni to‘ldiring!');
       return;
     }
-    const student = students.find(s => s.id === form.studentId);
-    addPayment({
-      studentId: form.studentId,
-      studentName: student ? `${student.firstName} ${student.lastName}` : '',
-      amount: Number(form.amount),
-      validUntil: form.validUntil,
-      paymentType: form.paymentType,
-    });
-    setShowModal(false);
+    setError('');
+    try {
+      const token = localStorage.getItem("access");
+      const headers: HeadersInit = token
+        ? { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+        : { "Content-Type": "application/json" };
+      const res = await fetch('https://joyboryangi.pythonanywhere.com/payment/create/', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          student: Number(form.studentId),
+          amount: Number(form.amount),
+          valid_until: form.validUntil,
+          method: form.paymentType === 'cash' ? 'Cash' : 'Card',
+          status: 'APPROVED',
+          comment: form.comment,
+        }),
+      });
+      if (!res.ok) throw new Error('To‘lovni yaratishda xatolik');
+      toast.success('To‘lov muvaffaqiyatli qo‘shildi!');
+      // To‘lovlar ro‘yxatini yangilash uchun qayta yuklaymiz
+      const getHeaders: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
+      setLoading(true);
+      fetch('https://joyboryangi.pythonanywhere.com/payments/', { headers: getHeaders })
+        .then(res => res.json())
+        .then(data => setPayments(data))
+        .finally(() => setLoading(false));
+      setShowModal(false);
+    } catch (err: any) {
+      setError('To‘lovni yaratishda xatolik: ' + err.message);
+      toast.error('To‘lovni yaratishda xatolik: ' + err.message);
+    }
   };
 
-  const studentOptions = students.map(s => ({ value: s.id, label: s.firstName + ' ' + s.lastName }));
+  const studentOptions = students.map((s: any) => ({ value: s.id, label: s.name + ' ' + s.last_name }));
 
   // react-select custom styles for dark mode
   const selectStyles = {
@@ -116,14 +208,20 @@ const Payments: React.FC = () => {
           To‘lov qo‘shish
         </button>
       </div>
-      <DataTable
-        data={payments}
-        columns={columns}
-        searchable={true}
-        filterable={false}
-        pagination={true}
-        pageSize={8}
-      />
+      {loading ? (
+        <div className="text-center py-10 text-lg text-gray-500 dark:text-gray-300">Yuklanmoqda...</div>
+      ) : fetchError ? (
+        <div className="text-center py-10 text-red-600 dark:text-red-400">{fetchError}</div>
+      ) : (
+        <DataTable
+          data={payments}
+          columns={columns}
+          searchable={true}
+          filterable={false}
+          pagination={true}
+          pageSize={8}
+        />
+      )}
 
       {/* Modal */}
       <AnimatePresence>
@@ -156,7 +254,7 @@ const Payments: React.FC = () => {
                   <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">Talaba</label>
                   <Select
                     options={studentOptions}
-                    value={studentOptions.find(opt => opt.value === form.studentId) || null}
+                    value={studentOptions.find(opt => opt.value === Number(form.studentId)) || null}
                     onChange={handleSelectChange}
                     isClearable
                     placeholder="Talabani tanlang..."
@@ -332,6 +430,17 @@ const Payments: React.FC = () => {
                       <span className={`text-sm font-medium ${form.paymentType === 'card' ? 'text-primary-700 dark:text-primary-300' : 'text-gray-700 dark:text-gray-200'}`}>Karta</span>
                     </label>
                   </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">Izoh</label>
+                  <textarea
+                    name="comment"
+                    value={form.comment}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    rows={2}
+                    placeholder="Izoh..."
+                  />
                 </div>
                 {error && <div className="text-red-600 text-sm text-center">{error}</div>}
                 <button

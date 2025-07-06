@@ -315,11 +315,11 @@ const Rooms: React.FC = () => {
                      return rooms.map((room) => (
                        <div
                          key={room.id}
-                         className="px-5 py-4 rounded-lg bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-sm min-w-[160px] max-w-xs flex flex-col gap-2 hover:shadow-md transition cursor-pointer items-center justify-center"
+                         className="px-6 py-5 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col items-center justify-center min-w-[200px] w-full max-w-[280px]"
                          title={room.name}
                        >
-                         <span className="font-medium text-lg text-gray-900 dark:text-white mb-2">{room.name}</span>
-                         <span className={`text-xs px-3 py-1 rounded-full font-semibold ${statusColors[room.status] || 'bg-gray-200 text-gray-700'}`}>
+                         <span className="font-bold text-xl text-gray-900 dark:text-white mb-3">{room.name}</span>
+                         <span className={`text-sm px-4 py-2 rounded-full font-semibold ${statusColors[room.status] || 'bg-gray-200 text-gray-700'}`}>
                            {statusLabels[room.status] || room.status}
                          </span>
                        </div>
