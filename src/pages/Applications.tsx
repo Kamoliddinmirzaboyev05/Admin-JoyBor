@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, ChevronRight, X } from 'lucide-react';
+import { ChevronRight, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select from 'react-select';
 
@@ -112,7 +112,7 @@ const Applications: React.FC = () => {
       [name]: type === 'checkbox' && 'checked' in e.target ? (e.target as HTMLInputElement).checked : value,
     }));
   };
-  const handleSelectChange = (name: string, option: any) => {
+  const handleSelectChange = (name: string, option: { value: string; label: string } | null) => {
     setForm(f => ({ ...f, [name]: option ? option.value : '' }));
     if (name === 'region') setForm(f => ({ ...f, district: '' }));
   };

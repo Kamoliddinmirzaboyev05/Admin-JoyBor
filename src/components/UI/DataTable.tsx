@@ -6,17 +6,17 @@ interface Column {
   key: string;
   title: string;
   sortable?: boolean;
-  render?: (value: any, row: any) => React.ReactNode;
+  render?: (value: unknown, row: Record<string, unknown>) => React.ReactNode;
 }
 
 interface DataTableProps {
-  data: any[];
+  data: Record<string, unknown>[];
   columns: Column[];
   searchable?: boolean;
   filterable?: boolean;
   pagination?: boolean;
   pageSize?: number;
-  onRowClick?: (row: any) => void;
+  onRowClick?: (row: Record<string, unknown>) => void;
   actions?: React.ReactNode;
 }
 
@@ -50,8 +50,14 @@ const DataTable: React.FC<DataTableProps> = ({
     const aValue = a[sortKey];
     const bValue = b[sortKey];
     
-    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+    }
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return sortDirection === 'asc'
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue);
+    }
     return 0;
   });
 
@@ -146,7 +152,7 @@ const DataTable: React.FC<DataTableProps> = ({
               >
                 {columns.map((column) => (
                   <td key={column.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    {column.render ? column.render(row[column.key], row) : row[column.key]}
+                    {column.render ? column.render(row[column.key], row) : String(row[column.key])}
                   </td>
                 ))}
               </motion.tr>

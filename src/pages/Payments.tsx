@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAppStore } from '../stores/useAppStore';
+// import { useAppStore } from '../stores/useAppStore';
 import DataTable from '../components/UI/DataTable';
 import { CreditCard, Plus, X, Wallet, Calendar } from 'lucide-react';
 import Select from 'react-select';
@@ -8,11 +8,11 @@ import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import '../index.css';
 import { toast } from 'sonner';
-import NProgress from 'nprogress';
+// import NProgress from 'nprogress';
 
 const Payments: React.FC = () => {
   // const { students, addPayment } = useAppStore();
-  const [payments, setPayments] = useState<any[]>([]);
+  const [payments, setPayments] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -24,49 +24,49 @@ const Payments: React.FC = () => {
     comment: '',
   });
   const [error, setError] = useState('');
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<Record<string, unknown>[]>([]);
 
   const columns = [
     {
       key: 'student',
       title: 'Talaba',
-      render: (_: any, row: any) => row.student ? `${row.student.name} ${row.student.last_name}` : '-',
+      render: (_: unknown, row: Record<string, unknown>) => row.student && typeof row.student === 'object' ? `${(row.student as any).name} ${(row.student as any).last_name}` : '-',
       sortable: true,
     },
     {
       key: 'amount',
       title: 'Miqdor',
-      render: (v: number) => v?.toLocaleString() + ' so‘m',
+      render: (v: unknown) => typeof v === 'number' ? v.toLocaleString() + ' so\u2018m' : '-',
       sortable: true,
     },
     {
       key: 'paid_date',
-      title: 'To‘lov sanasi',
-      render: (v: string) => v ? new Date(v).toLocaleDateString('uz-UZ') : '-',
+      title: 'To\u2018lov sanasi',
+      render: (v: unknown) => typeof v === 'string' ? (v ? new Date(v).toLocaleDateString('uz-UZ') : '-') : '-',
       sortable: true,
     },
     {
       key: 'method',
-      title: 'To‘lov turi',
-      render: (v: string) => v || '-',
+      title: 'To\u2018lov turi',
+      render: (v: unknown) => typeof v === 'string' ? v : '-',
       sortable: true,
     },
     {
       key: 'status',
       title: 'Status',
-      render: (v: string) => v || '-',
+      render: (v: unknown) => typeof v === 'string' ? v : '-',
       sortable: true,
     },
     {
       key: 'comment',
       title: 'Izoh',
-      render: (v: string) => v || '-',
+      render: (v: unknown) => typeof v === 'string' ? v : '-',
       sortable: false,
     },
   ];
 
   useEffect(() => {
-    NProgress.start();
+    // NProgress.start();
     const token = localStorage.getItem("access");
     const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
     fetch('https://joyboryangi.pythonanywhere.com/payments/', { headers })
@@ -83,7 +83,7 @@ const Payments: React.FC = () => {
       })
       .finally(() => {
         setLoading(false);
-        NProgress.done();
+        // NProgress.done();
       });
   }, []);
 
@@ -106,7 +106,7 @@ const Payments: React.FC = () => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSelectChange = (option: any) => {
+  const handleSelectChange = (option: { value: string; label: string } | null) => {
     setForm({ ...form, studentId: option ? option.value : '' });
   };
 
@@ -153,8 +153,9 @@ const Payments: React.FC = () => {
 
   const studentOptions = students.map((s: any) => ({ value: s.id, label: s.name + ' ' + s.last_name }));
 
-  // react-select custom styles for dark mode
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const selectStyles = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     control: (base: any, state: any) => ({
       ...base,
       backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
@@ -164,23 +165,28 @@ const Payments: React.FC = () => {
       minHeight: 40,
       fontSize: 15,
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     menu: (base: any) => ({
       ...base,
       backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
       color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     singleValue: (base: any) => ({
       ...base,
       color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     input: (base: any) => ({
       ...base,
       color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     placeholder: (base: any) => ({
       ...base,
       color: document.documentElement.classList.contains('dark') ? '#d1d5db' : '#6b7280',
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     option: (base: any, state: any) => ({
       ...base,
       backgroundColor: state.isSelected
@@ -192,6 +198,14 @@ const Payments: React.FC = () => {
       cursor: 'pointer',
     }),
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto py-8">
@@ -208,9 +222,7 @@ const Payments: React.FC = () => {
           To‘lov qo‘shish
         </button>
       </div>
-      {loading ? (
-        <div className="text-center py-10 text-lg text-gray-500 dark:text-gray-300">Yuklanmoqda...</div>
-      ) : fetchError ? (
+      {fetchError ? (
         <div className="text-center py-10 text-red-600 dark:text-red-400">{fetchError}</div>
       ) : (
         <DataTable

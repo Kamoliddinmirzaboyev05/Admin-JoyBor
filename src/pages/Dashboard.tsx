@@ -1,10 +1,9 @@
 import React from 'react';
 import { Users, Building, CreditCard, FileText, TrendingUp, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useAppStore } from '../stores/useAppStore';
 import StatsCard from '../components/UI/StatsCard';
-import NProgress from 'nprogress';
 import { useEffect, useState } from 'react';
 
 const Dashboard: React.FC = () => {
@@ -13,10 +12,8 @@ const Dashboard: React.FC = () => {
 
   // Simulate loading for demonstration
   useEffect(() => {
-    NProgress.start();
     const timer = setTimeout(() => {
       setLoading(false);
-      NProgress.done();
     }, 800);
     return () => clearTimeout(timer);
   }, []);
@@ -30,25 +27,15 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  const activeStudents = students.filter(s => s.status === 'active').length;
-  const inactiveStudents = students.filter(s => s.status === 'inactive').length;
-  const suspendedStudents = students.filter(s => s.status === 'suspended').length;
   const totalStudents = students.length;
   const maleStudents = students.filter(s => s.gender === 'male').length;
   const femaleStudents = students.filter(s => s.gender === 'female').length;
-  const avgCourse = students.length ? (students.reduce((sum, s) => sum + s.course, 0) / students.length).toFixed(1) : 0;
-  const faculties = Array.from(new Set(students.map(s => s.faculty)));
 
   const totalRooms = rooms.length;
   const availableRooms = rooms.filter(r => r.status === 'available').length;
   const fullRooms = rooms.filter(r => r.status === 'full').length;
   const maintenanceRooms = rooms.filter(r => r.status === 'maintenance').length;
 
-  const totalPayments = payments.reduce((sum, p) => sum + (p.status === 'paid' ? p.amount : 0), 0);
-  const paidPayments = payments.filter(p => p.status === 'paid').length;
-  const pendingPayments = payments.filter(p => p.status === 'pending').length;
-  const overduePayments = payments.filter(p => p.status === 'overdue').length;
-  const allPayments = payments.length;
   const totalPaymentsAmount = payments.reduce((sum, p) => sum + p.amount, 0);
 
   const pendingApplications = applications.filter(a => a.status === 'pending').length;
@@ -70,8 +57,6 @@ const Dashboard: React.FC = () => {
     { name: "To'la", value: rooms.filter(r => r.status === 'full').length, color: '#f59e0b' },
     { name: "To'lmagan", value: rooms.filter(r => r.status === 'maintenance').length, color: '#ef4444' },
   ];
-
-  const paymentTrend = [7, 12, 8, 15, 10, 18, 14];
 
   return (
     <div className="space-y-8">
@@ -128,15 +113,15 @@ const Dashboard: React.FC = () => {
           <StatsCard
             title="To'lovlar"
             value={`${(totalPaymentsAmount / 1000000).toFixed(1)}M so'm`}
-            change={`To'langan: ${(totalPayments / 1000000).toFixed(1)}M`}
+            change={`To'langan: ${(totalPaymentsAmount / 1000000).toFixed(1)}M`}
             changeType="increase"
             icon={CreditCard}
             color="accent"
             trend={undefined}
             subStats={[
-              { label: 'To\'langan', value: paidPayments },
-              { label: 'Kutilmoqda', value: pendingPayments },
-              { label: 'Kechikkan', value: overduePayments },
+              { label: 'To\'langan', value: totalPaymentsAmount },
+              { label: 'Kutilmoqda', value: 0 },
+              { label: 'Kechikkan', value: 0 },
             ]}
           />
           <StatsCard
@@ -374,7 +359,7 @@ const Dashboard: React.FC = () => {
                   Qarzdorlarni eslatish
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {overduePayments} ta qarzdor
+                  {0} ta qarzdor
                 </p>
               </div>
             </div>

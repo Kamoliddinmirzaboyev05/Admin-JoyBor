@@ -8,9 +8,6 @@ import {
   FileText,
   BarChart3,
   Settings,
-  User,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -72,7 +69,7 @@ const Sidebar: React.FC = () => {
       {/* Navigation */}
       <nav className="mt-10 px-3 flex-1">
         <ul className="space-y-2">
-          {navigation.map((item, idx) => {
+          {navigation.map((item) => {
             const isActive = location.pathname === item.href;
             const Icon = item.icon;
             return (

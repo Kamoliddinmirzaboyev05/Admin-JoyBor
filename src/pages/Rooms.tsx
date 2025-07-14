@@ -4,8 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { IoManSharp, IoWomanSharp } from 'react-icons/io5';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { get, post, put, del } from '../data/api';
-import NProgress from 'nprogress';
+import { get, post } from '../data/api';
+// import NProgress from 'nprogress';
 
 interface Floor {
   id: number;
@@ -63,7 +63,6 @@ const Rooms: React.FC = () => {
   const [newRoomCapacity, setNewRoomCapacity] = useState('');
   const [addingRoom, setAddingRoom] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
-  const [editFloor, setEditFloor] = useState<any>(null);
   const [addingFloor, setAddingFloor] = useState(false);
   const navigate = useNavigate();
 
@@ -126,14 +125,11 @@ const Rooms: React.FC = () => {
 
   // Show only loading bar and spinner until all data is loaded
   if (loading || !allRoomsLoaded) {
-    NProgress.start();
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
       </div>
     );
-  } else {
-    NProgress.done();
   }
 
   // Add new floor
@@ -219,7 +215,7 @@ const Rooms: React.FC = () => {
 
   // Edit floor handler
   const handleEditFloor = (floor: any) => {
-    setEditFloor(floor);
+    // setEditFloor(floor); // Tozalandi
     setNewFloor(floor.name);
     setNewFloorGender(floor.gender);
     setShowFloorModal(true);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Moon, Sun, User, Settings, LogOut, Monitor, Menu, LayoutDashboard, PanelLeft } from 'lucide-react';
+import { Bell, Moon, Sun, User, Settings, LogOut, PanelLeft } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';

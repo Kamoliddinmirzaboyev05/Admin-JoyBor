@@ -33,11 +33,11 @@ function EditableInput({ label, value, onChange, type = 'text' }: { label: strin
 
 const StudentProfile: React.FC = () => {
   const { studentId } = useParams();
-  const [student, setStudent] = useState<any>(null);
+  const [student, setStudent] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editMode, setEditMode] = useState(false);
-  const [form, setForm] = useState<any>(null);
+  const [form, setForm] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     if (!studentId) return;
@@ -96,33 +96,33 @@ const StudentProfile: React.FC = () => {
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
           {/* Profil rasmi yoki avatar */}
-          {form.avatar ? (
+          {form?.avatar ? (
             <img
-              src={form.avatar}
-              alt={form.name}
+              src={form.avatar as string}
+              alt={form.name as string}
               className="w-32 h-32 object-cover rounded-md border border-gray-200 dark:border-slate-600 shadow"
             />
           ) : (
             <div className="w-32 h-32 flex items-center justify-center bg-gray-200 dark:bg-slate-700 text-5xl font-bold text-gray-500 dark:text-gray-400 rounded-md border border-gray-200 dark:border-slate-600 shadow">
-              {form.name && form.last_name
-                ? `${form.name[0] || ''}${form.last_name[0] || ''}`
+              {form?.name && form?.last_name
+                ? `${(form.name as string)[0] || ''}${(form.last_name as string)[0] || ''}`
                 : ''}
             </div>
           )}
           <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
             {editMode ? (
               <>
-                <EditableInput label="Ism" value={form.name} onChange={v => handleChange('name', v)} />
-                <EditableInput label="Familiya" value={form.last_name} onChange={v => handleChange('last_name', v)} />
-                <EditableInput label="Otasining ismi" value={form.middle_name} onChange={v => handleChange('middle_name', v)} />
-                <EditableInput label="Telefon" value={form.phone} onChange={v => handleChange('phone', v)} />
+                <EditableInput label="Ism" value={form?.name as string} onChange={v => handleChange('name', v)} />
+                <EditableInput label="Familiya" value={form?.last_name as string} onChange={v => handleChange('last_name', v)} />
+                <EditableInput label="Otasining ismi" value={form?.middle_name as string} onChange={v => handleChange('middle_name', v)} />
+                <EditableInput label="Telefon" value={form?.phone as string} onChange={v => handleChange('phone', v)} />
               </>
             ) : (
               <>
-                <ReadOnlyInput label="Ism" value={form.name} />
-                <ReadOnlyInput label="Familiya" value={form.last_name} />
-                <ReadOnlyInput label="Otasining ismi" value={form.middle_name} />
-                <ReadOnlyInput label="Telefon" value={form.phone} />
+                <ReadOnlyInput label="Ism" value={form?.name as string} />
+                <ReadOnlyInput label="Familiya" value={form?.last_name as string} />
+                <ReadOnlyInput label="Otasining ismi" value={form?.middle_name as string} />
+                <ReadOnlyInput label="Telefon" value={form?.phone as string} />
               </>
             )}
           </div>

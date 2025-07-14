@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Phone, Mail, User, Camera, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useAppStore } from '../stores/useAppStore';
+import { Plus } from 'lucide-react';
+import { motion } from 'framer-motion';
 import DataTable from '../components/UI/DataTable';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
 import { Link, useNavigate } from 'react-router-dom';
-import { toast as sonnerToast } from 'sonner';
-import NProgress from 'nprogress';
 
 // react-select custom styles for dark mode
 const selectStyles = {
@@ -79,57 +76,57 @@ const Students: React.FC = () => {
     {
       key: "index",
       title: "№",
-      render: (_: any, row: any) => (
-        <span className="text-gray-500 dark:text-gray-400 font-semibold">{row._idx + 1}</span>
+      render: (_: unknown, row: Record<string, unknown>) => (
+        <span className="text-gray-500 dark:text-gray-400 font-semibold">{(row._idx as number) + 1}</span>
       ),
     },
     {
       key: "fullName",
       title: "Ism Familiya",
       sortable: true,
-      render: (_: any, row: any) => (
-        <Link to={`/profile/${row.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">{row.name} {row.last_name}</Link>
+      render: (_: unknown, row: Record<string, unknown>) => (
+        <Link to={`/profile/${row.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">{row.name as string} {row.last_name as string}</Link>
       ),
     },
     {
       key: "faculty",
       title: "Fakultet",
-      render: (value: string) => <span className="text-sm text-gray-700 dark:text-gray-300">{value}</span>,
+      render: (value: unknown) => <span className="text-sm text-gray-700 dark:text-gray-300">{value as string}</span>,
     },
     {
       key: "direction",
       title: "Yo'nalish",
-      render: (value: string) => <span className="text-sm text-gray-700 dark:text-gray-300">{value}</span>,
+      render: (value: unknown) => <span className="text-sm text-gray-700 dark:text-gray-300">{value as string}</span>,
     },
     {
       key: "room",
       title: "Xona",
-      render: (_: any, row: any) => <span className="px-2 py-1 bg-primary-100 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300 rounded-full text-sm font-medium">{row.room?.name || "-"}</span>,
+      render: (_: unknown, row: Record<string, unknown>) => <span className="px-2 py-1 bg-primary-100 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300 rounded-full text-sm font-medium">{row.room && typeof row.room === 'object' ? (row.room as any).name : "-"}</span>,
     },
     {
       key: "floor",
       title: "Qavat",
-      render: (_: any, row: any) => <span className="text-sm text-gray-700 dark:text-gray-300">{row.floor?.name || "-"}</span>,
+      render: (_: unknown, row: Record<string, unknown>) => <span className="text-sm text-gray-700 dark:text-gray-300">{row.floor && typeof row.floor === 'object' ? (row.floor as any).name : "-"}</span>,
     },
     {
       key: "province",
       title: "Viloyat",
-      render: (_: any, row: any) => <span className="text-sm text-gray-700 dark:text-gray-300">{row.province?.name || "-"}</span>,
+      render: (_: unknown, row: Record<string, unknown>) => <span className="text-sm text-gray-700 dark:text-gray-300">{row.province && typeof row.province === 'object' ? (row.province as any).name : "-"}</span>,
     },
     {
       key: "district",
       title: "Tuman",
-      render: (_: any, row: any) => <span className="text-sm text-gray-700 dark:text-gray-300">{row.district?.name || "-"}</span>,
+      render: (_: unknown, row: Record<string, unknown>) => <span className="text-sm text-gray-700 dark:text-gray-300">{row.district && typeof row.district === 'object' ? (row.district as any).name : "-"}</span>,
     },
     {
       key: "phone",
       title: "Telefon",
-      render: (value: string) => <span className="text-sm text-gray-700 dark:text-gray-300">{value}</span>,
+      render: (value: unknown) => <span className="text-sm text-gray-700 dark:text-gray-300">{value as string}</span>,
     },
     {
       key: "total_payment",
       title: "Umumiy to'lov",
-      render: (value: number) => <span className="font-semibold text-green-600 dark:text-green-400">{value?.toLocaleString()} so'm</span>,
+      render: (value: unknown) => <span className="font-semibold text-green-600 dark:text-green-400">{typeof value === 'number' ? value.toLocaleString() : value} so'm</span>,
     },
   ];
 
@@ -155,37 +152,6 @@ const Students: React.FC = () => {
       floor: "",
     });
     setShowModal(true);
-  };
-
-  const handleEdit = (student: any) => {
-    setEditingStudent(student);
-    setFormData({
-      firstName: student.firstName,
-      lastName: student.lastName,
-      fatherName: student.fatherName,
-      phone: student.phone,
-      email: student.email,
-      room: student.room,
-      course: student.course,
-      faculty: student.faculty,
-      group: student.group,
-      region: student.region,
-      district: student.district,
-      passport: student.passport,
-      isPrivileged: student.isPrivileged,
-      privilegeShare: student.privilegeShare,
-      avatar: student.avatar,
-      direction: student.direction,
-      floor: student.floor,
-    });
-    setShowModal(true);
-  };
-
-  const handleDelete = (id: string) => {
-    if (window.confirm('Talabani ochirish tasdiqlaysizmi?')) {
-      // deleteStudent(id);
-      toast.success('Talaba muvaffaqiyatli ochirildi');
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -251,8 +217,6 @@ const Students: React.FC = () => {
     const matchesFloor = floorFilter ? (s.floor && s.floor.name === floorFilter) : true;
     return matchesGender && matchesPayment && matchesFloor;
   });
-
-  const navigate = useNavigate();
 
   // Simulate loading for demonstration
   useEffect(() => {
@@ -438,7 +402,7 @@ const Students: React.FC = () => {
                   />
                   {/* Overlay for hover */}
                   <div className="absolute inset-0 bg-black/30 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10">
-                    <Camera className="w-8 h-8 text-white" />
+                    <span className="text-white">📸</span>
                   </div>
                   {/* Remove button */}
                   {formData.avatar && (
@@ -448,7 +412,7 @@ const Students: React.FC = () => {
                       className="absolute -top-2 -right-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-full p-1 shadow hover:bg-red-500 hover:text-white transition-colors z-30"
                       aria-label="Rasmni olib tashlash"
                     >
-                      <X className="w-4 h-4" />
+                      <span className="text-2xl">×</span>
                     </button>
                   )}
                 </div>
@@ -514,9 +478,9 @@ const Students: React.FC = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Qavat</label>
                     <Select
-                      options={floorOptions}
-                      value={floorOptions.find(opt => opt.value === formData.floor) || null}
-                      onChange={opt => handleSelectChange('floor', opt)}
+                      options={Array.from(new Set(students.map(s => s.floor?.name))).filter(Boolean).map(floor => ({ value: floor, label: floor }))}
+                      value={districtOptions.find(opt => opt.value === Number(formData.district)) || null}
+                      onChange={opt => handleSelectChange('district', opt)}
                       isClearable
                       placeholder="Qavat tanlang..."
                       styles={selectStyles}
@@ -526,9 +490,9 @@ const Students: React.FC = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona</label>
                     <Select
-                      options={roomOptions}
-                      value={roomOptions.find(opt => opt.value === formData.room) || null}
-                      onChange={opt => handleSelectChange('room', opt)}
+                      options={districtOptions}
+                      value={districtOptions.find(opt => opt.value === Number(formData.district)) || null}
+                      onChange={opt => handleSelectChange('district', opt)}
                       isClearable
                       placeholder="Xona tanlang..."
                       styles={selectStyles}

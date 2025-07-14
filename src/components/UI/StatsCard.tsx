@@ -15,12 +15,10 @@ interface StatsCardProps {
 
 const StatsCard: React.FC<StatsCardProps> = ({
   title,
-  value,
   change,
   changeType = 'neutral',
   icon: Icon,
   color = 'primary',
-  trend,
   subStats,
 }) => {
   const colorClasses = {

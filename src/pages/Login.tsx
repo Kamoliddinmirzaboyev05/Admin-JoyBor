@@ -26,7 +26,7 @@ const Login: React.FC = () => {
         setError(result.detail || 'Login yoki parol noto‘g‘ri!');
         setLoading(false);
       }
-    } catch (err) {
+    } catch {
       setError('Tarmoqda xatolik. Qayta urinib ko‘ring.');
       setLoading(false);
     }

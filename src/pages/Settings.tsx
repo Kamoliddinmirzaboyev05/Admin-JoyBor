@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Edit, Image as ImageIcon, DollarSign, ListChecks, Phone, Mail, MapPin, Plus, Wifi, BookOpen, WashingMachine, Tv, Coffee } from 'lucide-react';
+import { Edit, Image as ImageIcon, DollarSign, ListChecks, Plus, Wifi, BookOpen, WashingMachine, Tv, Coffee } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const dormImages = [
@@ -83,16 +83,8 @@ const Settings: React.FC = () => {
   const [rules, setRules] = useState(initialRules);
   const [contact, setContact] = useState(initialContact);
   const [editSection, setEditSection] = useState<string | null>(null);
-  const [amenities, setAmenities] = useState(initialAmenities);
-  const [editAmenityIndex, setEditAmenityIndex] = useState<number | null>(null);
-  const [editImages, setEditImages] = useState(false);
-  const [newAmenity, setNewAmenity] = useState({ icon: 'Wifi', name: '', description: '' });
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(allAmenities.map(a => a.key));
-
-  // Add new price row
-  const addPrice = () => setPrices([...prices, { type: '', price: '' }]);
-  // Add new rule
-  const addRule = () => setRules([...rules, '']);
+  const [editImages, setEditImages] = useState(false);
 
   return (
     <motion.div
@@ -293,7 +285,7 @@ const Settings: React.FC = () => {
         </SectionCard>
         {/* Contact */}
         <SectionCard
-          icon={<Phone className="w-6 h-6" />}
+          icon={<Plus className="w-6 h-6" />}
           title="Bog‘lanish"
           description="Yotoqxona ma’muriyati bilan bog‘lanish uchun telefon, email va manzil. Tahrirlash uchun 'Tahrirlash' tugmasini bosing."
           onEdit={() => setEditSection(editSection === 'contact' ? null : 'contact')}

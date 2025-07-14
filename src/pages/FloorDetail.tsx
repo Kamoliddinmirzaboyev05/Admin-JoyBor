@@ -2,8 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import BackButton from '../components/UI/BackButton';
 import { get, post } from '../data/api';
-import NProgress from 'nprogress';
-import { toast } from 'sonner';
+// import { toast } from 'sonner';
 import { X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -50,24 +49,21 @@ const FloorDetail: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
-      NProgress.start();
       try {
         const floors: Floor[] = await get('/floors/');
         const found = floors.find(f => String(f.id) === String(floorId));
         if (!found) {
           setError('Qavat topilmadi.');
           setLoading(false);
-          NProgress.done();
           return;
         }
         setFloor(found);
         const roomsRes: Room[] = await get(`/rooms/?floor=${found.id}`);
         setRooms(roomsRes);
-      } catch (err: any) {
-        setError(err?.toString() || 'Maʼlumotlarni yuklashda xatolik.');
+      } catch {
+        setError('Maʼlumotlarni yuklashda xatolik.');
       } finally {
         setLoading(false);
-        NProgress.done();
       }
     };
     fetchData();
@@ -86,14 +82,14 @@ const FloorDetail: React.FC = () => {
         gender: floor.gender,
         status: 'EMPTY',
       });
-      toast.success('Xona muvaffaqiyatli qo\'shildi!');
+      // toast.success('Xona muvaffaqiyatli qo\'shildi!');
       setShowRoomModal(false);
       setNewRoom('');
       // Refresh rooms
       const roomsRes: Room[] = await get(`/rooms/?floor=${floor.id}`);
       setRooms(roomsRes);
-    } catch (err: any) {
-      toast.error('Xona qo\'shishda xatolik!');
+    } catch (err: unknown) {
+      // toast.error('Xona qo\'shishda xatolik!');
     } finally {
       setAdding(false);
     }
