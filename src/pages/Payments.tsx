@@ -30,7 +30,7 @@ const Payments: React.FC = () => {
     {
       key: 'student',
       title: 'Talaba',
-      render: (_: unknown, row: Record<string, unknown>) => row.student && typeof row.student === 'object' ? `${(row.student as any).name} ${(row.student as any).last_name}` : '-',
+      render: (_: unknown, row: Record<string, unknown>) => row.student && typeof row.student === 'object' ? `${(row.student as Record<string, unknown>).name as string} ${(row.student as Record<string, unknown>).last_name as string}` : '-',
       sortable: true,
     },
     {
@@ -151,7 +151,7 @@ const Payments: React.FC = () => {
     }
   };
 
-  const studentOptions = students.map((s: any) => ({ value: s.id, label: s.name + ' ' + s.last_name }));
+  const studentOptions = students.map((s) => ({ value: s.id as string, label: (s.name as string) + ' ' + (s.last_name as string) }));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const selectStyles = {

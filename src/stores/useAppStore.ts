@@ -214,7 +214,7 @@ const sampleApplications: Application[] = [
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       // Initial state
       isDark: false,
       sidebarCollapsed: false,

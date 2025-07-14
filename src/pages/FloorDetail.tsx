@@ -88,7 +88,7 @@ const FloorDetail: React.FC = () => {
       // Refresh rooms
       const roomsRes: Room[] = await get(`/rooms/?floor=${floor.id}`);
       setRooms(roomsRes);
-    } catch (err: unknown) {
+    } catch {
       // toast.error('Xona qo\'shishda xatolik!');
     } finally {
       setAdding(false);

@@ -27,14 +27,6 @@ const initialContact = {
   address: 'Toshkent shahri, TTU yotoqxonasi, 2-qavat',
 };
 
-const initialAmenities = [
-  { icon: 'Wifi', name: 'Wi-Fi', description: 'Tez va bepul internet' },
-  { icon: 'BookOpen', name: 'Darsxona', description: '24/7 ochiq o‘quv xonasi' },
-  { icon: 'WashingMachine', name: 'Kir yuvish mashinasi', description: 'Bepul kir yuvish xizmati' },
-  { icon: 'Tv', name: 'Dam olish xonasi', description: 'Televizor va o‘yinlar' },
-  { icon: 'Coffee', name: 'Kichik oshxona', description: 'Choy va yengil taomlar uchun' },
-];
-
 const allAmenities = [
   { key: 'Wifi', icon: <Wifi className="w-6 h-6" />, name: 'Wi-Fi', description: 'Tez va bepul internet' },
   { key: 'BookOpen', icon: <BookOpen className="w-6 h-6" />, name: 'Darsxona', description: '24/7 ochiq o‘quv xonasi' },

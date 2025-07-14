@@ -3,10 +3,6 @@ import { Outlet, useLocation, useNavigationType } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAppStore } from '../../stores/useAppStore';
 import Sidebar from './Sidebar';
-import NProgress from 'nprogress';
-import 'nprogress/nprogress.css';
-
-NProgress.configure({ showSpinner: false, trickleSpeed: 120 });
 
 const Layout: React.FC = () => {
   const { isDark, sidebarCollapsed } = useAppStore();
@@ -23,9 +19,7 @@ const Layout: React.FC = () => {
 
   // NProgress for route changes
   useEffect(() => {
-    NProgress.start();
     return () => {
-      NProgress.done();
     };
   }, [location, navigationType]);
 

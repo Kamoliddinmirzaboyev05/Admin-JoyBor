@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import DataTable from '../components/UI/DataTable';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 // react-select custom styles for dark mode
 const selectStyles = {
@@ -43,7 +43,7 @@ const selectStyles = {
 };
 
 const Students: React.FC = () => {
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState("");
   const [showModal, setShowModal] = useState(false);
