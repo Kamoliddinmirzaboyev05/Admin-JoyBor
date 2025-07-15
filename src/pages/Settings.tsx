@@ -1,31 +1,8 @@
 import React, { useState } from 'react';
 import { Edit, Image as ImageIcon, DollarSign, ListChecks, Plus, Wifi, BookOpen, WashingMachine, Tv, Coffee } from 'lucide-react';
 import { motion } from 'framer-motion';
-
-const dormImages = [
-  '/public/logo.png',
-  '/public/logo.svg',
-  // Add more image URLs as needed
-];
-
-const initialPrices = [
-  { type: 'Oddiy xona', price: '300 000 so‘m/oy' },
-  { type: 'Yuqori qulaylik', price: '500 000 so‘m/oy' },
-];
-
-const initialRules = [
-  'Yotoqxonada tartib-intizomga rioya qilish shart.',
-  'Soat 23:00 dan keyin tashqariga chiqish taqiqlanadi.',
-  'Xonani toza saqlash majburiy.',
-  'Begona shaxslarni olib kirish mumkin emas.',
-  'To‘lovlar o‘z vaqtida amalga oshirilishi kerak.',
-];
-
-const initialContact = {
-  phone: '+998 90 123 45 67',
-  email: 'joybor@example.com',
-  address: 'Toshkent shahri, TTU yotoqxonasi, 2-qavat',
-};
+import { useQuery } from '@tanstack/react-query';
+import { apiQueries } from '../data/api';
 
 const allAmenities = [
   { key: 'Wifi', icon: <Wifi className="w-6 h-6" />, name: 'Wi-Fi', description: 'Tez va bepul internet' },
@@ -71,9 +48,14 @@ function EditableInput({ label, value, onChange, disabled, placeholder, helper, 
 }
 
 const Settings: React.FC = () => {
-  const [prices, setPrices] = useState(initialPrices);
-  const [rules, setRules] = useState(initialRules);
-  const [contact, setContact] = useState(initialContact);
+  const { data: settings, isLoading, error } = useQuery({
+    queryKey: ['settings'],
+    queryFn: apiQueries.getSettings,
+    staleTime: 1000 * 60 * 5,
+  });
+  if (isLoading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div></div>;
+  if (error || !settings) return <div className="text-center py-10 text-red-600 dark:text-red-400">Sozlamalarni yuklashda xatolik yuz berdi.</div>;
+
   const [editSection, setEditSection] = useState<string | null>(null);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(allAmenities.map(a => a.key));
   const [editImages, setEditImages] = useState(false);
@@ -96,7 +78,7 @@ const Settings: React.FC = () => {
           onEdit={() => setEditImages(!editImages)}
         >
           <div className="flex gap-4 overflow-x-auto pb-2">
-            {dormImages.map((img, i) => (
+            {settings.dormImages.map((img, i) => (
               <div key={i} className="relative group flex flex-col items-center">
                 <img src={img} alt={`Yotoqxona ${i+1}`} className="w-40 h-28 object-cover rounded-lg shadow border border-gray-200 dark:border-slate-700" />
                 {editImages && (
@@ -141,13 +123,13 @@ const Settings: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {prices.map((row, i) => (
+                {settings.prices.map((row, i) => (
                   <tr key={i} className="border-t border-gray-100 dark:border-slate-700">
                     <td className="py-2 px-4">
                       <EditableInput
                         label=""
                         value={row.type}
-                        onChange={v => setPrices(prices.map((p, idx) => idx === i ? { ...p, type: v } : p))}
+                        onChange={v => {/* update prices logic */}}
                         disabled={editSection !== 'prices'}
                         placeholder="Xona turi (masalan, Oddiy)"
                         style={{ maxWidth: '200px' }}
@@ -157,18 +139,18 @@ const Settings: React.FC = () => {
                       <EditableInput
                         label=""
                         value={row.price}
-                        onChange={v => setPrices(prices.map((p, idx) => idx === i ? { ...p, price: v } : p))}
+                        onChange={v => {/* update prices logic */}}
                         disabled={editSection !== 'prices'}
                         placeholder="Narxi (masalan, 300 000 so‘m/oy)"
                         style={{ maxWidth: '200px' }}
                       />
                     </td>
                     <td className="py-2 px-2">
-                      {editSection === 'prices' && prices.length > 1 && (
+                      {editSection === 'prices' && settings.prices.length > 1 && (
                         <button
                           className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900"
                           title="O‘chirish"
-                          onClick={() => setPrices(prices.filter((_, idx) => idx !== i))}
+                          onClick={() => {/* remove price logic */}}
                         >
                           <span className="text-red-500 font-bold">×</span>
                         </button>
@@ -183,7 +165,7 @@ const Settings: React.FC = () => {
             <div className="flex gap-2 mt-4">
               <button
                 className="flex items-center gap-1 px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
-                onClick={() => setPrices(prices.concat({ type: '', price: '' }))}
+                onClick={() => {/* add price logic */}}
               >
                 <Plus className="w-4 h-4" /> Yangi narx qo‘shish
               </button>
@@ -204,22 +186,22 @@ const Settings: React.FC = () => {
           onEdit={() => setEditSection(editSection === 'rules' ? null : 'rules')}
         >
           <ul className="list-disc pl-6 space-y-2 text-gray-700 dark:text-gray-200">
-            {rules.map((rule, i) => (
+            {settings.rules.map((rule, i) => (
               <li key={i} className="flex items-center gap-2">
                 <EditableInput
                   label=""
                   value={rule}
-                  onChange={v => setRules(rules.map((r, idx) => idx === i ? v : r))}
+                  onChange={v => {/* update rules logic */}}
                   disabled={editSection !== 'rules'}
                   placeholder="Qoida matni"
-                  helper={editSection === 'rules' && i === rules.length - 1 ? 'Yangi qoida qo‘shish uchun pastdagi tugmani bosing' : undefined}
+                  helper={editSection === 'rules' && i === settings.rules.length - 1 ? 'Yangi qoida qo‘shish uchun pastdagi tugmani bosing' : undefined}
                   fullWidth
                 />
-                {editSection === 'rules' && rules.length > 1 && (
+                {editSection === 'rules' && settings.rules.length > 1 && (
                   <button
                     className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900"
                     title="O‘chirish"
-                    onClick={() => setRules(rules.filter((_, idx) => idx !== i))}
+                    onClick={() => {/* remove rule logic */}}
                   >
                     <span className="text-red-500 font-bold">×</span>
                   </button>
@@ -231,7 +213,7 @@ const Settings: React.FC = () => {
             <div className="flex gap-2 mt-4">
               <button
                 className="flex items-center gap-1 px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
-                onClick={() => setRules(rules.concat(''))}
+                onClick={() => {/* add rule logic */}}
               >
                 <Plus className="w-4 h-4" /> Yangi qoida qo‘shish
               </button>
@@ -283,9 +265,9 @@ const Settings: React.FC = () => {
           onEdit={() => setEditSection(editSection === 'contact' ? null : 'contact')}
         >
           <div className="grid grid-cols-1 gap-4 text-gray-700 dark:text-gray-200">
-            <EditableInput label="Telefon" value={contact.phone} onChange={v => setContact({ ...contact, phone: v })} disabled={editSection !== 'contact'} placeholder="Telefon raqami" />
-            <EditableInput label="Email" value={contact.email} onChange={v => setContact({ ...contact, email: v })} disabled={editSection !== 'contact'} placeholder="Email manzili" />
-            <EditableInput label="Manzil" value={contact.address} onChange={v => setContact({ ...contact, address: v })} disabled={editSection !== 'contact'} placeholder="Manzil" />
+            <EditableInput label="Telefon" value={settings.contact.phone} onChange={v => {/* update contact logic */}} disabled={editSection !== 'contact'} placeholder="Telefon raqami" />
+            <EditableInput label="Email" value={settings.contact.email} onChange={v => {/* update contact logic */}} disabled={editSection !== 'contact'} placeholder="Email manzili" />
+            <EditableInput label="Manzil" value={settings.contact.address} onChange={v => {/* update contact logic */}} disabled={editSection !== 'contact'} placeholder="Manzil" />
           </div>
           {editSection === 'contact' && (
             <button className="mt-4 px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={() => setEditSection(null)}>Saqlash</button>

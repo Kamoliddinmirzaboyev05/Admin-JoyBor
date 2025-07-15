@@ -14,6 +14,7 @@ import Applications from "./pages/Applications";
 import ApplicationDetail from "./pages/ApplicationDetail";
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
+import NotFound from "./pages/NotFound";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -50,6 +51,8 @@ function App() {
           <Route path="reports" element={<Reports />} />
           <Route path="profile" element={<Profile />} />
           <Route path="profile/:studentId" element={<StudentProfile />} />
+          {/* 404 Not Found route */}
+          <Route path="*" element={<NotFound />} />
           </Route>
         </Route>
       </Routes>

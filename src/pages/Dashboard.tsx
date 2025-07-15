@@ -5,10 +5,12 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useAppStore } from '../stores/useAppStore';
 import StatsCard from '../components/UI/StatsCard';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
   const { students, rooms, payments, applications } = useAppStore();
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   // Simulate loading for demonstration
   useEffect(() => {
@@ -259,15 +261,24 @@ const Dashboard: React.FC = () => {
             Tezkor Amallar
           </h3>
           <div className="space-y-3">
-            <button className="w-full flex items-center space-x-3 p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors">
+            <button
+              className="w-full flex items-center space-x-3 p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors"
+              onClick={() => navigate('/students', { state: { openAddModal: true } })}
+            >
               <Users className="w-5 h-5" />
               <span>Yangi talaba qo'shish</span>
             </button>
-            <button className="w-full flex items-center space-x-3 p-3 rounded-lg bg-secondary-50 dark:bg-secondary-900/20 text-secondary-700 dark:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-900/30 transition-colors">
+            <button
+              className="w-full flex items-center space-x-3 p-3 rounded-lg bg-secondary-50 dark:bg-secondary-900/20 text-secondary-700 dark:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-900/30 transition-colors"
+              onClick={() => navigate('/rooms', { state: { openAddRoomModal: true } })}
+            >
               <Building className="w-5 h-5" />
               <span>Xona tayinlash</span>
             </button>
-            <button className="w-full flex items-center space-x-3 p-3 rounded-lg bg-accent-50 dark:bg-accent-900/20 text-accent-700 dark:text-accent-300 hover:bg-accent-100 dark:hover:bg-accent-900/30 transition-colors">
+            <button
+              className="w-full flex items-center space-x-3 p-3 rounded-lg bg-accent-50 dark:bg-accent-900/20 text-accent-700 dark:text-accent-300 hover:bg-accent-100 dark:hover:bg-accent-900/30 transition-colors"
+              onClick={() => navigate('/payments', { state: { openAddPaymentModal: true } })}
+            >
               <CreditCard className="w-5 h-5" />
               <span>To'lov qo'shish</span>
             </button>

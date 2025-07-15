@@ -3,11 +3,12 @@ import { MoreVertical, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoManSharp, IoWomanSharp } from 'react-icons/io5';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { get, post } from '../data/api';
 // import NProgress from 'nprogress';
 import { useQuery } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
+import FloorRooms from '../components/UI/FloorRooms';
 
 interface Floor {
   id: number;
@@ -51,8 +52,34 @@ const statusLabels: Record<string, string> = {
   EMPTY: "Bo'sh",
 };
 
+// Custom hook for rooms by floor
+function useRoomsByFloor(floorId: number) {
+  return useQuery({
+    queryKey: ['rooms', floorId],
+    queryFn: async () => {
+      const res = await get(`/rooms/?floor=${floorId}`);
+      return (res || []).map((room: Record<string, unknown>) => {
+        const students = room.students || [];
+        const capacity = room.capacity || 0;
+        const currentOccupancy = students.length;
+        let status = 'EMPTY';
+        if (currentOccupancy === 0) status = 'EMPTY';
+        else if (currentOccupancy === capacity && capacity > 0) status = 'OCCUPIED';
+        else status = 'PARTIALLY_OCCUPIED';
+        return {
+          ...room,
+          students,
+          capacity,
+          currentOccupancy,
+          status,
+        };
+      });
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
 const Rooms: React.FC = () => {
-  const [roomsByFloor, setRoomsByFloor] = useState<Record<number, Room[] | undefined>>({});
   const [showFloorModal, setShowFloorModal] = useState(false);
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [newFloor, setNewFloor] = useState('');
@@ -64,8 +91,8 @@ const Rooms: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [addingFloor, setAddingFloor] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // React Query bilan floors ma'lumotlarini olish
   const { 
     data: floors = [], 
     isLoading: floorsLoading, 
@@ -78,48 +105,24 @@ const Rooms: React.FC = () => {
   });
 
   // Helper: check if all rooms for all floors are loaded
-  const allRoomsLoaded = floors.length > 0 && floors.every(f => Array.isArray(roomsByFloor[f.id]));
+  const typedFloors: Floor[] = Array.isArray(floors) ? floors as Floor[] : [];
+  // No need for allRoomsLoaded, rely on react-query loading states per floor
 
-  // Incremental loading: fetch rooms for each floor as soon as floors are loaded
   useEffect(() => {
-    if (floors.length === 0) return;
-    floors.forEach(async (floor) => {
-      try {
-        setRoomsByFloor(prev => ({ ...prev, [floor.id]: undefined })); // undefined = loading
-        const res = await get(`/rooms/?floor=${floor.id}`);
-        const rooms = (res || []).map((room: Record<string, unknown>) => {
-          const students = room.students || [];
-          const capacity = room.capacity || 0;
-          const currentOccupancy = students.length;
-          let status = 'EMPTY';
-          if (currentOccupancy === 0) status = 'EMPTY';
-          else if (currentOccupancy === capacity && capacity > 0) status = 'OCCUPIED';
-          else status = 'PARTIALLY_OCCUPIED';
-          return {
-            ...room,
-            students,
-            capacity,
-            currentOccupancy,
-            status,
-          };
-        });
-        setRoomsByFloor(prev => ({ ...prev, [floor.id]: rooms }));
-      } catch {
-        setRoomsByFloor(prev => ({ ...prev, [floor.id]: [] }));
-      }
-    });
-  }, [floors]);
+    if (location.state && (location.state as any).openAddRoomModal) {
+      setShowRoomModal(true);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
-  // Show only loading bar and spinner until all data is loaded
-  if (floorsLoading || !allRoomsLoaded) {
+  // Now, after all hooks, handle early returns:
+  if (floorsLoading || typedFloors.length === 0) { // Only check if floors are loading or if there are no floors
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
       </div>
     );
   }
-
-  // Error state
   if (floorsError) {
     return (
       <div className="text-center py-10 text-red-600 dark:text-red-400">
@@ -166,7 +169,7 @@ const Rooms: React.FC = () => {
     }
     setAddingRoom(true);
     try {
-      const floorObj = floors.find(f => f.name === selectedFloor);
+      const floorObj = typedFloors.find(f => f.name === selectedFloor);
       if (!floorObj) {
         toast.error('Qavat topilmadi!');
         return;
@@ -200,7 +203,7 @@ const Rooms: React.FC = () => {
           status,
         };
       });
-      setRoomsByFloor(prev => ({ ...prev, [floorObj.id]: rooms }));
+      // setRoomsByFloor(prev => ({ ...prev, [floorObj.id]: rooms })); // This line is removed
     } catch {
       toast.error('Xona qo\'shishda xatolik!');
     } finally {
@@ -209,7 +212,7 @@ const Rooms: React.FC = () => {
   };
 
   // Edit floor handler
-  const handleEditFloor = (floor: any) => {
+  const handleEditFloor = (floor: Floor) => {
     // setEditFloor(floor); // Tozalandi
     setNewFloor(floor.name);
     setNewFloorGender(floor.gender);
@@ -218,12 +221,11 @@ const Rooms: React.FC = () => {
   };
 
   // Delete floor handler
-  const handleDeleteFloor = (floor: any) => {
-    setFloors(floors => floors.filter(f => f.id !== floor.id));
-    setRoomsByFloor(rooms => ({
-      ...rooms,
-      [floor.id]: [],
-    }));
+  const handleDeleteFloor = (floor: Floor) => {
+    // setRoomsByFloor(rooms => ({ // This line is removed
+    //   ...rooms,
+    //   [floor.id]: [],
+    // }));
     setMenuOpen(null);
     toast.success("Qavat o'chirildi!");
   };
@@ -254,70 +256,17 @@ const Rooms: React.FC = () => {
           ) : floorsError ? (
             <div className="text-center text-red-500 py-16">{floorsError.toString()}</div>
           ) : (
-            floors.map((floor, idx) => (
-              <motion.div
+            typedFloors.map((floor, idx) => (
+              <FloorRooms
                 key={floor.id}
-                className="bg-gray-50 dark:bg-slate-800 rounded-lg p-4 border border-gray-200 dark:border-slate-700 relative group cursor-pointer hover:shadow-lg transition-all"
-                onClick={e => {
-                  // Prevent navigation if menu or action button is clicked
-                  if ((e.target as HTMLElement).closest('.floor-actions')) return;
-                  navigate(`/rooms/${floor.id}`);
-                }}
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: idx * 0.07 }}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{floor.name}-qavat</h2>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${floor.gender === 'female' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-200' : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'}`}>{genderLabels[floor.gender]?.label}</span>
-                  </div>
-                  <div className="relative floor-actions">
-                    <button
-                      className="p-2 rounded hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400 transition-colors"
-                      onClick={e => { e.stopPropagation(); setMenuOpen(menuOpen === floor.id.toString() ? null : floor.id.toString()); }}
-                    >
-                      <MoreVertical size={20} />
-                    </button>
-                    {menuOpen === floor.id.toString() && (
-                      <div className="absolute right-0 mt-2 w-36 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg z-30 animate-fade-in">
-                        <button
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-t-lg transition-colors"
-                          onClick={() => handleEditFloor(floor)}
-                        >
-                          ✏️ Tahrirlash
-                        </button>
-                        <button
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded-b-lg transition-colors"
-                          onClick={() => handleDeleteFloor(floor)}
-                        >
-                          🗑️ O'chirish
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-4">
-                   {(() => {
-                     const rooms = roomsByFloor[floor.id];
-                     if (!Array.isArray(rooms) || rooms.length === 0) {
-                       return <span className="text-gray-400 dark:text-slate-500">Xona yo'q</span>;
-                     }
-                     return rooms.map((room) => (
-                       <div
-                         key={room.id}
-                         className="px-6 py-5 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col items-center justify-center min-w-[200px] w-full max-w-[280px]"
-                         title={room.name}
-                       >
-                         <span className="font-bold text-xl text-gray-900 dark:text-white mb-3">{room.name}</span>
-                         <span className={`text-sm px-4 py-2 rounded-full font-semibold ${statusColors[room.status] || 'bg-gray-200 text-gray-700'}`}>
-                           {statusLabels[room.status] || room.status}
-                         </span>
-                       </div>
-                     ));
-                   })()}
-                </div>
-              </motion.div>
+                floor={floor}
+                genderLabels={genderLabels}
+                menuOpen={menuOpen}
+                setMenuOpen={setMenuOpen}
+                handleEditFloor={handleEditFloor}
+                handleDeleteFloor={handleDeleteFloor}
+                navigate={navigate}
+              />
             ))
           )}
         </div>
@@ -448,7 +397,7 @@ const Rooms: React.FC = () => {
                     required
                   >
                     <option value="">Qavat tanlang</option>
-                    {floors.map(floor => (
+                    {typedFloors.map(floor => (
                       <option key={floor.id} value={floor.name}>
                         {floor.name}-qavat ({floor.gender === 'female' ? 'Qizlar' : 'Yigitlar'})
                       </option>

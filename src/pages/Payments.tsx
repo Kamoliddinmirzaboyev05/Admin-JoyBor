@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 // import NProgress from 'nprogress';
 import { useQuery } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
+import { useLocation } from 'react-router-dom';
 
 const Payments: React.FC = () => {
   // const { students, addPayment } = useAppStore();
@@ -23,6 +24,7 @@ const Payments: React.FC = () => {
     comment: '',
   });
   const [error, setError] = useState('');
+  const location = useLocation();
 
   // React Query bilan payments ma'lumotlarini olish
   const { 
@@ -45,6 +47,13 @@ const Payments: React.FC = () => {
     queryFn: apiQueries.getStudents,
     staleTime: 1000 * 60 * 10, // 10 daqiqa cache
   });
+
+  useEffect(() => {
+    if (location.state && (location.state as any).openAddPaymentModal) {
+      setShowModal(true);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const columns = [
     {
@@ -97,8 +106,8 @@ const Payments: React.FC = () => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSelectChange = (option: { value: string; label: string } | null) => {
-    setForm({ ...form, studentId: option ? option.value : '' });
+  const handleSelectChange = (opt: { value: string; label: string } | null) => {
+    setForm({ ...form, studentId: opt ? opt.value : '' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -128,7 +137,7 @@ const Payments: React.FC = () => {
     }
   };
 
-  const studentOptions = students.map((s) => ({ value: s.id as string, label: (s.name as string) + ' ' + (s.last_name as string) }));
+  const studentOptions = students.map((s: any) => ({ value: String(s.id), label: `${s.name} ${s.last_name}` }));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const selectStyles = {

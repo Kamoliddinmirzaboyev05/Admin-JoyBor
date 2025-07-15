@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import DataTable from '../components/UI/DataTable';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
 
@@ -49,8 +49,8 @@ const Students: React.FC = () => {
   const [editingStudent, setEditingStudent] = useState<Record<string, unknown> | null>(null);
   const [provinces, setProvinces] = useState<{ id: number; name: string }[]>([]);
   const [districts, setDistricts] = useState<{ id: number; name: string; province: number }[]>([]);
-  const regionOptions = provinces.map(p => ({ value: p.id, label: p.name }));
-  const districtOptions = districts.map(d => ({ value: d.id, label: d.name }));
+  const regionOptions = provinces.map(p => ({ value: String(p.id), label: p.name }));
+  const districtOptions = districts.map(d => ({ value: String(d.id), label: d.name }));
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -70,6 +70,8 @@ const Students: React.FC = () => {
     direction: "",
     floor: "",
   });
+
+  const location = useLocation();
 
   // React Query bilan students ma'lumotlarini olish
   const { 
@@ -96,7 +98,7 @@ const Students: React.FC = () => {
       title: "Ism Familiya",
       sortable: true,
       render: (_: unknown, row: Record<string, unknown>) => (
-        <Link to={`/profile/${row.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">{row.name as string} {row.last_name as string}</Link>
+        <Link to={`/profile/${row.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">{String(row.name)} {String(row.last_name)}</Link>
       ),
     },
     {
@@ -251,6 +253,14 @@ const Students: React.FC = () => {
       .then(data => setDistricts(data))
       .catch(() => setDistricts([]));
   }, [formData.region]);
+
+  useEffect(() => {
+    if (location.state && (location.state as any).openAddModal) {
+      setShowModal(true);
+      // Optionally, clear the state after opening
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Loading state
   if (isLoading) {
@@ -475,8 +485,8 @@ const Students: React.FC = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Qavat</label>
                     <Select
-                      options={Array.from(new Set(students.map(s => s.floor?.name))).filter(Boolean).map(floor => ({ value: floor, label: floor }))}
-                      value={districtOptions.find(opt => opt.value === Number(formData.district)) || null}
+                      options={districtOptions}
+                      value={districtOptions.find(opt => opt.value === String(formData.district)) || null}
                       onChange={opt => handleSelectChange('district', opt)}
                       isClearable
                       placeholder="Qavat tanlang..."
@@ -488,7 +498,7 @@ const Students: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona</label>
                     <Select
                       options={districtOptions}
-                      value={districtOptions.find(opt => opt.value === Number(formData.district)) || null}
+                      value={districtOptions.find(opt => opt.value === String(formData.district)) || null}
                       onChange={opt => handleSelectChange('district', opt)}
                       isClearable
                       placeholder="Xona tanlang..."
@@ -500,7 +510,7 @@ const Students: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Viloyat/Shahar</label>
                     <Select
                       options={regionOptions}
-                      value={regionOptions.find(opt => opt.value === Number(formData.region)) || null}
+                      value={regionOptions.find(opt => opt.value === String(formData.region)) || null}
                       onChange={opt => handleSelectChange('region', opt)}
                       isClearable
                       placeholder="Viloyat tanlang..."
@@ -512,7 +522,7 @@ const Students: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tuman/Shaharcha</label>
                     <Select
                       options={districtOptions}
-                      value={districtOptions.find(opt => opt.value === Number(formData.district)) || null}
+                      value={districtOptions.find(opt => opt.value === String(formData.district)) || null}
                       onChange={opt => handleSelectChange('district', opt)}
                       isClearable
                       placeholder="Tuman tanlang..."

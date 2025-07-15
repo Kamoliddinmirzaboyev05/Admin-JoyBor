@@ -2,20 +2,8 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LogOut, User, KeyRound, Mail, Phone, UserCog, ShieldCheck, CalendarCheck2, CheckCircle2, Activity } from 'lucide-react';
 import BackButton from '../components/UI/BackButton';
-
-const admin = {
-  firstName: 'Admin',
-  lastName: 'Adminov',
-  phone: '+998 90 123 45 67',
-  email: 'admin@ttu.uz',
-  login: 'admin',
-  avatar: '',
-  role: 'Administrator',
-  lastLogin: '2024-06-01 09:23',
-  status: 'Faol',
-  permissions: 'To‘liq',
-  completeness: 90,
-};
+import { useQuery } from '@tanstack/react-query';
+import { apiQueries } from '../data/api';
 
 const tabList = [
   { key: 'main', label: 'Asosiy', icon: <UserCog className="w-4 h-4 mr-1" /> },
@@ -65,6 +53,13 @@ function CircularProgress({ value, size = 90, stroke = 8, color = '#1E293B' }) {
 }
 
 const Profile: React.FC = () => {
+  const { data: admin, isLoading, error } = useQuery({
+    queryKey: ['adminProfile'],
+    queryFn: apiQueries.getAdminProfile,
+    staleTime: 1000 * 60 * 5,
+  });
+  if (isLoading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div></div>;
+  if (error || !admin) return <div className="text-center py-10 text-red-600 dark:text-red-400">Admin ma'lumotlarini yuklashda xatolik yuz berdi.</div>;
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [showLoginForm, setShowLoginForm] = useState(false);
   const [login, setLogin] = useState(admin.login);
