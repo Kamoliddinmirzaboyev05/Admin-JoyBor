@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import BackButton from '../components/UI/BackButton';
 import { get, post } from '../data/api';
-// import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -37,37 +37,35 @@ interface Room {
 
 const FloorDetail: React.FC = () => {
   const { floorId } = useParams();
-  const [floor, setFloor] = useState<Floor | null>(null);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [newRoom, setNewRoom] = useState('');
   const [adding, setAdding] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const floors: Floor[] = await get('/floors/');
-        const found = floors.find(f => String(f.id) === String(floorId));
-        if (!found) {
-          setError('Qavat topilmadi.');
-          setLoading(false);
-          return;
-        }
-        setFloor(found);
-        const roomsRes: Room[] = await get(`/rooms/?floor=${found.id}`);
-        setRooms(roomsRes);
-      } catch {
-        setError('Maʼlumotlarni yuklashda xatolik.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [floorId]);
+  // React Query bilan floors va rooms ma'lumotlarini olish
+  const {
+    data: floors = [],
+    isLoading: floorsLoading,
+    error: floorsError,
+    refetch: refetchFloors
+  } = useQuery({
+    queryKey: ['floors'],
+    queryFn: () => get('/floors/'),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const floor = floors.find((f: Floor) => String(f.id) === String(floorId)) as Floor | undefined;
+
+  const {
+    data: rooms = [],
+    isLoading: roomsLoading,
+    error: roomsError,
+    refetch: refetchRooms
+  } = useQuery({
+    queryKey: ['rooms', floor?.id],
+    queryFn: () => floor ? get(`/rooms/?floor=${floor.id}`) : Promise.resolve([]),
+    enabled: !!floor,
+    staleTime: 1000 * 60 * 5,
+  });
 
   const handleAddRoom = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,12 +80,10 @@ const FloorDetail: React.FC = () => {
         gender: floor.gender,
         status: 'EMPTY',
       });
-      // toast.success('Xona muvaffaqiyatli qo\'shildi!');
       setShowRoomModal(false);
       setNewRoom('');
       // Refresh rooms
-      const roomsRes: Room[] = await get(`/rooms/?floor=${floor.id}`);
-      setRooms(roomsRes);
+      refetchRooms();
     } catch {
       // toast.error('Xona qo\'shishda xatolik!');
     } finally {
@@ -95,17 +91,17 @@ const FloorDetail: React.FC = () => {
     }
   };
 
-  if (loading) {
+  if (floorsLoading || roomsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
       </div>
     );
   }
-  if (error) {
+  if (floorsError || roomsError) {
     return (
       <div className="p-8 text-center text-red-500">
-        {error} <BackButton label="Orqaga qaytish" className="mx-auto mt-4" />
+        Ma'lumotlarni yuklashda xatolik. <BackButton label="Orqaga qaytish" className="mx-auto mt-4" />
       </div>
     );
   }
@@ -183,7 +179,7 @@ const FloorDetail: React.FC = () => {
         {rooms.length === 0 ? (
           <span className="text-gray-400 dark:text-slate-500 col-span-full">Xona yo'q</span>
         ) : (
-          rooms.map(room => {
+          rooms.map((room: Room) => {
             const students = room.students || [];
             return (
               <div

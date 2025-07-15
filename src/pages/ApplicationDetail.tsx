@@ -3,56 +3,8 @@ import { useParams } from 'react-router-dom';
 import BackButton from '../components/UI/BackButton';
 import { BadgeCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
-
-// Mock data for applications (to'liqroq ma'lumotlar bilan)
-const mockApplications = [
-  {
-    id: '1',
-    fullName: 'Mirzaboyev Kamoliddin',
-    faculty: 'Informatika',
-    group: 'IF-21-01',
-    phone: '+998889563848',
-    date: '2024-06-01',
-    status: 'Yangi',
-    type: 'Yotoqxona',
-    passport: 'AA 1234567',
-    address: 'Andijon, Oltinko‘l',
-    direction: 'Dasturiy injiniring',
-    region: 'Andijon',
-    district: 'Oltinko‘l',
-    birthDate: '2003-05-12',
-    isPrivileged: true,
-    privilegeShare: 50,
-    gender: 'Erkak',
-    email: 'kamol@example.com',
-    comment: 'Tezroq javob kutaman',
-    avatar: '',
-    course: 2,
-  },
-  {
-    id: '2',
-    fullName: 'Aliyev Doston',
-    faculty: 'Iqtisodiyot',
-    group: 'IQ-22-03',
-    phone: '+998901234567',
-    date: '2024-06-02',
-    status: 'Ko‘rib chiqilmoqda',
-    type: 'Yotoqxona',
-    passport: 'AB 7654321',
-    address: 'Toshkent, Yunusobod',
-    direction: 'Buxgalteriya',
-    region: 'Toshkent',
-    district: 'Yunusobod',
-    birthDate: '2002-11-10',
-    isPrivileged: false,
-    privilegeShare: 0,
-    gender: 'Erkak',
-    email: 'doston@example.com',
-    comment: '',
-    avatar: '',
-    course: 3,
-  },
-];
+import { useQuery } from '@tanstack/react-query';
+import { apiQueries } from '../data/api';
 
 const statusColors = {
   'Yangi': 'bg-blue-100 text-blue-700',
@@ -74,7 +26,18 @@ function ReadOnlyInput({ label, value }: { label: string; value?: string | numbe
 
 const ApplicationDetail: React.FC = () => {
   const { id } = useParams();
-  const app = mockApplications.find(a => a.id === id);
+  // Fetch all applications and find by id (API does not have getApplicationById)
+  const {
+    data: applications = [],
+    isLoading,
+    error,
+    refetch
+  } = useQuery({
+    queryKey: ['applications'],
+    queryFn: apiQueries.getApplications,
+    staleTime: 1000 * 60 * 5,
+  });
+  const app = applications.find((a: Record<string, any>) => String(a.id) === String(id));
 
   const getNameParts = (fullName: string) => {
     const parts = fullName.split(' ');
@@ -84,8 +47,24 @@ const ApplicationDetail: React.FC = () => {
       fatherName: parts.slice(2).join(' ') || '-',
     };
   };
-  const { lastName, firstName, fatherName } = app ? getNameParts(app.fullName) : { lastName: '-', firstName: '-', fatherName: '-' };
+  const { lastName, firstName, fatherName } = app ? getNameParts(app.fullName || app.full_name || '') : { lastName: '-', firstName: '-', fatherName: '-' };
 
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div></div>;
+  }
+  if (error) {
+    return (
+      <div className="text-center py-10 text-red-600 dark:text-red-400">
+        Ma'lumotlarni yuklashda xatolik yuz berdi.
+        <button
+          onClick={() => refetch()}
+          className="ml-2 text-blue-600 hover:underline"
+        >
+          Qayta urinish
+        </button>
+      </div>
+    );
+  }
   if (!app) {
     return (
       <div className="p-8 text-center text-red-500">
@@ -113,15 +92,15 @@ const ApplicationDetail: React.FC = () => {
           {app.avatar ? (
             <img
               src={app.avatar}
-              alt={app.fullName}
+              alt={app.fullName || app.full_name}
               className="w-28 h-28 object-cover rounded-full border-4 border-blue-200 dark:border-slate-700 shadow-lg -mt-6"
             />
           ) : (
             <div className="w-28 h-28 flex items-center justify-center bg-gradient-to-br from-blue-100 to-blue-300 dark:from-slate-700 dark:to-slate-900 text-4xl font-bold text-blue-700 dark:text-blue-200 rounded-full border-4 border-blue-200 dark:border-slate-700 shadow-lg -mt-6">
-              {app.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+              {(app.fullName || app.full_name || '').split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
             </div>
           )}
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mt-2 text-center">{app.fullName}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mt-2 text-center">{app.fullName || app.full_name}</h1>
           <div className="text-gray-400 dark:text-gray-300 text-sm">{app.type} arizasi</div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">

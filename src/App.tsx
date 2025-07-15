@@ -1,5 +1,6 @@
 import React from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Layout from "./components/Layout/Layout";
 import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
@@ -14,6 +15,18 @@ import ApplicationDetail from "./pages/ApplicationDetail";
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 daqiqa cache
+      gcTime: 1000 * 60 * 10, // 10 daqiqa cache
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
 function RequireAuth() {
   const isAuth = localStorage.getItem('isAuth') === 'true';
   return isAuth ? <Outlet /> : <Navigate to="/login" replace />;
@@ -21,7 +34,7 @@ function RequireAuth() {
 
 function App() {
   return (
-    <>
+    <QueryClientProvider client={queryClient}>
       <Toaster position="top-center" />
       <Routes>
         <Route element={<RequireAuth />}>
@@ -40,7 +53,7 @@ function App() {
           </Route>
         </Route>
       </Routes>
-    </>
+    </QueryClientProvider>
   );
 }
 

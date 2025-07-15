@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { get, post } from '../data/api';
 // import NProgress from 'nprogress';
+import { useQuery } from '@tanstack/react-query';
+import { apiQueries } from '../data/api';
 
 interface Floor {
   id: number;
@@ -50,10 +52,7 @@ const statusLabels: Record<string, string> = {
 };
 
 const Rooms: React.FC = () => {
-  const [floors, setFloors] = useState<Floor[]>([]);
   const [roomsByFloor, setRoomsByFloor] = useState<Record<number, Room[] | undefined>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showFloorModal, setShowFloorModal] = useState(false);
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [newFloor, setNewFloor] = useState('');
@@ -66,32 +65,20 @@ const Rooms: React.FC = () => {
   const [addingFloor, setAddingFloor] = useState(false);
   const navigate = useNavigate();
 
+  // React Query bilan floors ma'lumotlarini olish
+  const { 
+    data: floors = [], 
+    isLoading: floorsLoading, 
+    error: floorsError,
+    refetch: refetchFloors 
+  } = useQuery({
+    queryKey: ['floors'],
+    queryFn: apiQueries.getFloors,
+    staleTime: 1000 * 60 * 5, // 5 daqiqa cache
+  });
+
   // Helper: check if all rooms for all floors are loaded
   const allRoomsLoaded = floors.length > 0 && floors.every(f => Array.isArray(roomsByFloor[f.id]));
-
-  useEffect(() => {
-    const fetchFloors = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const floorsRes = await get('/floors/');
-        let floorsData: Floor[] = floorsRes;
-        floorsData = floorsData.sort((a, b) => {
-          const aNum = parseInt(a.name);
-          const bNum = parseInt(b.name);
-          return (isNaN(aNum) || isNaN(bNum)) ? a.name.localeCompare(b.name) : aNum - bNum;
-        });
-        setFloors(floorsData);
-        // Rooms loading moved to per-floor incremental loading
-        setRoomsByFloor({});
-      } catch (err: any) {
-        setError(err?.toString() || 'Qavatlarni yuklashda xatolik.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchFloors();
-  }, []);
 
   // Incremental loading: fetch rooms for each floor as soon as floors are loaded
   useEffect(() => {
@@ -100,7 +87,7 @@ const Rooms: React.FC = () => {
       try {
         setRoomsByFloor(prev => ({ ...prev, [floor.id]: undefined })); // undefined = loading
         const res = await get(`/rooms/?floor=${floor.id}`);
-        const rooms = (res || []).map((room: any) => {
+        const rooms = (res || []).map((room: Record<string, unknown>) => {
           const students = room.students || [];
           const capacity = room.capacity || 0;
           const currentOccupancy = students.length;
@@ -117,17 +104,32 @@ const Rooms: React.FC = () => {
           };
         });
         setRoomsByFloor(prev => ({ ...prev, [floor.id]: rooms }));
-      } catch (err) {
+      } catch {
         setRoomsByFloor(prev => ({ ...prev, [floor.id]: [] }));
       }
     });
   }, [floors]);
 
   // Show only loading bar and spinner until all data is loaded
-  if (loading || !allRoomsLoaded) {
+  if (floorsLoading || !allRoomsLoaded) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (floorsError) {
+    return (
+      <div className="text-center py-10 text-red-600 dark:text-red-400">
+        Ma'lumotlarni yuklashda xatolik yuz berdi. 
+        <button 
+          onClick={() => refetchFloors()} 
+          className="ml-2 text-blue-600 hover:underline"
+        >
+          Qayta urinish
+        </button>
       </div>
     );
   }
@@ -142,18 +144,11 @@ const Rooms: React.FC = () => {
       await post('/floor/create/', { name: floorStr, gender: newFloorGender });
       toast.success('Qavat muvaffaqiyatli qo\'shildi!');
       // Refresh floors from API
-      const floorsRes = await get('/floors/');
-      let floorsData = floorsRes;
-      floorsData = floorsData.sort((a: any, b: any) => {
-        const aNum = parseInt(a.name);
-        const bNum = parseInt(b.name);
-        return (isNaN(aNum) || isNaN(bNum)) ? a.name.localeCompare(b.name) : aNum - bNum;
-      });
-      setFloors(floorsData);
+      refetchFloors();
       setShowFloorModal(false);
       setNewFloor('');
       setNewFloorGender('male');
-    } catch (err: any) {
+    } catch {
       toast.error('Qavat qo\'shishda xatolik!');
     } finally {
       setAddingFloor(false);
@@ -189,7 +184,7 @@ const Rooms: React.FC = () => {
       setShowRoomModal(false);
       // Refresh rooms for the selected floor
       const res = await get(`/rooms/?floor=${floorObj.id}`);
-      const rooms = (res || []).map((room: any) => {
+      const rooms = (res || []).map((room: Record<string, unknown>) => {
         const students = room.students || [];
         const roomCapacity = room.capacity || 0;
         const currentOccupancy = students.length;
@@ -206,7 +201,7 @@ const Rooms: React.FC = () => {
         };
       });
       setRoomsByFloor(prev => ({ ...prev, [floorObj.id]: rooms }));
-    } catch (err: any) {
+    } catch {
       toast.error('Xona qo\'shishda xatolik!');
     } finally {
       setAddingRoom(false);
@@ -254,10 +249,10 @@ const Rooms: React.FC = () => {
           </div>
         </div>
         <div className="space-y-6">
-          {loading ? (
+          {floorsLoading ? (
             <div className="text-center text-gray-500 dark:text-gray-400 py-16">Yuklanmoqda...</div>
-          ) : error ? (
-            <div className="text-center text-red-500 py-16">{error}</div>
+          ) : floorsError ? (
+            <div className="text-center text-red-500 py-16">{floorsError.toString()}</div>
           ) : (
             floors.map((floor, idx) => (
               <motion.div

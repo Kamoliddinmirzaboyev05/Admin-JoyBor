@@ -9,12 +9,11 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import '../index.css';
 import { toast } from 'sonner';
 // import NProgress from 'nprogress';
+import { useQuery } from '@tanstack/react-query';
+import { apiQueries } from '../data/api';
 
 const Payments: React.FC = () => {
   // const { students, addPayment } = useAppStore();
-  const [payments, setPayments] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
     studentId: '',
@@ -24,7 +23,28 @@ const Payments: React.FC = () => {
     comment: '',
   });
   const [error, setError] = useState('');
-  const [students, setStudents] = useState<Record<string, unknown>[]>([]);
+
+  // React Query bilan payments ma'lumotlarini olish
+  const { 
+    data: payments = [], 
+    isLoading, 
+    error: fetchError, 
+    refetch 
+  } = useQuery({
+    queryKey: ['payments'],
+    queryFn: apiQueries.getPayments,
+    staleTime: 1000 * 60 * 5, // 5 daqiqa cache
+  });
+
+  // React Query bilan students ma'lumotlarini olish
+  const { 
+    data: students = [], 
+    isLoading: studentsLoading 
+  } = useQuery({
+    queryKey: ['students'],
+    queryFn: apiQueries.getStudents,
+    staleTime: 1000 * 60 * 10, // 10 daqiqa cache
+  });
 
   const columns = [
     {
@@ -65,39 +85,10 @@ const Payments: React.FC = () => {
     },
   ];
 
-  useEffect(() => {
-    // NProgress.start();
-    const token = localStorage.getItem("access");
-    const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
-    fetch('https://joyboryangi.pythonanywhere.com/payments/', { headers })
-      .then(res => {
-        if (!res.ok) throw new Error('Serverdan to\'g\'ri javob kelmadi');
-        return res.json();
-      })
-      .then(data => {
-        setPayments(data);
-        setFetchError('');
-      })
-      .catch(err => {
-        setFetchError('To\'lovlarni yuklashda xatolik: ' + err.message);
-      })
-      .finally(() => {
-        setLoading(false);
-        // NProgress.done();
-      });
-  }, []);
-
   const handleOpen = () => {
     setForm({ studentId: '', amount: '', validUntil: '', paymentType: '', comment: '' });
     setError('');
     setShowModal(true);
-    // Fetch students when modal opens
-    const token = localStorage.getItem("access");
-    const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
-    fetch("https://joyboryangi.pythonanywhere.com/students/", { headers })
-      .then(res => res.json())
-      .then(data => setStudents(data))
-      .catch(() => setStudents([]));
   };
 
   const handleClose = () => setShowModal(false);
@@ -113,41 +104,27 @@ const Payments: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.studentId || !form.amount || !form.validUntil || !form.paymentType) {
-      setError('Barcha maydonlarni to‘ldiring!');
-      toast.error('Barcha maydonlarni to‘ldiring!');
+      setError('Barcha maydonlarni to\u2018ldiring!');
+      toast.error('Barcha maydonlarni to\u2018ldiring!');
       return;
     }
     setError('');
     try {
-      const token = localStorage.getItem("access");
-      const headers: HeadersInit = token
-        ? { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
-        : { "Content-Type": "application/json" };
-      const res = await fetch('https://joyboryangi.pythonanywhere.com/payment/create/', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          student: Number(form.studentId),
-          amount: Number(form.amount),
-          valid_until: form.validUntil,
-          method: form.paymentType === 'cash' ? 'Cash' : 'Card',
-          status: 'APPROVED',
-          comment: form.comment,
-        }),
+      await apiQueries.createPayment({
+        student: Number(form.studentId),
+        amount: Number(form.amount),
+        valid_until: form.validUntil,
+        method: form.paymentType === 'cash' ? 'Cash' : 'Card',
+        status: 'APPROVED',
+        comment: form.comment,
       });
-      if (!res.ok) throw new Error('To‘lovni yaratishda xatolik');
-      toast.success('To‘lov muvaffaqiyatli qo‘shildi!');
-      // To‘lovlar ro‘yxatini yangilash uchun qayta yuklaymiz
-      const getHeaders: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
-      setLoading(true);
-      fetch('https://joyboryangi.pythonanywhere.com/payments/', { headers: getHeaders })
-        .then(res => res.json())
-        .then(data => setPayments(data))
-        .finally(() => setLoading(false));
+      toast.success('To\u2018lov muvaffaqiyatli qo\u2018shildi!');
+      // Yangilash uchun refetch chaqirish
+      refetch();
       setShowModal(false);
-    } catch (err: any) {
-      setError('To‘lovni yaratishda xatolik: ' + err.message);
-      toast.error('To‘lovni yaratishda xatolik: ' + err.message);
+    } catch (err: unknown) {
+      setError('To\u2018lovni yaratishda xatolik: ' + (err instanceof Error ? err.message : 'Noma\'lum xatolik'));
+      toast.error('To\u2018lovni yaratishda xatolik: ' + (err instanceof Error ? err.message : 'Noma\'lum xatolik'));
     }
   };
 
@@ -199,10 +176,24 @@ const Payments: React.FC = () => {
     }),
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="text-center py-10 text-red-600 dark:text-red-400">
+        Ma'lumotlarni yuklashda xatolik yuz berdi. 
+        <button 
+          onClick={() => refetch()} 
+          className="ml-2 text-blue-600 hover:underline"
+        >
+          Qayta urinish
+        </button>
       </div>
     );
   }
@@ -213,29 +204,39 @@ const Payments: React.FC = () => {
         <div className="w-10 h-10 bg-gradient-to-br from-accent-500 to-primary-500 rounded-lg flex items-center justify-center">
           <CreditCard className="w-6 h-6 text-white" />
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex-1">To‘lovlar</h1>
-        <button
-          onClick={handleOpen}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-semibold shadow transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          To‘lov qo‘shish
-        </button>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">To'lovlar</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Yotoqxona to'lovlari boshqaruvi
+          </p>
+        </div>
+        <div className="ml-auto flex items-center space-x-3">
+          <button
+            onClick={() => refetch()}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            Yangilash
+          </button>
+          <button
+            onClick={handleOpen}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>To'lov qo'shish</span>
+          </button>
+        </div>
       </div>
-      {fetchError ? (
-        <div className="text-center py-10 text-red-600 dark:text-red-400">{fetchError}</div>
-      ) : (
-        <DataTable
-          data={payments}
-          columns={columns}
-          searchable={true}
-          filterable={false}
-          pagination={true}
-          pageSize={8}
-        />
-      )}
 
-      {/* Modal */}
+      <DataTable
+        data={payments}
+        columns={columns}
+        searchable={true}
+        filterable={true}
+        pagination={true}
+        pageSize={10}
+      />
+
+      {/* Modal for adding payment */}
       <AnimatePresence>
         {showModal && (
           <motion.div

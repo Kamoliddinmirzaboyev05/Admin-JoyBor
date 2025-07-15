@@ -3,26 +3,8 @@ import { Link } from 'react-router-dom';
 import { ChevronRight, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select from 'react-select';
-
-// Mock data for applications
-const mockApplications = [
-  {
-    id: '1',
-    fullName: 'Mirzaboyev Kamoliddin',
-    phone: '+998889563848',
-    date: '2024-06-01',
-    status: 'Yangi',
-    type: 'Yotoqxona',
-  },
-  {
-    id: '2',
-    fullName: 'Aliyev Doston',
-    phone: '+998901234567',
-    date: '2024-06-02',
-    status: 'Ko‘rib chiqilmoqda',
-    type: 'Yotoqxona',
-  },
-];
+import { useQuery } from '@tanstack/react-query';
+import { apiQueries } from '../data/api';
 
 const statusColors = {
   'Yangi': 'bg-blue-100 text-blue-700',
@@ -100,9 +82,22 @@ const Applications: React.FC = () => {
     type: 'Yotoqxona',
   });
 
-  const filteredApps = mockApplications.filter(app =>
-    app.fullName.toLowerCase().includes(search.toLowerCase()) &&
-    (statusFilter ? app.status === statusFilter : true)
+  // React Query bilan applications ma'lumotlarini olish
+  const {
+    data: applications = [],
+    isLoading,
+    error,
+    refetch
+  } = useQuery({
+    queryKey: ['applications'],
+    queryFn: apiQueries.getApplications,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Filter API data
+  const filteredApps = applications.filter((app: Record<string, any>) =>
+    (app.fullName || app.full_name || '').toLowerCase().includes(search.toLowerCase()) &&
+    (statusFilter ? (app.status === statusFilter) : true)
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -121,6 +116,29 @@ const Applications: React.FC = () => {
     // Yangi arizani qo'shish logikasi (mock)
     setShowModal(false);
   };
+
+  // Replace mockApplications with filteredApps in render
+  // Add loading and error states
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="text-center py-10 text-red-600 dark:text-red-400">
+        Ma'lumotlarni yuklashda xatolik yuz berdi.
+        <button
+          onClick={() => refetch()}
+          className="ml-2 text-blue-600 hover:underline"
+        >
+          Qayta urinish
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto w-full">
@@ -151,13 +169,13 @@ const Applications: React.FC = () => {
         {filteredApps.length === 0 ? (
           <div className="text-center text-gray-400 py-10">Arizalar topilmadi</div>
         ) : (
-          filteredApps.map(app => (
+          filteredApps.map((app: Record<string, any>) => (
             <div
               key={app.id}
               className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 border border-gray-100 dark:border-slate-700 hover:shadow-lg transition"
             >
               <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                <div className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">{app.fullName}</div>
+                <div className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">{app.fullName || app.full_name}</div>
                 <div className="text-gray-500 dark:text-gray-300 text-sm sm:text-base">{app.phone}</div>
                 <div className="text-gray-400 text-xs sm:text-sm">{app.date}</div>
                 <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${statusColors[app.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-700'}`}>{app.status}</div>

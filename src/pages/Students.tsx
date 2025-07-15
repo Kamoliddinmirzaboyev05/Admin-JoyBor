@@ -5,6 +5,8 @@ import DataTable from '../components/UI/DataTable';
 import toast from 'react-hot-toast';
 import Select from 'react-select';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { apiQueries } from '../data/api';
 
 // react-select custom styles for dark mode
 const selectStyles = {
@@ -43,11 +45,8 @@ const selectStyles = {
 };
 
 const Students: React.FC = () => {
-  const [students, setStudents] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<any>(null);
+  const [editingStudent, setEditingStudent] = useState<Record<string, unknown> | null>(null);
   const [provinces, setProvinces] = useState<{ id: number; name: string }[]>([]);
   const [districts, setDistricts] = useState<{ id: number; name: string; province: number }[]>([]);
   const regionOptions = provinces.map(p => ({ value: p.id, label: p.name }));
@@ -70,6 +69,18 @@ const Students: React.FC = () => {
     avatar: "",
     direction: "",
     floor: "",
+  });
+
+  // React Query bilan students ma'lumotlarini olish
+  const { 
+    data: students = [], 
+    isLoading, 
+    error, 
+    refetch 
+  } = useQuery({
+    queryKey: ['students'],
+    queryFn: apiQueries.getStudents,
+    staleTime: 1000 * 60 * 5, // 5 daqiqa cache
   });
 
   const columns = [
@@ -104,19 +115,9 @@ const Students: React.FC = () => {
       render: (_: unknown, row: Record<string, unknown>) => <span className="px-2 py-1 bg-primary-100 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300 rounded-full text-sm font-medium">{row.room && typeof row.room === 'object' ? (row.room as any).name : "-"}</span>,
     },
     {
-      key: "floor",
-      title: "Qavat",
-      render: (_: unknown, row: Record<string, unknown>) => <span className="text-sm text-gray-700 dark:text-gray-300">{row.floor && typeof row.floor === 'object' ? (row.floor as any).name : "-"}</span>,
-    },
-    {
       key: "province",
       title: "Viloyat",
       render: (_: unknown, row: Record<string, unknown>) => <span className="text-sm text-gray-700 dark:text-gray-300">{row.province && typeof row.province === 'object' ? (row.province as any).name : "-"}</span>,
-    },
-    {
-      key: "district",
-      title: "Tuman",
-      render: (_: unknown, row: Record<string, unknown>) => <span className="text-sm text-gray-700 dark:text-gray-300">{row.district && typeof row.district === 'object' ? (row.district as any).name : "-"}</span>,
     },
     {
       key: "phone",
@@ -164,46 +165,50 @@ const Students: React.FC = () => {
       try {
         // ... your API call logic ...
         toast.success("Talaba muvaffaqiyatli qo'shildi!");
-        setShowModal(false);
-      } catch (err: any) {
-        toast.error("Talaba qo'shishda xatolik: " + err.message);
+        // Yangilash uchun refetch chaqirish
+        refetch();
+      } catch (error) {
+        toast.error("Xatolik yuz berdi!");
       }
     }
+    setShowModal(false);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'course' ? parseInt(value) : value,
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
     }));
   };
 
-  const handleSelectChange = (name: string, option: any) => {
-    setFormData(prev => ({ ...prev, [name]: option ? String(option.value) : "" }));
-    if (name === "region") setFormData(prev => ({ ...prev, district: "" }));
+  const handleSelectChange = (name: string, option: { value: string; label: string } | null) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: option ? option.value : '',
+    }));
   };
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.checked }));
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.checked,
+    }));
   };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = () => setFormData(prev => ({ ...prev, avatar: reader.result as string }));
-      reader.readAsDataURL(file);
+      // Handle file upload logic
     }
   };
 
-  // Add filter states for gender, payment status, and floor
+  // Add filter states for gender and payment status
   const [genderFilter, setGenderFilter] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
-  const [floorFilter, setFloorFilter] = useState("");
 
   // Filtering logic
-  const filteredStudents = students.filter(s => {
+  const filteredStudents = students.filter((s: Record<string, any>) => {
     const matchesGender = genderFilter ? s.gender === genderFilter : true;
     // Assume s.total_payment and s.tarif exist and are numbers
     let isHaqdor = false;
@@ -214,30 +219,13 @@ const Students: React.FC = () => {
       isQarzdor = s.total_payment < tarifNum;
     }
     const matchesPayment = paymentStatusFilter === "haqdor" ? isHaqdor : paymentStatusFilter === "qarzdor" ? isQarzdor : true;
-    const matchesFloor = floorFilter ? (s.floor && s.floor.name === floorFilter) : true;
-    return matchesGender && matchesPayment && matchesFloor;
+    return matchesGender && matchesPayment;
   });
 
-  // Simulate loading for demonstration
+  // Fetch provinces
   useEffect(() => {
-    setLoading(true);
     const token = localStorage.getItem("access");
     const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
-    fetch("https://joyboryangi.pythonanywhere.com/students/", { headers })
-      .then(res => {
-        if (!res.ok) throw new Error("Serverdan togri javob kelmadi");
-        return res.json();
-      })
-      .then(data => {
-        setStudents(data);
-        setFetchError("");
-      })
-      .catch(err => {
-        setFetchError("Talabalarni yuklashda xatolik: " + err.message);
-      })
-      .finally(() => setLoading(false));
-
-    // Fetch provinces
     fetch("https://joyboryangi.pythonanywhere.com/provinces/", { headers })
       .then(res => {
         if (!res.ok) throw new Error("Viloyatlarni yuklashda xatolik");
@@ -264,8 +252,8 @@ const Students: React.FC = () => {
       .catch(() => setDistricts([]));
   }, [formData.region]);
 
-  // Show only loading bar and spinner until data is loaded
-  if (loading) {
+  // Loading state
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
@@ -273,29 +261,50 @@ const Students: React.FC = () => {
     );
   }
 
-  if (fetchError) {
-    return <div className="text-center py-10 text-red-600 dark:text-red-400">{fetchError}</div>;
+  // Error state
+  if (error) {
+    return (
+      <div className="text-center py-10 text-red-600 dark:text-red-400">
+        Ma'lumotlarni yuklashda xatolik yuz berdi. 
+        <button 
+          onClick={() => refetch()} 
+          className="ml-2 text-blue-600 hover:underline"
+        >
+          Qayta urinish
+        </button>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center sm:justify-between"
-      >
+    <div className="max-w-7xl mx-auto py-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Talabalar</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Yotoqxonadagi barcha talabalar ro'yxati va boshqaruvi
+            Yotoqxonada yashayotgan talabalar ro'yxati
           </p>
         </div>
-      </motion.div>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => refetch()}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            Yangilash
+          </button>
+          <button
+            onClick={handleAdd}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Talaba qo'shish</span>
+          </button>
+        </div>
+      </div>
 
       {/* Filter va qidiruv */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex flex-wrap gap-3 items-center mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex flex-wrap gap-3 items-center">
           <Select
             options={[
               { value: "male", label: "Erkak" },
@@ -322,31 +331,19 @@ const Students: React.FC = () => {
             classNamePrefix="react-select"
             className="min-w-[140px]"
           />
-          <Select
-            options={Array.from(new Set(students.map(s => s.floor?.name))).filter(Boolean).map(floor => ({ value: floor, label: floor }))}
-            value={floorFilter ? { value: floorFilter, label: floorFilter } : null}
-            onChange={opt => setFloorFilter(opt ? String(opt.value) : "")}
-            isClearable
-            placeholder="Qavat"
-            styles={selectStyles}
-            classNamePrefix="react-select"
-            className="min-w-[120px]"
-          />
+
         </div>
-        <button
-          onClick={handleAdd}
-          className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Yangi Talaba</span>
-        </button>
       </div>
 
       {/* Data Table */}
       <DataTable
-        data={filteredStudents.map((s, idx) => ({ ...s, _idx: idx }))}
+        data={filteredStudents.map((s: Record<string, any>, idx: number) => ({ ...s, _idx: idx }))}
         columns={columns}
         actions={null}
+        searchable={true}
+        filterable={true}
+        pagination={true}
+        pageSize={10}
       />
 
       {/* Modal */}

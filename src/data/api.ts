@@ -31,4 +31,24 @@ export function put(url: string, body?: Record<string, unknown>) {
 }
 export function del(url: string) {
   return apiFetch(url, { method: 'DELETE' });
-} 
+}
+
+// React Query uchun API funksiyalar
+export const apiQueries = {
+  // Students
+  getStudents: () => get('/students/'),
+  
+  // Rooms
+  getFloors: () => get('/floors/'),
+  getRooms: (floorId?: number) => get(`/rooms/${floorId ? `?floor=${floorId}` : ''}`),
+  
+  // Payments
+  getPayments: () => get('/payments/'),
+  createPayment: (data: Record<string, unknown>) => post('/payment/create/', data),
+  
+  // Applications
+  getApplications: () => get('/applications/'),
+  
+  // Student Profile
+  getStudentProfile: (id: string) => get(`/students/${id}/`),
+}; 

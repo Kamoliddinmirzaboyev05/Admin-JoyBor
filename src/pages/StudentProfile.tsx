@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import BackButton from '../components/UI/BackButton';
 import { BadgeCheck } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { apiQueries } from '../data/api';
 
 function ReadOnlyInput({ label, value }: { label: string; value?: string | number | boolean }) {
   return (
@@ -33,38 +35,30 @@ function EditableInput({ label, value, onChange, type = 'text' }: { label: strin
 
 const StudentProfile: React.FC = () => {
   const { studentId } = useParams();
-  const [student, setStudent] = useState<Record<string, unknown> | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState<Record<string, unknown> | null>(null);
 
-  useEffect(() => {
-    if (!studentId) return;
-    setLoading(true);
-    setError("");
-    const token = localStorage.getItem("access");
-    const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
-    fetch(`https://joyboryangi.pythonanywhere.com/students/${studentId}/`, { headers })
-      .then(res => {
-        if (!res.ok) throw new Error("Talaba topilmadi");
-        return res.json();
-      })
-      .then(data => {
-        setStudent(data);
-        setForm(data);
-      })
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [studentId]);
+  // React Query bilan student profilini olish
+  const {
+    data: student,
+    isLoading,
+    error,
+    refetch
+  } = useQuery({
+    queryKey: ['studentProfile', studentId],
+    queryFn: () => apiQueries.getStudentProfile(studentId!),
+    enabled: !!studentId,
+    staleTime: 1000 * 60 * 5,
+    onSuccess: (data) => setForm(data),
+  });
 
-  if (loading) {
+  if (isLoading) {
     return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div></div>;
   }
   if (error || !student || !form) {
     return (
       <div className="p-8 text-center text-red-500">
-        {error || 'Talaba topilmadi.'} <BackButton label="Orqaga qaytish" className="mx-auto mt-4" />
+        {error ? 'Maʼlumotlarni yuklashda xatolik.' : 'Talaba topilmadi.'} <BackButton label="Orqaga qaytish" className="mx-auto mt-4" />
       </div>
     );
   }
