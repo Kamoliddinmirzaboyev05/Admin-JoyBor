@@ -4,6 +4,7 @@ import BackButton from '../components/UI/BackButton';
 import { BadgeCheck } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
+import { BASE_URL } from '../data/api';
 
 function ReadOnlyInput({ label, value }: { label: string; value?: string | number | boolean }) {
   return (
@@ -49,8 +50,11 @@ const StudentProfile: React.FC = () => {
     queryFn: () => apiQueries.getStudentProfile(studentId!),
     enabled: !!studentId,
     staleTime: 1000 * 60 * 5,
-    onSuccess: (data) => setForm(data),
   });
+
+  React.useEffect(() => {
+    if (student) setForm(student);
+  }, [student]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div></div>;
@@ -90,33 +94,35 @@ const StudentProfile: React.FC = () => {
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
           {/* Profil rasmi yoki avatar */}
-          {form?.avatar ? (
+          {(form as Record<string, any>)?.picture ? (
             <img
-              src={form.avatar as string}
-              alt={form.name as string}
+              src={((form as Record<string, any>).picture as string)?.startsWith('http')
+                ? (form as Record<string, any>).picture as string
+                : BASE_URL + (form as Record<string, any>).picture}
+              alt={(form as Record<string, any>).name as string}
               className="w-32 h-32 object-cover rounded-md border border-gray-200 dark:border-slate-600 shadow"
             />
           ) : (
             <div className="w-32 h-32 flex items-center justify-center bg-gray-200 dark:bg-slate-700 text-5xl font-bold text-gray-500 dark:text-gray-400 rounded-md border border-gray-200 dark:border-slate-600 shadow">
-              {form?.name && form?.last_name
-                ? `${(form.name as string)[0] || ''}${(form.last_name as string)[0] || ''}`
+              {(form as Record<string, any>)?.name && (form as Record<string, any>)?.last_name
+                ? `${((form as Record<string, any>).name as string)[0] || ''}${((form as Record<string, any>).last_name as string)[0] || ''}`
                 : ''}
             </div>
           )}
           <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
             {editMode ? (
               <>
-                <EditableInput label="Ism" value={form?.name as string} onChange={v => handleChange('name', v)} />
-                <EditableInput label="Familiya" value={form?.last_name as string} onChange={v => handleChange('last_name', v)} />
-                <EditableInput label="Otasining ismi" value={form?.middle_name as string} onChange={v => handleChange('middle_name', v)} />
-                <EditableInput label="Telefon" value={form?.phone as string} onChange={v => handleChange('phone', v)} />
+                <EditableInput label="Ism" value={(form as Record<string, any>)?.name as string} onChange={v => handleChange('name', v)} />
+                <EditableInput label="Familiya" value={(form as Record<string, any>)?.last_name as string} onChange={v => handleChange('last_name', v)} />
+                <EditableInput label="Otasining ismi" value={(form as Record<string, any>)?.middle_name as string} onChange={v => handleChange('middle_name', v)} />
+                <EditableInput label="Telefon" value={(form as Record<string, any>)?.phone as string} onChange={v => handleChange('phone', v)} />
               </>
             ) : (
               <>
-                <ReadOnlyInput label="Ism" value={form?.name as string} />
-                <ReadOnlyInput label="Familiya" value={form?.last_name as string} />
-                <ReadOnlyInput label="Otasining ismi" value={form?.middle_name as string} />
-                <ReadOnlyInput label="Telefon" value={form?.phone as string} />
+                <ReadOnlyInput label="Ism" value={(form as Record<string, any>)?.name as string} />
+                <ReadOnlyInput label="Familiya" value={(form as Record<string, any>)?.last_name as string} />
+                <ReadOnlyInput label="Otasining ismi" value={(form as Record<string, any>)?.middle_name as string} />
+                <ReadOnlyInput label="Telefon" value={(form as Record<string, any>)?.phone as string} />
               </>
             )}
           </div>
@@ -124,33 +130,33 @@ const StudentProfile: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-8 mt-6">
           {editMode ? (
             <>
-              <EditableInput label="Fakultet" value={form.faculty} onChange={v => handleChange('faculty', v)} />
-              <EditableInput label="Yo'nalish" value={form.direction} onChange={v => handleChange('direction', v)} />
-              <EditableInput label="Guruh" value={form.group || ''} onChange={v => handleChange('group', v)} />
-              <EditableInput label="Xona" value={form.room?.name || ''} onChange={v => handleChange('room', v)} />
-              <EditableInput label="Qavat" value={form.floor?.name || ''} onChange={v => handleChange('floor', v)} />
-              <EditableInput label="Viloyat" value={form.province?.name || ''} onChange={v => handleChange('province', v)} />
-              <EditableInput label="Tuman" value={form.district?.name || ''} onChange={v => handleChange('district', v)} />
-              <EditableInput label="Pasport" value={form.passport || ''} onChange={v => handleChange('passport', v)} />
-              <EditableInput label="Tarif" value={form.tarif || ''} onChange={v => handleChange('tarif', v)} />
-              <EditableInput label="Imtiyoz" value={form.imtiyoz || ''} onChange={v => handleChange('imtiyoz', v)} />
-              <EditableInput label="Qabul qilingan sana" value={form.accepted_date || ''} onChange={v => handleChange('accepted_date', v)} />
-              <EditableInput label="Jami to'lov" value={form.total_payment || ''} onChange={v => handleChange('total_payment', v)} />
+              <EditableInput label="Fakultet" value={(form as Record<string, any>).faculty} onChange={v => handleChange('faculty', v)} />
+              <EditableInput label="Yo'nalish" value={(form as Record<string, any>).direction} onChange={v => handleChange('direction', v)} />
+              <EditableInput label="Guruh" value={(form as Record<string, any>).group || ''} onChange={v => handleChange('group', v)} />
+              <EditableInput label="Xona" value={(form as Record<string, any>).room?.name || ''} onChange={v => handleChange('room', v)} />
+              <EditableInput label="Qavat" value={(form as Record<string, any>).floor?.name || ''} onChange={v => handleChange('floor', v)} />
+              <EditableInput label="Viloyat" value={(form as Record<string, any>).province?.name || ''} onChange={v => handleChange('province', v)} />
+              <EditableInput label="Tuman" value={(form as Record<string, any>).district?.name || ''} onChange={v => handleChange('district', v)} />
+              <EditableInput label="Pasport" value={(form as Record<string, any>).passport || ''} onChange={v => handleChange('passport', v)} />
+              <EditableInput label="Tarif" value={(form as Record<string, any>).tarif || ''} onChange={v => handleChange('tarif', v)} />
+              <EditableInput label="Imtiyoz" value={(form as Record<string, any>).imtiyoz || ''} onChange={v => handleChange('imtiyoz', v)} />
+              <EditableInput label="Qabul qilingan sana" value={(form as Record<string, any>).accepted_date || ''} onChange={v => handleChange('accepted_date', v)} />
+              <EditableInput label="Jami to'lov" value={(form as Record<string, any>).total_payment || ''} onChange={v => handleChange('total_payment', v)} />
             </>
           ) : (
             <>
-              <ReadOnlyInput label="Fakultet" value={form.faculty} />
-              <ReadOnlyInput label="Yo'nalish" value={form.direction} />
-              <ReadOnlyInput label="Guruh" value={form.group} />
-              <ReadOnlyInput label="Xona" value={form.room?.name} />
-              <ReadOnlyInput label="Qavat" value={form.floor?.name} />
-              <ReadOnlyInput label="Viloyat" value={form.province?.name} />
-              <ReadOnlyInput label="Tuman" value={form.district?.name} />
-              <ReadOnlyInput label="Pasport" value={form.passport} />
-              <ReadOnlyInput label="Tarif" value={form.tarif} />
-              <ReadOnlyInput label="Imtiyoz" value={form.imtiyoz} />
-              <ReadOnlyInput label="Qabul qilingan sana" value={form.accepted_date} />
-              <ReadOnlyInput label="Jami to'lov" value={form.total_payment} />
+              <ReadOnlyInput label="Fakultet" value={(form as Record<string, any>).faculty} />
+              <ReadOnlyInput label="Yo'nalish" value={(form as Record<string, any>).direction} />
+              <ReadOnlyInput label="Guruh" value={(form as Record<string, any>).group} />
+              <ReadOnlyInput label="Xona" value={(form as Record<string, any>).room?.name} />
+              <ReadOnlyInput label="Qavat" value={(form as Record<string, any>).floor?.name} />
+              <ReadOnlyInput label="Viloyat" value={(form as Record<string, any>).province?.name} />
+              <ReadOnlyInput label="Tuman" value={(form as Record<string, any>).district?.name} />
+              <ReadOnlyInput label="Pasport" value={(form as Record<string, any>).passport} />
+              <ReadOnlyInput label="Tarif" value={(form as Record<string, any>).tarif} />
+              <ReadOnlyInput label="Imtiyoz" value={(form as Record<string, any>).imtiyoz} />
+              <ReadOnlyInput label="Qabul qilingan sana" value={(form as Record<string, any>).accepted_date} />
+              <ReadOnlyInput label="Jami to'lov" value={(form as Record<string, any>).total_payment} />
             </>
           )}
         </div>

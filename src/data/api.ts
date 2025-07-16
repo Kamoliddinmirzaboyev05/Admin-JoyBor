@@ -1,5 +1,5 @@
 // Universal API helper for authenticated requests
-const BASE_URL = 'https://joyboryangi.pythonanywhere.com';
+export const BASE_URL = 'https://joyboryangi.pythonanywhere.com';
 
 export async function apiFetch(url: string, options: RequestInit = {}) {
   const token = localStorage.getItem('access');
@@ -51,4 +51,8 @@ export const apiQueries = {
   
   // Student Profile
   getStudentProfile: (id: string) => get(`/students/${id}/`),
+
+  // Settings (dormitory info)
+  getSettings: () => get('/my-dormitory/'),
+  updateSettings: (data: any) => put('/my-dormitory/', data),
 }; 

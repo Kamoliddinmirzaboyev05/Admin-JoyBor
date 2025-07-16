@@ -50,7 +50,7 @@ function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="reports" element={<Reports />} />
           <Route path="profile" element={<Profile />} />
-          <Route path="profile/:studentId" element={<StudentProfile />} />
+          <Route path="studentprofile/:studentId" element={<StudentProfile />} />
           {/* 404 Not Found route */}
           <Route path="*" element={<NotFound />} />
           </Route>

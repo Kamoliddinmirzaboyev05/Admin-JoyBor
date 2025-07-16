@@ -197,7 +197,7 @@ const FloorDetail: React.FC = () => {
                           {students.slice(col * 3, col * 3 + 3).map(student => (
                             <Link
                               key={student.id}
-                              to={`/profile/${student.id}`}
+                              to={`/studentprofile/${student.id}`}
                               className="text-sm whitespace-nowrap text-blue-600 hover:underline dark:text-blue-400"
                             >
                               {getShortName(student.name + ' ' + student.last_name)}

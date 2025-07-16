@@ -51,14 +51,35 @@ const Students: React.FC = () => {
   const [districts, setDistricts] = useState<{ id: number; name: string; province: number }[]>([]);
   const regionOptions = provinces.map(p => ({ value: String(p.id), label: p.name }));
   const districtOptions = districts.map(d => ({ value: String(d.id), label: d.name }));
-  const [formData, setFormData] = useState({
+  // formData'ga gender va course string maydonini qo'sh
+  const [formData, setFormData] = useState<{
+    firstName: string;
+    lastName: string;
+    fatherName: string;
+    phone: string;
+    email: string;
+    room: string;
+    course: string;
+    faculty: string;
+    group: string;
+    region: string;
+    district: string;
+    passport: string;
+    isPrivileged: boolean;
+    privilegeShare: string;
+    avatar: string | File;
+    tarif: string;
+    direction: string;
+    floor: string;
+    gender: string;
+  }>({
     firstName: "",
     lastName: "",
     fatherName: "",
     phone: "",
     email: "",
     room: "",
-    course: 1,
+    course: "1-kurs",
     faculty: "",
     group: "",
     region: "",
@@ -67,9 +88,14 @@ const Students: React.FC = () => {
     isPrivileged: false,
     privilegeShare: "",
     avatar: "",
+    tarif: "",
     direction: "",
     floor: "",
+    gender: "",
   });
+  const [loading, setLoading] = useState(false);
+  // 1. Add avatarPreview state
+  const [avatarPreview, setAvatarPreview] = useState<string>("");
 
   const location = useLocation();
 
@@ -85,6 +111,28 @@ const Students: React.FC = () => {
     staleTime: 1000 * 60 * 5, // 5 daqiqa cache
   });
 
+  // Fetch floors
+  const { data: floors = [] } = useQuery({
+    queryKey: ['floors'],
+    queryFn: apiQueries.getFloors,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Fetch rooms for selected floor
+  const { data: rooms = [] } = useQuery({
+    queryKey: ['rooms', formData.floor],
+    queryFn: () => formData.floor ? apiQueries.getRooms(formData.floor) : Promise.resolve([]),
+    enabled: !!formData.floor,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const floorOptions = Array.isArray(floors)
+    ? floors.map((f: any) => ({ value: f.id, label: f.name }))
+    : [];
+  const roomOptions = Array.isArray(rooms)
+    ? rooms.map((r: any) => ({ value: r.id, label: r.name }))
+    : [];
+
   const columns = [
     {
       key: "index",
@@ -97,9 +145,9 @@ const Students: React.FC = () => {
       key: "fullName",
       title: "Ism Familiya",
       sortable: true,
-      render: (_: unknown, row: Record<string, unknown>) => (
-        <Link to={`/profile/${row.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">{String(row.name)} {String(row.last_name)}</Link>
-      ),
+      render: (_: any, row: Record<string, unknown>) => (
+        <Link to={`/studentprofile/${row.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">{String(row.name)} {String(row.last_name)}</Link>
+      ) as React.ReactNode,
     },
     {
       key: "faculty",
@@ -142,7 +190,7 @@ const Students: React.FC = () => {
       phone: "",
       email: "",
       room: "",
-      course: 1,
+      course: "1-kurs",
       faculty: "",
       group: "",
       region: "",
@@ -151,8 +199,10 @@ const Students: React.FC = () => {
       isPrivileged: false,
       privilegeShare: "",
       avatar: "",
+      tarif: "",
       direction: "",
       floor: "",
+      gender: "",
     });
     setShowModal(true);
   };
@@ -201,7 +251,8 @@ const Students: React.FC = () => {
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Handle file upload logic
+      setFormData(prev => ({ ...prev, avatar: file }));
+      setAvatarPreview(URL.createObjectURL(file));
     }
   };
 
@@ -285,6 +336,66 @@ const Students: React.FC = () => {
       </div>
     );
   }
+
+  // Add student function for modal
+  const addStudent = async () => {
+    setLoading(true); // 🔄 loader ON
+    const myHeaders = new Headers();
+    myHeaders.append(
+      "Authorization",
+      `Bearer ${localStorage.getItem("access")}`
+    );
+
+    const formdata = new FormData();
+    if (formData.firstName) formdata.append("name", formData.firstName);
+    if (formData.lastName) formdata.append("last_name", formData.lastName);
+    if (formData.fatherName) formdata.append("middle_name", formData.fatherName);
+    if (formData.region) formdata.append("province", String(parseInt(formData.region)));
+    if (formData.district) formdata.append("district", String(parseInt(formData.district)));
+    if (formData.passport) formdata.append("passport", formData.passport);
+    if (formData.group) formdata.append("group", formData.group);
+    if (formData.faculty) formdata.append("faculty", formData.faculty);
+    if (formData.direction) formdata.append("direction", formData.direction);
+    if (formData.floor) formdata.append("floor", String(parseInt(formData.floor)));
+    if (formData.room) formdata.append("room", String(parseInt(formData.room)));
+    if (formData.phone) formdata.append("phone", formData.phone);
+    if (formData.tarif) formdata.append("tarif", formData.tarif);
+    if (formData.isPrivileged) formdata.append("privilege", String(formData.isPrivileged));
+    if (formData.privilegeShare) {
+      formdata.append("privilegeShare", formData.privilegeShare);
+    }
+    if (formData.gender) formdata.append("gender", formData.gender);
+    if (formData.course) formdata.append("course", formData.course);
+    // Fix instanceof check for avatar
+    if (formData.avatar && typeof formData.avatar !== 'string' && formData.avatar instanceof File) {
+      formdata.append("picture", formData.avatar);
+    }
+
+    const requestOptions = {
+      method: "POST",
+      headers: myHeaders,
+      body: formdata,
+    };
+
+    fetch("https://joyboryangi.pythonanywhere.com/student/create/", requestOptions)
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) {
+          toast.error(result.detail || "Xatolik yuz berdi");
+          throw new Error(result.detail || "Xatolik yuz berdi");
+        }
+        refetch();
+        setShowModal(false);
+        toast.success("Talaba muvaffaqiyatli qo'shildi");
+      })
+      .catch((error) => {
+        console.error(error);
+        toast.error("Xatolik yuz berdi");
+      })
+      .finally(() => {
+        setLoading(false); // 🔄 loader OFF
+      });
+  };
 
   return (
     <div className="max-w-7xl mx-auto py-8">
@@ -383,14 +494,14 @@ const Students: React.FC = () => {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-8 py-8 pb-32 space-y-8">
+            <form onSubmit={e => { e.preventDefault(); addStudent(); }} className="flex-1 overflow-y-auto px-8 py-8 pb-32 space-y-8">
               {/* Profil rasmi */}
               <div className="flex flex-col items-center gap-3 mb-4">
                 <label className="block text-base font-semibold text-gray-800 dark:text-gray-200 mb-2">Profil rasmi</label>
                 <div className="relative w-24 h-24 group">
-                  {formData.avatar ? (
+                  {avatarPreview ? (
                     <img
-                      src={formData.avatar}
+                      src={avatarPreview}
                       alt="Profil"
                       className="w-24 h-24 rounded-xl object-cover border-2 border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-md transition-all duration-200"
                     />
@@ -412,10 +523,10 @@ const Students: React.FC = () => {
                     <span className="text-white">📸</span>
                   </div>
                   {/* Remove button */}
-                  {formData.avatar && (
+                  {avatarPreview && (
                     <button
                       type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, avatar: '' }))}
+                      onClick={() => { setFormData(prev => ({ ...prev, avatar: "" })); setAvatarPreview(""); }}
                       className="absolute -top-2 -right-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-full p-1 shadow hover:bg-red-500 hover:text-white transition-colors z-30"
                       aria-label="Rasmni olib tashlash"
                     >
@@ -431,19 +542,19 @@ const Students: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ism</label>
-                    <input type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
+                    <input type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Familiya</label>
-                    <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
+                    <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Otasining ismi</label>
-                    <input type="text" name="fatherName" value={formData.fatherName} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
+                    <input type="text" name="fatherName" value={formData.fatherName} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Telefon</label>
-                    <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} placeholder="+998901234567" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
+                    <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} placeholder="+998901234567" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus-border-transparent" />
                   </div>
                 </div>
               </div>
@@ -455,23 +566,24 @@ const Students: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fakultet</label>
-                    <input type="text" name="faculty" value={formData.faculty} onChange={handleInputChange} placeholder="Fakultet nomi" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
+                    <input type="text" name="faculty" value={formData.faculty} onChange={handleInputChange} placeholder="Fakultet nomi" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Yo'nalish</label>
-                    <input type="text" name="direction" value={formData.direction} onChange={handleInputChange} placeholder="Yo'nalish nomi" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
+                    <input type="text" name="direction" value={formData.direction} onChange={handleInputChange} placeholder="Yo'nalish nomi" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Guruh</label>
-                    <input type="text" name="group" value={formData.group} onChange={handleInputChange} placeholder="IF-21-01" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" required />
+                    <input type="text" name="group" value={formData.group} onChange={handleInputChange} placeholder="IF-21-01" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Kurs</label>
                     <select name="course" value={formData.course} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                      <option value={1}>1-kurs</option>
-                      <option value={2}>2-kurs</option>
-                      <option value={3}>3-kurs</option>
-                      <option value={4}>4-kurs</option>
+                      <option value="1-kurs">1-kurs</option>
+                      <option value="2-kurs">2-kurs</option>
+                      <option value="3-kurs">3-kurs</option>
+                      <option value="4-kurs">4-kurs</option>
+                      <option value="5-kurs">5-kurs</option>
                     </select>
                   </div>
                 </div>
@@ -485,9 +597,9 @@ const Students: React.FC = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Qavat</label>
                     <Select
-                      options={districtOptions}
-                      value={districtOptions.find(opt => opt.value === String(formData.district)) || null}
-                      onChange={opt => handleSelectChange('district', opt)}
+                      options={floorOptions}
+                      value={floorOptions.find(opt => String(opt.value) === String(formData.floor)) || null}
+                      onChange={opt => handleSelectChange('floor', opt)}
                       isClearable
                       placeholder="Qavat tanlang..."
                       styles={selectStyles}
@@ -497,13 +609,14 @@ const Students: React.FC = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona</label>
                     <Select
-                      options={districtOptions}
-                      value={districtOptions.find(opt => opt.value === String(formData.district)) || null}
-                      onChange={opt => handleSelectChange('district', opt)}
+                      options={roomOptions}
+                      value={roomOptions.find(opt => String(opt.value) === String(formData.room)) || null}
+                      onChange={opt => handleSelectChange('room', opt)}
                       isClearable
                       placeholder="Xona tanlang..."
                       styles={selectStyles}
                       classNamePrefix="react-select"
+                      isDisabled={!formData.floor}
                     />
                   </div>
                   <div>
@@ -541,17 +654,45 @@ const Students: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Passport ma'lumoti</label>
-                    <input type="text" name="passport" value={formData.passport} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" required />
+                    <input type="text" name="passport" value={formData.passport} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
                   </div>
                   <div className="flex items-center gap-2 mt-8">
                     <input type="checkbox" name="isPrivileged" checked={formData.isPrivileged} onChange={handleCheckboxChange} className="form-checkbox h-5 w-5 text-primary-600" />
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Imtiyozli talaba</label>
                   </div>
                 </div>
+                {/* Gender radio group */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Jinsi</label>
+                  <div className="flex gap-6">
+                    <label className="inline-flex items-center cursor-pointer">
+                      <input
+                        type="radio"
+                        name="gender"
+                        value="Erkak"
+                        checked={formData.gender === "Erkak"}
+                        onChange={handleInputChange}
+                        className="form-radio h-5 w-5 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-gray-700 dark:text-gray-200">Erkak</span>
+                    </label>
+                    <label className="inline-flex items-center cursor-pointer">
+                      <input
+                        type="radio"
+                        name="gender"
+                        value="Ayol"
+                        checked={formData.gender === "Ayol"}
+                        onChange={handleInputChange}
+                        className="form-radio h-5 w-5 text-pink-500 border-gray-300 focus:ring-pink-400"
+                      />
+                      <span className="ml-2 text-gray-700 dark:text-gray-200">Ayol</span>
+                    </label>
+                  </div>
+                </div>
                 {formData.isPrivileged && (
                   <div className="mt-4">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Imtiyoz ulushi (%)</label>
-                    <input type="number" name="privilegeShare" value={formData.privilegeShare} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" min={1} max={100} required={formData.isPrivileged} />
+                    <input type="number" name="privilegeShare" value={formData.privilegeShare} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" min={1} max={100} />
                   </div>
                 )}
               </div>
