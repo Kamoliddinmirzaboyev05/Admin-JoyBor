@@ -54,33 +54,12 @@ const Settings: React.FC = () => {
     queryFn: apiQueries.getSettings,
     staleTime: 1000 * 60 * 5,
   });
-  if (isLoading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div></div>;
-  if (error || !settings) return <div className="text-center py-10 text-red-600 dark:text-red-400">Sozlamalarni yuklashda xatolik yuz berdi.</div>;
 
   // --- PRICES STATE ---
   const [editSection, setEditSection] = useState<string | null>(null);
   const [prices, setPrices] = useState<{ type: string; price: string }[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(allAmenities.map(a => a.key));
   const [editImages, setEditImages] = useState(false);
-
-  React.useEffect(() => {
-    if (settings) {
-      setPrices(settings.prices || []);
-    }
-  }, [settings]);
-
-  // --- PRICES HANDLERS ---
-  const handlePriceChange = (idx: number, field: 'type' | 'price', value: string) => {
-    setPrices(prices => prices.map((p, i) => i === idx ? { ...p, [field]: value } : p));
-  };
-  const handleAddPrice = () => {
-    setPrices(prices => [...prices, { type: '', price: '' }]);
-  };
-  const handleRemovePrice = (idx: number) => {
-    setPrices(prices => prices.filter((_, i) => i !== idx));
-  };
-
-  // --- PRICES SAVE ---
   // --- NOTIFICATION STATE ---
   const [notif, setNotif] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const updateSettingsMutation = useMutation({
@@ -97,15 +76,8 @@ const Settings: React.FC = () => {
   const handleSavePrices = () => {
     updateSettingsMutation.mutate({ ...settings, prices });
   };
-
   // --- RULES STATE ---
   const [rules, setRules] = useState<string[]>([]);
-  React.useEffect(() => {
-    if (settings) {
-      setRules(settings.rules || []);
-    }
-  }, [settings]);
-
   // --- RULES HANDLERS ---
   const handleRuleChange = (idx: number, value: string) => {
     setRules(rules => rules.map((r, i) => i === idx ? value : r));
@@ -119,14 +91,8 @@ const Settings: React.FC = () => {
   const handleSaveRules = () => {
     updateSettingsMutation.mutate({ ...settings, rules });
   };
-
   // --- AMENITIES STATE ---
   const [amenities, setAmenities] = useState<string[]>([]);
-  React.useEffect(() => {
-    if (settings) {
-      setAmenities(settings.amenities || []);
-    }
-  }, [settings]);
   const handleAmenityChange = (key: string) => {
     setAmenities(amenities => amenities.includes(key)
       ? amenities.filter(k => k !== key)
@@ -135,28 +101,16 @@ const Settings: React.FC = () => {
   const handleSaveAmenities = () => {
     updateSettingsMutation.mutate({ ...settings, amenities });
   };
-
   // --- CONTACT STATE ---
   const [contact, setContact] = useState<{ phone: string; email: string; address: string }>({ phone: '', email: '', address: '' });
-  React.useEffect(() => {
-    if (settings) {
-      setContact(settings.contact || { phone: '', email: '', address: '' });
-    }
-  }, [settings]);
   const handleContactChange = (field: 'phone' | 'email' | 'address', value: string) => {
     setContact(contact => ({ ...contact, [field]: value }));
   };
   const handleSaveContact = () => {
     updateSettingsMutation.mutate({ ...settings, contact });
   };
-
   // --- IMAGES STATE ---
   const [dormImages, setDormImages] = useState<{ url: string; caption: string }[]>([]);
-  React.useEffect(() => {
-    if (settings) {
-      setDormImages((settings.dormImages || []).map((img: any) => typeof img === 'string' ? { url: img, caption: '' } : img));
-    }
-  }, [settings]);
   const handleImageCaptionChange = (idx: number, value: string) => {
     setDormImages(images => images.map((img, i) => i === idx ? { ...img, caption: value } : img));
   };
@@ -175,6 +129,36 @@ const Settings: React.FC = () => {
   const handleSaveImages = () => {
     updateSettingsMutation.mutate({ ...settings, dormImages });
     setEditImages(false);
+  };
+
+  // EFFECTS: settings kelganda state-larni to'g'ri sync qilish
+  React.useEffect(() => {
+    if (settings) {
+      setPrices(settings.prices || []);
+      setRules(settings.rules || []);
+      setAmenities(settings.amenities || []);
+      setContact(settings.contact || { phone: '', email: '', address: '' });
+      setDormImages((settings.dormImages || []).map((img: any) => typeof img === 'string' ? { url: img, caption: '' } : img));
+    }
+  }, [settings]);
+
+  // LOADING/ERROR faqat return ichida
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div></div>;
+  }
+  if (error || !settings) {
+    return <div className="text-center py-10 text-red-600 dark:text-red-400">Sozlamalarni yuklashda xatolik yuz berdi.</div>;
+  }
+
+  // --- PRICES HANDLERS ---
+  const handlePriceChange = (idx: number, field: 'type' | 'price', value: string) => {
+    setPrices(prices => prices.map((p, i) => i === idx ? { ...p, [field]: value } : p));
+  };
+  const handleAddPrice = () => {
+    setPrices(prices => [...prices, { type: '', price: '' }]);
+  };
+  const handleRemovePrice = (idx: number) => {
+    setPrices(prices => prices.filter((_, i) => i !== idx));
   };
 
   return (

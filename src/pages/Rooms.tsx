@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MoreVertical, X } from 'lucide-react';
+import { MoreVertical, X, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoManSharp, IoWomanSharp } from 'react-icons/io5';
 import { toast } from 'sonner';
@@ -116,10 +116,10 @@ const Rooms: React.FC = () => {
   }, [location.state]);
 
   // Now, after all hooks, handle early returns:
-  if (floorsLoading || typedFloors.length === 0) { // Only check if floors are loading or if there are no floors
+  if (floorsLoading || typedFloors.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+        <Loader2 className="animate-spin w-16 h-16 text-blue-500" />
       </div>
     );
   }

@@ -7,6 +7,7 @@ import Select from 'react-select';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
+import { useAppStore } from '../stores/useAppStore';
 
 // react-select custom styles for dark mode
 const selectStyles = {
@@ -45,6 +46,7 @@ const selectStyles = {
 };
 
 const Students: React.FC = () => {
+  const updateStudentStore = useAppStore(state => state.updateStudent);
   const [showModal, setShowModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Record<string, unknown> | null>(null);
   const [provinces, setProvinces] = useState<{ id: number; name: string }[]>([]);
@@ -121,7 +123,7 @@ const Students: React.FC = () => {
   // Fetch rooms for selected floor
   const { data: rooms = [] } = useQuery({
     queryKey: ['rooms', formData.floor],
-    queryFn: () => formData.floor ? apiQueries.getRooms(formData.floor) : Promise.resolve([]),
+    queryFn: () => formData.floor ? apiQueries.getRooms(Number(formData.floor)) : Promise.resolve([]),
     enabled: !!formData.floor,
     staleTime: 1000 * 60 * 5,
   });
@@ -181,6 +183,25 @@ const Students: React.FC = () => {
     },
   ];
 
+  // Actions column for edit
+  const columnsWithActions = [
+    ...columns,
+    {
+      key: 'actions',
+      title: 'Amallar',
+      render: (_: unknown, row: Record<string, any>) => {
+        return (
+          <button
+            className="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600 text-sm font-semibold"
+            onClick={() => handleEdit(row)}
+          >
+            Tahrirlash
+          </button>
+        );
+      },
+    },
+  ];
+
   const handleAdd = () => {
     setEditingStudent(null);
     setFormData({
@@ -204,26 +225,64 @@ const Students: React.FC = () => {
       floor: "",
       gender: "",
     });
+    setAvatarPreview("");
+    setShowModal(true);
+  };
+
+  // Edit handler
+  const handleEdit = (student: Record<string, any>) => {
+    setEditingStudent(student);
+    setFormData({
+      firstName: student.name || "",
+      lastName: student.last_name || "",
+      fatherName: student.middle_name || "",
+      phone: student.phone || "",
+      email: student.email || "",
+      room: student.room && typeof student.room === 'object' ? String(student.room.id) : "",
+      course: student.course || "1-kurs",
+      faculty: student.faculty || "",
+      group: student.group || "",
+      region: student.province && typeof student.province === 'object' ? String(student.province.id) : "",
+      district: student.district && typeof student.district === 'object' ? String(student.district.id) : "",
+      passport: student.passport || "",
+      isPrivileged: Boolean(student.privilege),
+      privilegeShare: student.privilegeShare || "",
+      avatar: student.picture || "",
+      tarif: student.tarif || "",
+      direction: student.direction || "",
+      floor: student.floor && typeof student.floor === 'object' ? String(student.floor.id) : "",
+      gender: student.gender || "",
+    });
+    setAvatarPreview(student.picture || "");
     setShowModal(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (editingStudent) {
-      // updateStudent(editingStudent.id, formData);
-      toast.success('Talaba malumotlari yangilandi');
-    } else {
-      try {
-        // ... your API call logic ...
-        toast.success("Talaba muvaffaqiyatli qo'shildi!");
-        // Yangilash uchun refetch chaqirish
-        refetch();
-      } catch (error) {
-        toast.error("Xatolik yuz berdi!");
+      // Local store update (for mock/demo)
+      const updateData: any = {
+        ...formData,
+        course: Number(formData.course.replace(/[^\d]/g, '')) || 1,
+        avatar: typeof formData.avatar === 'string' ? formData.avatar : undefined,
+      };
+      if (formData.gender === 'male' || formData.gender === 'female') {
+        updateData.gender = formData.gender;
+      } else {
+        delete updateData.gender;
       }
+      updateStudentStore(String(editingStudent.id), updateData);
+      toast.success('Talaba maʼlumotlari yangilandi');
+      refetch();
+      setShowModal(false);
+      return;
     }
-    setShowModal(false);
+    try {
+      await addStudent();
+      // addStudent already calls refetch and closes modal
+    } catch (error) {
+      toast.error("Xatolik yuz berdi!");
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -459,7 +518,7 @@ const Students: React.FC = () => {
       {/* Data Table */}
       <DataTable
         data={filteredStudents.map((s: Record<string, any>, idx: number) => ({ ...s, _idx: idx }))}
-        columns={columns}
+        columns={columnsWithActions}
         actions={null}
         searchable={true}
         filterable={true}
@@ -494,7 +553,7 @@ const Students: React.FC = () => {
               </div>
             </div>
 
-            <form onSubmit={e => { e.preventDefault(); addStudent(); }} className="flex-1 overflow-y-auto px-8 py-8 pb-32 space-y-8">
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-8 py-8 pb-32 space-y-8">
               {/* Profil rasmi */}
               <div className="flex flex-col items-center gap-3 mb-4">
                 <label className="block text-base font-semibold text-gray-800 dark:text-gray-200 mb-2">Profil rasmi</label>

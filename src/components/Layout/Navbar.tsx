@@ -164,10 +164,6 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                       <User className="w-4 h-4" />
                       <span>Profil</span>
                     </button>
-                    <button className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2">
-                      <Settings className="w-4 h-4" />
-                      <span>Sozlamalar</span>
-                    </button>
                     <hr className="my-1 border-gray-200 dark:border-gray-700" />
                     <button className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2" onClick={() => { localStorage.clear(); window.location.href = '/login'; }}>
                       <LogOut className="w-4 h-4" />
