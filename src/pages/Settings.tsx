@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Edit, Image as ImageIcon, DollarSign, ListChecks, Plus, Wifi, BookOpen, WashingMachine, Tv, Coffee } from 'lucide-react';
+import { Edit, Image as ImageIcon, DollarSign, ListChecks, Plus, Wifi, BookOpen, WashingMachine, Tv, Coffee, MapPin, Info, FileImage, Loader2, User, School, Map, Layers, Users as UsersIcon, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
@@ -12,7 +12,7 @@ const allAmenities = [
   { key: 'Coffee', icon: <Coffee className="w-6 h-6" />, name: 'Kichik oshxona', description: 'Choy va yengil taomlar uchun' },
 ];
 
-function SectionCard({ icon, title, description, children, onEdit }: { icon: React.ReactNode; title: string; description?: string; children: React.ReactNode; onEdit?: () => void }) {
+function SectionCard({ icon, title, description, children, onEdit }: { icon: React.ReactNode; title: React.ReactNode; description?: string; children: React.ReactNode; onEdit?: () => void }) {
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 flex flex-col gap-4 border border-gray-100 dark:border-slate-700 relative group transition hover:shadow-2xl">
       <div className="flex items-center gap-3 mb-1">
@@ -131,6 +131,159 @@ const Settings: React.FC = () => {
     setEditImages(false);
   };
 
+  // --- DORMITORY INFO STATE ---
+  const [editDorm, setEditDorm] = useState(false);
+  const [dormForm, setDormForm] = useState({
+    name: '',
+    address: '',
+    description: '',
+    month_price: '',
+    year_price: '',
+    latitude: '',
+    longitude: '',
+    images: [] as File[],
+  });
+  const [dormLoading, setDormLoading] = useState(false);
+
+  // Sync dormitory info from settings
+  React.useEffect(() => {
+    if (settings) {
+      setDormForm({
+        name: settings.name || '',
+        address: settings.address || '',
+        description: settings.description || '',
+        month_price: settings.month_price ? String(settings.month_price) : '',
+        year_price: settings.year_price ? String(settings.year_price) : '',
+        latitude: settings.latitude ? String(settings.latitude) : '',
+        longitude: settings.longitude ? String(settings.longitude) : '',
+        images: [], // images handled separately
+      });
+    }
+  }, [settings]);
+
+  const handleDormFormChange = (field: string, value: string) => {
+    setDormForm(f => ({ ...f, [field]: value }));
+  };
+  const handleDormImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setDormForm(f => ({ ...f, images: Array.from(files) }));
+    }
+  };
+  const handleSaveDorm = async () => {
+    setDormLoading(true);
+    try {
+      // Prepare form data for PATCH
+      const formData = new FormData();
+      formData.append('name', dormForm.name);
+      formData.append('address', dormForm.address);
+      formData.append('description', dormForm.description);
+      formData.append('month_price', dormForm.month_price);
+      formData.append('year_price', dormForm.year_price);
+      formData.append('latitude', dormForm.latitude);
+      formData.append('longitude', dormForm.longitude);
+      if (dormForm.images.length > 0) {
+        dormForm.images.forEach((img, i) => formData.append('images', img));
+      }
+      // Get admin and university from settings if available
+      if (settings?.admin) formData.append('admin', String(settings.admin));
+      if (settings?.university) formData.append('university', String(settings.university));
+      await apiQueries.patchMyDormitory(formData);
+      setNotif({ type: 'success', message: 'Yotoqxona maʼlumotlari yangilandi!' });
+      setEditDorm(false);
+      // Optionally refetch settings
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+    } catch (err: any) {
+      setNotif({ type: 'error', message: err?.toString() || 'Xatolik yuz berdi!' });
+    } finally {
+      setDormLoading(false);
+    }
+  };
+
+  // Add state for editing dormitory info and prices
+  const [editDormCard, setEditDormCard] = useState(false);
+  const [editPricesCard, setEditPricesCard] = useState(false);
+  const [dormCardForm, setDormCardForm] = useState({
+    name: '',
+    address: '',
+    description: '',
+    latitude: '',
+    longitude: '',
+  });
+  const [pricesCardForm, setPricesCardForm] = useState({
+    month_price: '',
+    year_price: '',
+    total_capacity: '',
+    available_capacity: '',
+    total_rooms: '',
+  });
+  React.useEffect(() => {
+    if (settings) {
+      setDormCardForm({
+        name: settings.name || '',
+        address: settings.address || '',
+        description: settings.description || '',
+        latitude: settings.latitude ? String(settings.latitude) : '',
+        longitude: settings.longitude ? String(settings.longitude) : '',
+      });
+      setPricesCardForm({
+        month_price: settings.month_price ? String(settings.month_price) : '',
+        year_price: settings.year_price ? String(settings.year_price) : '',
+        total_capacity: settings.total_capacity ? String(settings.total_capacity) : '',
+        available_capacity: settings.available_capacity ? String(settings.available_capacity) : '',
+        total_rooms: settings.total_rooms ? String(settings.total_rooms) : '',
+      });
+    }
+  }, [settings]);
+  const handleDormCardChange = (field: string, value: string) => {
+    setDormCardForm(f => ({ ...f, [field]: value }));
+  };
+  const handlePricesCardChange = (field: string, value: string) => {
+    setPricesCardForm(f => ({ ...f, [field]: value }));
+  };
+  const handleSaveDormCard = async () => {
+    setDormLoading(true);
+    try {
+      await apiQueries.patchMyDormitory({
+        name: dormCardForm.name,
+        address: dormCardForm.address,
+        description: dormCardForm.description,
+        latitude: dormCardForm.latitude,
+        longitude: dormCardForm.longitude,
+        admin: settings.admin?.id,
+        university: settings.university?.id,
+      });
+      setNotif({ type: 'success', message: 'Yotoqxona maʼlumotlari yangilandi!' });
+      setEditDormCard(false);
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+    } catch (err: any) {
+      setNotif({ type: 'error', message: err?.toString() || 'Xatolik yuz berdi!' });
+    } finally {
+      setDormLoading(false);
+    }
+  };
+  const handleSavePricesCard = async () => {
+    setDormLoading(true);
+    try {
+      await apiQueries.patchMyDormitory({
+        month_price: pricesCardForm.month_price,
+        year_price: pricesCardForm.year_price,
+        total_capacity: pricesCardForm.total_capacity,
+        available_capacity: pricesCardForm.available_capacity,
+        total_rooms: pricesCardForm.total_rooms,
+        admin: settings.admin?.id,
+        university: settings.university?.id,
+      });
+      setNotif({ type: 'success', message: 'Narx va sig‘im maʼlumotlari yangilandi!' });
+      setEditPricesCard(false);
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+    } catch (err: any) {
+      setNotif({ type: 'error', message: err?.toString() || 'Xatolik yuz berdi!' });
+    } finally {
+      setDormLoading(false);
+    }
+  };
+
   // EFFECTS: settings kelganda state-larni to'g'ri sync qilish
   React.useEffect(() => {
     if (settings) {
@@ -167,128 +320,149 @@ const Settings: React.FC = () => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 40 }}
       transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className="p-6 max-w-6xl mx-auto w-full"
+      className="p-6 max-w-5xl mx-auto w-full"
     >
-      <h1 className="text-3xl font-extrabold mb-10 text-gray-900 dark:text-white text-center tracking-tight">Yotoqxona Sozlamalari</h1>
-      {notif && (
-        <div className={`mb-6 px-4 py-3 rounded-lg text-center font-semibold ${notif.type === 'success' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200'}`}>
-          {notif.message}
-          <button className="ml-4 text-xs underline" onClick={() => setNotif(null)}>Yopish</button>
+      <div className="flex flex-col sm:flex-row items-center gap-6 mb-10">
+        {/* University logo and name */}
+        <div className="flex items-center gap-4">
+          {settings.university?.logo && (
+            <img src={settings.university.logo} alt="University Logo" className="w-16 h-16 rounded-xl object-cover border border-gray-200 dark:border-gray-700 shadow" />
+          )}
+          <div>
+            <div className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2"><School className="w-5 h-5 text-blue-500" /> {settings.university?.name}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{settings.university?.address}</div>
+          </div>
         </div>
-      )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Images */}
+        <div className="flex-1" />
+        {/* Admin info */}
+        <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-lg">
+          <User className="w-5 h-5 text-blue-500" />
+          <span className="font-semibold text-gray-800 dark:text-gray-100">{settings.admin?.username}</span>
+          <span className="text-xs text-gray-500 ml-2">Admin</span>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+        {/* Dormitory Info Card */}
         <SectionCard
-          icon={<ImageIcon className="w-6 h-6" />}
-          title="Yotoqxona suratlari"
-          description="Yotoqxona va xonalar haqidagi suratlar. Suratlarni tahrirlash va har biriga izoh qo‘shish mumkin."
-          onEdit={() => setEditImages(!editImages)}
+          icon={<Info className="w-8 h-8 text-blue-500" />}
+          title={((<span className="text-lg font-bold text-blue-700 dark:text-blue-300">Yotoqxona haqida</span>) as React.ReactNode)}
+          description={editDormCard ? undefined : settings.description}
+          onEdit={() => setEditDormCard(true)}
         >
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {dormImages.map((img, i) => (
-              <div key={i} className="relative group flex flex-col items-center">
-                <img src={img.url} alt={`Yotoqxona ${i+1}`} className="w-40 h-28 object-cover rounded-lg shadow border border-gray-200 dark:border-slate-700" />
-                {editImages && (
-                  <button className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-700" onClick={() => handleRemoveImage(i)} title="O‘chirish"><span className="text-lg">×</span></button>
-                )}
-                {editImages && (
-                  <input type="text" className="mt-2 w-36 px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs" placeholder="Rasm tavsifi (ixtiyoriy)" value={img.caption} onChange={e => handleImageCaptionChange(i, e.target.value)} />
-                )}
-              </div>
-            ))}
-            {editImages && (
-              <label className="w-40 h-28 flex flex-col items-center justify-center border-2 border-dashed border-blue-400 rounded-lg cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition">
-                <span className="text-blue-500"><Plus className="w-8 h-8" /></span>
-                <span className="text-xs mt-2">Yangi rasm qo‘shish</span>
-                <input type="file" accept="image/*" className="hidden" onChange={handleAddImage} />
-              </label>
+          <div className="rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-800/30 p-4 flex flex-col gap-4 shadow-inner">
+            {editDormCard ? (
+              <>
+                <EditableInput label="Nomi" value={dormCardForm.name} onChange={v => handleDormCardChange('name', v)} disabled={dormLoading} fullWidth />
+                <EditableInput label="Manzil" value={dormCardForm.address} onChange={v => handleDormCardChange('address', v)} disabled={dormLoading} fullWidth />
+                <EditableInput label="Tavsif" value={dormCardForm.description} onChange={v => handleDormCardChange('description', v)} disabled={dormLoading} fullWidth />
+                <EditableInput label="Latitude" value={dormCardForm.latitude} onChange={v => handleDormCardChange('latitude', v)} disabled={dormLoading} fullWidth />
+                <EditableInput label="Longitude" value={dormCardForm.longitude} onChange={v => handleDormCardChange('longitude', v)} disabled={dormLoading} fullWidth />
+                <div className="flex gap-2 mt-2">
+                  <button className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSaveDormCard} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
+                  <button className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition" onClick={() => setEditDormCard(false)} disabled={dormLoading}>Bekor qilish</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <Info className="w-6 h-6 text-blue-500" />
+                  <span className="font-semibold text-gray-800 dark:text-gray-100">{settings.name}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <MapPin className="w-5 h-5 text-indigo-500" />
+                  <span className="text-gray-700 dark:text-gray-200">{settings.address}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Map className="w-5 h-5 text-green-500" />
+                  <span className="text-gray-700 dark:text-gray-200">{settings.latitude}, {settings.longitude}</span>
+                </div>
+              </>
             )}
           </div>
-          {editImages && (
-            <button className="mt-4 px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSaveImages} disabled={updateSettingsMutation.status === 'pending'}>
+        </SectionCard>
+        {/* Prices & Capacity Card */}
+        <SectionCard
+          icon={<DollarSign className="w-8 h-8 text-green-500" />}
+          title={((<span className="text-lg font-bold text-green-700 dark:text-green-300">Narx va sig‘im</span>) as React.ReactNode)}
+          description={editPricesCard ? undefined : "Oylik va yillik narxlar, umumiy va bo‘sh o‘rinlar, xonalar soni"}
+          onEdit={() => setEditPricesCard(true)}
+        >
+          <div className="rounded-xl bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/40 dark:to-blue-900/30 p-4 flex flex-col gap-4 shadow-inner">
+            {editPricesCard ? (
+              <>
+                <EditableInput label="Oylik narx" value={pricesCardForm.month_price} onChange={v => handlePricesCardChange('month_price', v)} disabled={dormLoading} fullWidth />
+                <EditableInput label="Yillik narx" value={pricesCardForm.year_price} onChange={v => handlePricesCardChange('year_price', v)} disabled={dormLoading} fullWidth />
+                <EditableInput label="Umumiy sig‘im" value={pricesCardForm.total_capacity} onChange={v => handlePricesCardChange('total_capacity', v)} disabled={dormLoading} fullWidth />
+                <EditableInput label="Bo‘sh o‘rinlar" value={pricesCardForm.available_capacity} onChange={v => handlePricesCardChange('available_capacity', v)} disabled={dormLoading} fullWidth />
+                <EditableInput label="Xonalar soni" value={pricesCardForm.total_rooms} onChange={v => handlePricesCardChange('total_rooms', v)} disabled={dormLoading} fullWidth />
+                <div className="flex gap-2 mt-2">
+                  <button className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSavePricesCard} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
+                  <button className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition" onClick={() => setEditPricesCard(false)} disabled={dormLoading}>Bekor qilish</button>
+                </div>
+              </>
+            ) : (
+              <div className="grid grid-cols-1 gap-2">
+                <div className="flex items-center gap-3">
+                  <DollarSign className="w-5 h-5 text-green-500" />
+                  <span className="font-semibold">Oylik narx:</span>
+                  <span className="text-gray-700 dark:text-gray-200">{settings.month_price?.toLocaleString()} so‘m</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <DollarSign className="w-5 h-5 text-green-500" />
+                  <span className="font-semibold">Yillik narx:</span>
+                  <span className="text-gray-700 dark:text-gray-200">{settings.year_price?.toLocaleString()} so‘m</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <UsersIcon className="w-5 h-5 text-blue-500" />
+                  <span className="font-semibold">Umumiy sig‘im:</span>
+                  <span className="text-gray-700 dark:text-gray-200">{settings.total_capacity}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <span className="font-semibold">Bo‘sh o‘rinlar:</span>
+                  <span className="text-gray-700 dark:text-gray-200">{settings.available_capacity}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Layers className="w-5 h-5 text-indigo-500" />
+                  <span className="font-semibold">Xonalar soni:</span>
+                  <span className="text-gray-700 dark:text-gray-200">{settings.total_rooms}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </SectionCard>
+        {/* Amenities Section (edit-in-place) */}
+        <SectionCard
+          icon={<ListChecks className="w-6 h-6" />}
+          title="Qulayliklar"
+          description="Yotoqxonada mavjud bo‘lgan qulayliklarni belgilang. Tahrirlash uchun 'Tahrirlash' tugmasini bosing."
+          onEdit={() => setEditSection(editSection === 'amenities' ? null : 'amenities')}
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {allAmenities.map((item) => (
+              <label key={item.key} className="flex items-center gap-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={amenities.includes(item.key)}
+                  onChange={() => handleAmenityChange(item.key)}
+                  className="form-checkbox h-5 w-5 text-blue-600 transition"
+                  disabled={editSection !== 'amenities'}
+                />
+                <span className="text-blue-600 dark:text-blue-200">{item.icon}</span>
+                <div>
+                  <div className="font-semibold text-gray-900 dark:text-white">{item.name}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-300">{item.description}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+          {editSection === 'amenities' && (
+            <button className="mt-4 px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSaveAmenities} disabled={updateSettingsMutation.status === 'pending'}>
               {updateSettingsMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
             </button>
           )}
         </SectionCard>
-        {/* Prices */}
-        <SectionCard
-          icon={<DollarSign className="w-6 h-6" />}
-          title="Narxlar"
-          description="Yotoqxonadagi xonalar va ularning oylik narxlari. Narxlarni tahrirlash uchun 'Tahrirlash' tugmasini bosing."
-          onEdit={() => setEditSection(editSection === 'prices' ? null : 'prices')}
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full bg-transparent rounded-lg table-fixed">
-              <colgroup>
-                <col style={{ width: '40%' }} />
-                <col style={{ width: '40%' }} />
-                <col style={{ width: '20%' }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th className="py-2 px-4 text-left text-gray-600 dark:text-gray-300">Xona turi</th>
-                  <th className="py-2 px-4 text-left text-gray-600 dark:text-gray-300">Narxi</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {prices.map((row, i) => (
-                  <tr key={i} className="border-t border-gray-100 dark:border-slate-700">
-                    <td className="py-2 px-4">
-                      <EditableInput
-                        label=""
-                        value={row.type}
-                        onChange={v => handlePriceChange(i, 'type', v)}
-                        disabled={editSection !== 'prices'}
-                        placeholder="Xona turi (masalan, Oddiy)"
-                        style={{ maxWidth: '200px' }}
-                      />
-                    </td>
-                    <td className="py-2 px-4">
-                      <EditableInput
-                        label=""
-                        value={row.price}
-                        onChange={v => handlePriceChange(i, 'price', v)}
-                        disabled={editSection !== 'prices'}
-                        placeholder="Narxi (masalan, 300 000 so‘m/oy)"
-                        style={{ maxWidth: '200px' }}
-                      />
-                    </td>
-                    <td className="py-2 px-2">
-                      {editSection === 'prices' && prices.length > 1 && (
-                        <button
-                          className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900"
-                          title="O‘chirish"
-                          onClick={() => handleRemovePrice(i)}
-                        >
-                          <span className="text-red-500 font-bold">×</span>
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {editSection === 'prices' && (
-            <div className="flex gap-2 mt-4">
-              <button
-                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
-                onClick={handleAddPrice}
-              >
-                <Plus className="w-4 h-4" /> Yangi narx qo‘shish
-              </button>
-              <button
-                className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition"
-                onClick={handleSavePrices}
-                disabled={updateSettingsMutation.status === 'pending'}
-              >
-                {updateSettingsMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
-              </button>
-            </div>
-          )}
-        </SectionCard>
-        {/* Rules */}
+        {/* Rules Section (edit-in-place) */}
         <SectionCard
           icon={<ListChecks className="w-6 h-6" />}
           title="Qonun-qoidalar"
@@ -337,56 +511,81 @@ const Settings: React.FC = () => {
             </div>
           )}
         </SectionCard>
-        {/* Amenities section */}
-        <SectionCard
-          icon={<Wifi className="w-6 h-6" />}
-          title="Qulayliklar"
-          description="Yotoqxonada mavjud bo‘lgan qulayliklarni belgilang. Tahrirlash uchun 'Tahrirlash' tugmasini bosing."
-          onEdit={() => setEditSection(editSection === 'amenities' ? null : 'amenities')}
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {allAmenities.map((item) => (
-              <label key={item.key} className="flex items-center gap-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={amenities.includes(item.key)}
-                  onChange={() => handleAmenityChange(item.key)}
-                  className="form-checkbox h-5 w-5 text-blue-600 transition"
-                  disabled={editSection !== 'amenities'}
-                />
-                <span className="text-blue-600 dark:text-blue-200">{item.icon}</span>
-                <div>
-                  <div className="font-semibold text-gray-900 dark:text-white">{item.name}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-300">{item.description}</div>
-                </div>
-              </label>
-            ))}
-          </div>
-          {editSection === 'amenities' && (
-            <button className="mt-4 px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSaveAmenities} disabled={updateSettingsMutation.status === 'pending'}>
-              {updateSettingsMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
-            </button>
-          )}
-        </SectionCard>
-        {/* Contact */}
-        <SectionCard
-          icon={<Plus className="w-6 h-6" />}
-          title="Bog‘lanish"
-          description="Yotoqxona ma’muriyati bilan bog‘lanish uchun telefon, email va manzil. Tahrirlash uchun 'Tahrirlash' tugmasini bosing."
-          onEdit={() => setEditSection(editSection === 'contact' ? null : 'contact')}
-        >
-          <div className="grid grid-cols-1 gap-4 text-gray-700 dark:text-gray-200">
-            <EditableInput label="Telefon" value={contact.phone} onChange={v => handleContactChange('phone', v)} disabled={editSection !== 'contact'} placeholder="Telefon raqami" />
-            <EditableInput label="Email" value={contact.email} onChange={v => handleContactChange('email', v)} disabled={editSection !== 'contact'} placeholder="Email manzili" />
-            <EditableInput label="Manzil" value={contact.address} onChange={v => handleContactChange('address', v)} disabled={editSection !== 'contact'} placeholder="Manzil" />
-          </div>
-          {editSection === 'contact' && (
-            <button className="mt-4 px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSaveContact} disabled={updateSettingsMutation.status === 'pending'}>
-              {updateSettingsMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
-            </button>
-          )}
-        </SectionCard>
       </div>
+      {/* Images */}
+      <SectionCard
+        icon={<FileImage className="w-6 h-6" />}
+        title="Yotoqxona suratlari"
+        description="Yotoqxona va xonalar haqidagi suratlar. Suratlarni tahrirlash va har biriga izoh qo‘shish mumkin."
+        onEdit={() => setEditImages(!editImages)}
+      >
+        <div className="flex gap-4 overflow-x-auto pb-2">
+          {dormImages.map((img, i) => (
+            <div key={i} className="relative group flex flex-col items-center">
+              <img src={img.url} alt={`Yotoqxona ${i+1}`} className="w-40 h-28 object-cover rounded-lg shadow border border-gray-200 dark:border-slate-700" />
+              {editImages && (
+                <button className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-700" onClick={() => handleRemoveImage(i)} title="O‘chirish"><span className="text-lg">×</span></button>
+              )}
+              {editImages && (
+                <input type="text" className="mt-2 w-36 px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs" placeholder="Rasm tavsifi (ixtiyoriy)" value={img.caption} onChange={e => handleImageCaptionChange(i, e.target.value)} />
+              )}
+            </div>
+          ))}
+          {editImages && (
+            <label className="w-40 h-28 flex flex-col items-center justify-center border-2 border-dashed border-blue-400 rounded-lg cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition">
+              <span className="text-blue-500"><Plus className="w-8 h-8" /></span>
+              <span className="text-xs mt-2">Yangi rasm qo‘shish</span>
+              <input type="file" accept="image/*" className="hidden" onChange={handleAddImage} />
+            </label>
+          )}
+        </div>
+        {editImages && (
+          <button className="mt-4 px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSaveImages} disabled={updateSettingsMutation.status === 'pending'}>
+            {updateSettingsMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
+          </button>
+        )}
+      </SectionCard>
+      {/* DORMITORY EDIT MODAL */}
+      {editDorm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-2" onClick={() => setEditDorm(false)}>
+          <motion.div
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 40, opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-lg relative flex flex-col gap-6 max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setEditDorm(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-red-500 dark:hover:text-red-400 bg-transparent rounded-full p-1 transition-colors"
+            >
+              <span className="text-2xl">×</span>
+            </button>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-2">Yotoqxona maʼlumotlarini tahrirlash</h2>
+            <div className="flex flex-col gap-4">
+              <EditableInput label="Nomi" value={dormForm.name} onChange={v => handleDormFormChange('name', v)} disabled={dormLoading} fullWidth />
+              <EditableInput label="Manzil" value={dormForm.address} onChange={v => handleDormFormChange('address', v)} disabled={dormLoading} fullWidth />
+              <EditableInput label="Tavsif" value={dormForm.description} onChange={v => handleDormFormChange('description', v)} disabled={dormLoading} fullWidth />
+              <EditableInput label="Oylik narx" value={dormForm.month_price} onChange={v => handleDormFormChange('month_price', v)} disabled={dormLoading} fullWidth />
+              <EditableInput label="Yillik narx" value={dormForm.year_price} onChange={v => handleDormFormChange('year_price', v)} disabled={dormLoading} fullWidth />
+              <EditableInput label="Latitude" value={dormForm.latitude} onChange={v => handleDormFormChange('latitude', v)} disabled={dormLoading} fullWidth />
+              <EditableInput label="Longitude" value={dormForm.longitude} onChange={v => handleDormFormChange('longitude', v)} disabled={dormLoading} fullWidth />
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1 block">Rasmlar</label>
+                <input type="file" multiple accept="image/*" onChange={handleDormImageChange} disabled={dormLoading} className="block w-full text-sm text-gray-700 dark:text-gray-200" />
+              </div>
+            </div>
+            <button
+              onClick={handleSaveDorm}
+              className="w-full py-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors text-lg mt-2 shadow disabled:opacity-60 flex items-center justify-center gap-2"
+              disabled={dormLoading}
+            >
+              {dormLoading ? (<><Loader2 className="animate-spin w-5 h-5" /> Saqlanmoqda...</>) : 'Saqlash'}
+            </button>
+          </motion.div>
+        </div>
+      )}
     </motion.div>
   );
 };

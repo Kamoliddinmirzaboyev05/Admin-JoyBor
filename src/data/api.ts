@@ -32,6 +32,9 @@ export function put(url: string, body?: Record<string, unknown>) {
 export function del(url: string) {
   return apiFetch(url, { method: 'DELETE' });
 }
+export function patch(url: string, body?: Record<string, unknown>) {
+  return apiFetch(url, { method: 'PATCH', body: JSON.stringify(body) });
+}
 
 // React Query uchun API funksiyalar
 export const apiQueries = {
@@ -55,7 +58,10 @@ export const apiQueries = {
   // Settings (dormitory info)
   getSettings: () => get('/my-dormitory/'),
   updateSettings: (data: any) => put('/my-dormitory/', data),
+  patchMyDormitory: (data: any) => patch('/my-dormitory-update/', data),
 
   // Dashboard
   getDashboard: () => get('/dashboard/'),
+  // Admin Profile (updated to use absolute URL)
+  getAdminProfile: () => get('https://joyboryangi.pythonanywhere.com/profile/'),
 }; 

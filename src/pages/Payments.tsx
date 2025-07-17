@@ -24,6 +24,7 @@ const Payments: React.FC = () => {
     comment: '',
   });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const location = useLocation();
 
   // React Query bilan payments ma'lumotlarini olish
@@ -113,11 +114,12 @@ const Payments: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.studentId || !form.amount || !form.validUntil || !form.paymentType) {
-      setError('Barcha maydonlarni to\u2018ldiring!');
-      toast.error('Barcha maydonlarni to\u2018ldiring!');
+      setError('Barcha maydonlarni to‘ldiring!');
+      toast.error('Barcha maydonlarni to‘ldiring!');
       return;
     }
     setError('');
+    setLoading(true);
     try {
       await apiQueries.createPayment({
         student: Number(form.studentId),
@@ -127,13 +129,14 @@ const Payments: React.FC = () => {
         status: 'APPROVED',
         comment: form.comment,
       });
-      toast.success('To\u2018lov muvaffaqiyatli qo\u2018shildi!');
-      // Yangilash uchun refetch chaqirish
+      toast.success('To‘lov muvaffaqiyatli qo‘shildi!');
       refetch();
       setShowModal(false);
     } catch (err: unknown) {
-      setError('To\u2018lovni yaratishda xatolik: ' + (err instanceof Error ? err.message : 'Noma\'lum xatolik'));
-      toast.error('To\u2018lovni yaratishda xatolik: ' + (err instanceof Error ? err.message : 'Noma\'lum xatolik'));
+      setError('To‘lovni yaratishda xatolik: ' + (err instanceof Error ? err.message : 'Nomaʼlum xatolik'));
+      toast.error('To‘lovni yaratishda xatolik: ' + (err instanceof Error ? err.message : 'Nomaʼlum xatolik'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -208,27 +211,27 @@ const Payments: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-8">
-      <div className="flex items-center mb-6 gap-3">
-        <div className="w-10 h-10 bg-gradient-to-br from-accent-500 to-primary-500 rounded-lg flex items-center justify-center">
+    <div className="max-w-7xl mx-auto px-2 sm:px-6 py-4 sm:py-8">
+      <div className="flex flex-col sm:flex-row sm:items-center mb-6 gap-3 sm:gap-3">
+        <div className="w-10 h-10 bg-gradient-to-br from-accent-500 to-primary-500 rounded-lg flex items-center justify-center mb-2 sm:mb-0">
           <CreditCard className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">To'lovlar</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
+          <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-white">To'lovlar</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
             Yotoqxona to'lovlari boshqaruvi
           </p>
         </div>
-        <div className="ml-auto flex items-center space-x-3">
+        <div className="sm:ml-auto flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 mt-3 sm:mt-0">
           <button
             onClick={() => refetch()}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             Yangilash
           </button>
           <button
             onClick={handleOpen}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
           >
             <Plus className="w-4 h-4" />
             <span>To'lov qo'shish</span>
@@ -253,7 +256,7 @@ const Payments: React.FC = () => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-2"
             onClick={handleClose}
           >
             <motion.div
@@ -261,17 +264,17 @@ const Payments: React.FC = () => {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 40, opacity: 0 }}
               transition={{ duration: 0.25, ease: 'easeInOut' }}
-              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-md relative flex flex-col gap-6 max-h-[90vh] overflow-y-auto"
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-2 sm:p-8 w-full max-w-md relative flex flex-col gap-4 sm:gap-6 max-h-[90vh] overflow-y-auto"
               onClick={e => e.stopPropagation()}
             >
               <button
                 onClick={handleClose}
-                className="absolute top-4 right-4 text-gray-400 hover:text-red-500 dark:hover:text-red-400 bg-transparent rounded-full p-1 transition-colors"
+                className="absolute top-2 sm:top-4 right-2 sm:right-4 text-gray-400 hover:text-red-500 dark:hover:text-red-400 bg-transparent rounded-full p-1 transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-6">Yangi to‘lov qo‘shish</h2>
-              <form onSubmit={handleSubmit} className="flex flex-col gap-6 pb-8">
+              <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white text-center mb-4 sm:mb-6">Yangi to‘lov qo‘shish</h2>
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:gap-6 pb-6 sm:pb-8">
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">Talaba</label>
                   <Select
@@ -467,9 +470,17 @@ const Payments: React.FC = () => {
                 {error && <div className="text-red-600 text-sm text-center">{error}</div>}
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors text-lg mt-2 shadow"
+                  className="w-full py-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors text-lg mt-2 shadow disabled:opacity-60"
+                  disabled={loading}
                 >
-                  Qo‘shish
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-5 w-5 mr-1 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                      Qo‘shilmoqda...
+                    </span>
+                  ) : (
+                    'Qo‘shish'
+                  )}
                 </button>
               </form>
             </motion.div>

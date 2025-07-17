@@ -79,24 +79,24 @@ const DataTable: React.FC<DataTableProps> = ({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-card border border-gray-200 dark:border-gray-700">
       {/* Header */}
-      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-          <div className="flex items-center space-x-4">
+      <div className="p-3 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             {searchable && (
-              <div className="relative">
+              <div className="relative w-full max-w-xs">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
                   placeholder="Qidirish..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm sm:text-base w-full"
                 />
               </div>
             )}
             
             {filterable && (
-              <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+              <button className="flex items-center space-x-2 px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-xs sm:text-sm">
                 <Filter className="w-4 h-4" />
                 <span>Filter</span>
               </button>
@@ -105,7 +105,7 @@ const DataTable: React.FC<DataTableProps> = ({
 
           <div className="flex items-center space-x-2">
             {actions}
-            <button className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
+            <button className="flex items-center space-x-2 px-3 sm:px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-xs sm:text-sm">
               <Download className="w-4 h-4" />
               <span>Export</span>
             </button>
@@ -115,13 +115,13 @@ const DataTable: React.FC<DataTableProps> = ({
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full min-w-[600px]">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider ${
+                  className={`px-2 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider ${
                     column.sortable ? 'cursor-pointer hover:text-gray-700 dark:hover:text-gray-200' : ''
                   }`}
                   onClick={() => column.sortable && handleSort(column.key)}
@@ -151,7 +151,7 @@ const DataTable: React.FC<DataTableProps> = ({
                 onClick={() => onRowClick?.(row)}
               >
                 {columns.map((column) => (
-                  <td key={column.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                  <td key={column.key} className="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-white">
                     {column.render ? column.render(row[column.key], row) : String(row[column.key])}
                   </td>
                 ))}

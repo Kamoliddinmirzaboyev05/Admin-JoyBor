@@ -5,8 +5,9 @@ import { IoManSharp, IoWomanSharp } from 'react-icons/io5';
 import { toast } from 'sonner';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { get, post } from '../data/api';
+import axios from 'axios';
 // import NProgress from 'nprogress';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
 import FloorRooms from '../components/UI/FloorRooms';
 
@@ -59,8 +60,8 @@ function useRoomsByFloor(floorId: number) {
     queryFn: async () => {
       const res = await get(`/rooms/?floor=${floorId}`);
       return (res || []).map((room: Record<string, unknown>) => {
-        const students = room.students || [];
-        const capacity = room.capacity || 0;
+        const students = Array.isArray(room.students) ? room.students : [];
+        const capacity = typeof room.capacity === 'number' ? room.capacity : Number(room.capacity) || 0;
         const currentOccupancy = students.length;
         let status = 'EMPTY';
         if (currentOccupancy === 0) status = 'EMPTY';
@@ -90,11 +91,18 @@ const Rooms: React.FC = () => {
   const [addingRoom, setAddingRoom] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [addingFloor, setAddingFloor] = useState(false);
+  const [deleteFloorId, setDeleteFloorId] = useState<number | null>(null);
+  const [deletingFloor, setDeletingFloor] = useState(false);
+  const [editFloor, setEditFloor] = useState<Floor | null>(null);
+  const [editFloorName, setEditFloorName] = useState('');
+  const [editFloorGender, setEditFloorGender] = useState<'male' | 'female'>('male');
+  const [editingFloor, setEditingFloor] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
 
   const { 
-    data: floors = [], 
+    data: floors = [] as Floor[], 
     isLoading: floorsLoading, 
     error: floorsError,
     refetch: refetchFloors 
@@ -105,7 +113,7 @@ const Rooms: React.FC = () => {
   });
 
   // Helper: check if all rooms for all floors are loaded
-  const typedFloors: Floor[] = Array.isArray(floors) ? floors as Floor[] : [];
+  const typedFloors: Floor[] = Array.isArray(floors) ? (floors as Floor[]) : [];
   // No need for allRoomsLoaded, rely on react-query loading states per floor
 
   useEffect(() => {
@@ -140,8 +148,16 @@ const Rooms: React.FC = () => {
   // Add new floor
   const handleAddFloor = async (e: React.FormEvent) => {
     e.preventDefault();
-    const floorStr = newFloor.trim();
-    if (!floorStr) return;
+    if (addingFloor) return; // Prevent double submit
+    console.log('handleAddFloor called', new Error().stack);
+    let floorStr = newFloor.trim();
+    // Remove all instances of 'qavat' (with or without dash or space)
+    floorStr = floorStr.replace(/[- ]*qavat/gi, '');
+    // Extract only the number part
+    const match = floorStr.match(/\d+/);
+    if (!match) return;
+    const floorNumber = match[0];
+    floorStr = `${floorNumber}-qavat`;
     setAddingFloor(true);
     try {
       await post('/floor/create/', { name: floorStr, gender: newFloorGender });
@@ -185,25 +201,9 @@ const Rooms: React.FC = () => {
       setSelectedFloor('');
       setNewRoomCapacity('');
       setShowRoomModal(false);
-      // Refresh rooms for the selected floor
-      const res = await get(`/rooms/?floor=${floorObj.id}`);
-      const rooms = (res || []).map((room: Record<string, unknown>) => {
-        const students = room.students || [];
-        const roomCapacity = room.capacity || 0;
-        const currentOccupancy = students.length;
-        let status = 'EMPTY';
-        if (currentOccupancy === 0) status = 'EMPTY';
-        else if (currentOccupancy === roomCapacity && roomCapacity > 0) status = 'OCCUPIED';
-        else status = 'PARTIALLY_OCCUPIED';
-        return {
-          ...room,
-          students,
-          capacity: roomCapacity,
-          currentOccupancy,
-          status,
-        };
-      });
-      // setRoomsByFloor(prev => ({ ...prev, [floorObj.id]: rooms })); // This line is removed
+      // Force refetch for all rooms and this floor's rooms
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+      queryClient.invalidateQueries({ queryKey: ['rooms', floorObj.id] });
     } catch {
       toast.error('Xona qo\'shishda xatolik!');
     } finally {
@@ -213,21 +213,60 @@ const Rooms: React.FC = () => {
 
   // Edit floor handler
   const handleEditFloor = (floor: Floor) => {
-    // setEditFloor(floor); // Tozalandi
-    setNewFloor(floor.name);
-    setNewFloorGender(floor.gender);
-    setShowFloorModal(true);
+    setEditFloor(floor);
+    setEditFloorName(floor.name);
+    setEditFloorGender(floor.gender);
     setMenuOpen(null);
+  };
+
+  const handleEditFloorSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editFloor) return;
+    setEditingFloor(true);
+    try {
+      const token = localStorage.getItem('access');
+      await axios.patch(
+        `https://joyboryangi.pythonanywhere.com/floors/${editFloor.id}/`,
+        { name: editFloorName, gender: editFloorGender },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success('Qavat tahrirlandi!');
+      setEditFloor(null);
+      refetchFloors();
+    } catch {
+      toast.error('Qavatni tahrirlashda xatolik!');
+    } finally {
+      setEditingFloor(false);
+    }
   };
 
   // Delete floor handler
   const handleDeleteFloor = (floor: Floor) => {
-    // setRoomsByFloor(rooms => ({ // This line is removed
-    //   ...rooms,
-    //   [floor.id]: [],
-    // }));
+    setDeleteFloorId(floor.id);
     setMenuOpen(null);
-    toast.success("Qavat o'chirildi!");
+  };
+
+  const confirmDeleteFloor = async () => {
+    if (!deleteFloorId) return;
+    setDeletingFloor(true);
+    try {
+      const token = localStorage.getItem('access');
+      await axios.delete(
+        `https://joyboryangi.pythonanywhere.com/floors/${deleteFloorId}/`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      toast.success("Qavat o'chirildi!");
+      setDeleteFloorId(null);
+      refetchFloors();
+    } catch {
+      toast.error("Qavatni o'chirishda xatolik!");
+    } finally {
+      setDeletingFloor(false);
+    }
   };
 
   return (
@@ -256,18 +295,20 @@ const Rooms: React.FC = () => {
           ) : floorsError ? (
             <div className="text-center text-red-500 py-16">{floorsError.toString()}</div>
           ) : (
-            typedFloors.map((floor, idx) => (
-              <FloorRooms
-                key={floor.id}
-                floor={floor}
-                genderLabels={genderLabels}
-                menuOpen={menuOpen}
-                setMenuOpen={setMenuOpen}
-                handleEditFloor={handleEditFloor}
-                handleDeleteFloor={handleDeleteFloor}
-                navigate={navigate}
-              />
-            ))
+            typedFloors.length > 0 ? (
+              typedFloors.map((floor, idx) => (
+                <FloorRooms
+                  key={floor.id}
+                  floor={floor}
+                  genderLabels={genderLabels}
+                  menuOpen={menuOpen}
+                  setMenuOpen={setMenuOpen}
+                  handleEditFloor={handleEditFloor}
+                  handleDeleteFloor={handleDeleteFloor}
+                  navigate={navigate}
+                />
+              ))
+            ) : null
           )}
         </div>
       </div>
@@ -399,7 +440,7 @@ const Rooms: React.FC = () => {
                     <option value="">Qavat tanlang</option>
                     {typedFloors.map(floor => (
                       <option key={floor.id} value={floor.name}>
-                        {floor.name}-qavat ({floor.gender === 'female' ? 'Qizlar' : 'Yigitlar'})
+                        {floor.name} ({floor.gender === 'female' ? 'Qizlar' : 'Yigitlar'})
                       </option>
                     ))}
                   </select>
@@ -445,6 +486,127 @@ const Rooms: React.FC = () => {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Qavatni tahrirlash modali */}
+      <AnimatePresence>
+        {editFloor && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setEditFloor(null)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 40 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Qavatni tahrirlash</h2>
+              <form onSubmit={handleEditFloorSave} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Qavat nomi yoki raqami</label>
+                  <input
+                    type="text"
+                    value={editFloorName}
+                    onChange={e => setEditFloorName(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Qavat jinsi</label>
+                  <div className="flex gap-4">
+                    {(['male', 'female'] as const).map(g => (
+                      <label
+                        key={g}
+                        className={`group flex flex-col items-center justify-center cursor-pointer px-4 py-3 rounded-xl border-2 transition-all duration-200 select-none
+                          ${editFloorGender === g
+                            ? 'border-blue-600 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-slate-900 shadow-lg'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-400 dark:hover:border-blue-400'}
+                        `}
+                      >
+                        <input
+                          type="radio"
+                          name="edit-floor-gender"
+                          checked={editFloorGender === g}
+                          onChange={() => setEditFloorGender(g)}
+                          className="sr-only"
+                        />
+                        <span className={`flex items-center justify-center w-10 h-10 rounded-full mb-2
+                          ${editFloorGender === g
+                            ? 'bg-blue-600 text-white shadow'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}
+                          transition-all duration-200
+                        `}>
+                          {genderLabels[g]?.icon}
+                        </span>
+                        <span className={`text-sm font-semibold
+                          ${editFloorGender === g
+                            ? 'text-blue-700 dark:text-blue-200'
+                            : 'text-gray-700 dark:text-gray-200'}
+                          transition-colors
+                        `}>
+                          {genderLabels[g]?.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditFloor(null)}
+                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    disabled={editingFloor}
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editingFloor}
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors disabled:opacity-60"
+                  >
+                    {editingFloor ? "Saqlanmoqda..." : "Saqlash"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Qavatni o'chirishni tasdiqlash modali */}
+      <AnimatePresence>
+        {deleteFloorId !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setDeleteFloorId(null)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 40 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Qavatni o'chirish</h2>
+              <p className="mb-6 text-gray-700 dark:text-gray-300">Rostdan ham ushbu qavatni o'chirmoqchimisiz?</p>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteFloorId(null)}
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  disabled={deletingFloor}
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteFloor}
+                  disabled={deletingFloor}
+                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors disabled:opacity-60"
+                >
+                  {deletingFloor ? "O'chirilmoqda..." : "O'chirish"}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

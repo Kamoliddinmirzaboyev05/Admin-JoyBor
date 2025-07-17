@@ -438,18 +438,24 @@ const Students: React.FC = () => {
 
     fetch("https://joyboryangi.pythonanywhere.com/student/create/", requestOptions)
       .then(async (response) => {
-        const result = await response.json();
+        let result;
+        try {
+          result = await response.json();
+        } catch (e) {
+          result = {};
+        }
         if (!response.ok) {
-          toast.error(result.detail || "Xatolik yuz berdi");
-          throw new Error(result.detail || "Xatolik yuz berdi");
+          console.error('API error:', result);
+          toast.error(result.detail || result.message || JSON.stringify(result) || "Xatolik yuz berdi");
+          throw new Error(result.detail || result.message || JSON.stringify(result) || "Xatolik yuz berdi");
         }
         refetch();
         setShowModal(false);
-        toast.success("Talaba muvaffaqiyatli qo'shildi");
+        toast.success("Talaba muvaffaqiyatli qo'shildi!");
       })
       .catch((error) => {
-        console.error(error);
-        toast.error("Xatolik yuz berdi");
+        console.error('Catch error:', error);
+        toast.error(error.message || "Xatolik yuz berdi");
       })
       .finally(() => {
         setLoading(false); // 🔄 loader OFF
@@ -457,33 +463,43 @@ const Students: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-7xl mx-auto py-4 sm:py-8 px-1 sm:px-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Talabalar</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
+          <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-white">Talabalar</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1 text-xs sm:text-base">
             Yotoqxonada yashayotgan talabalar ro'yxati
           </p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-2 sm:gap-3 mt-2 sm:mt-0">
           <button
             onClick={() => refetch()}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             Yangilash
           </button>
           <button
             onClick={handleAdd}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-base disabled:opacity-60"
+            disabled={loading}
           >
-            <Plus className="w-4 h-4" />
-            <span>Talaba qo'shish</span>
+            {loading ? (
+              <>
+                <svg className="animate-spin h-4 w-4 mr-1 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                <span>Qo'shilmoqda...</span>
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4" />
+                <span>Talaba qo'shish</span>
+              </>
+            )}
           </button>
         </div>
       </div>
 
       {/* Filter va qidiruv */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
         <div className="flex flex-wrap gap-3 items-center">
           <Select
             options={[
@@ -516,15 +532,17 @@ const Students: React.FC = () => {
       </div>
 
       {/* Data Table */}
-      <DataTable
-        data={filteredStudents.map((s: Record<string, any>, idx: number) => ({ ...s, _idx: idx }))}
-        columns={columnsWithActions}
-        actions={null}
-        searchable={true}
-        filterable={true}
-        pagination={true}
-        pageSize={10}
-      />
+      <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+        <DataTable
+          data={filteredStudents.map((s: Record<string, any>, idx: number) => ({ ...s, _idx: idx }))}
+          columns={columnsWithActions}
+          actions={null}
+          searchable={true}
+          filterable={false}
+          pagination={true}
+          pageSize={10}
+        />
+      </div>
 
       {/* Modal */}
       {showModal && (
@@ -553,10 +571,10 @@ const Students: React.FC = () => {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-8 py-8 pb-32 space-y-8">
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-2 sm:px-8 py-6 sm:py-8 pb-32 space-y-6 sm:space-y-8">
               {/* Profil rasmi */}
               <div className="flex flex-col items-center gap-3 mb-4">
-                <label className="block text-base font-semibold text-gray-800 dark:text-gray-200 mb-2">Profil rasmi</label>
+                <label className="block text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200 mb-2">Profil rasmi</label>
                 <div className="relative w-24 h-24 group">
                   {avatarPreview ? (
                     <img
@@ -597,8 +615,8 @@ const Students: React.FC = () => {
 
               {/* Shaxsiy ma'lumotlar */}
               <div>
-                <div className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Shaxsiy ma'lumotlar</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Shaxsiy ma'lumotlar</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ism</label>
                     <input type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
@@ -621,8 +639,8 @@ const Students: React.FC = () => {
 
               {/* Universitet ma'lumotlari */}
               <div>
-                <div className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Universitet ma'lumotlari</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Universitet ma'lumotlari</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fakultet</label>
                     <input type="text" name="faculty" value={formData.faculty} onChange={handleInputChange} placeholder="Fakultet nomi" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
@@ -651,8 +669,8 @@ const Students: React.FC = () => {
 
               {/* Yashash ma'lumotlari */}
               <div>
-                <div className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Yashash ma'lumotlari</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Yashash ma'lumotlari</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Qavat</label>
                     <Select
@@ -709,21 +727,21 @@ const Students: React.FC = () => {
 
               {/* Qo'shimcha */}
               <div>
-                <div className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Qo'shimcha</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Qo'shimcha</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Passport ma'lumoti</label>
                     <input type="text" name="passport" value={formData.passport} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
                   </div>
-                  <div className="flex items-center gap-2 mt-8">
+                  <div className="flex items-center gap-2 mt-4 sm:mt-8">
                     <input type="checkbox" name="isPrivileged" checked={formData.isPrivileged} onChange={handleCheckboxChange} className="form-checkbox h-5 w-5 text-primary-600" />
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Imtiyozli talaba</label>
                   </div>
                 </div>
                 {/* Gender radio group */}
                 <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Jinsi</label>
-                  <div className="flex gap-6">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Jinsi</label>
+                  <div className="flex gap-4 sm:gap-6">
                     <label className="inline-flex items-center cursor-pointer">
                       <input
                         type="radio"
@@ -755,9 +773,16 @@ const Students: React.FC = () => {
                   </div>
                 )}
               </div>
-              <div className="fixed left-0 right-0 bottom-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex justify-end pt-4 gap-2 px-8 pb-6 z-20 max-w-xl mx-auto w-full" style={{borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem'}}>
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">Bekor qilish</button>
-                <button type="submit" className="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors">{editingStudent ? 'Saqlash' : 'Qo\'shish'}</button>
+              <div className="fixed left-0 right-0 bottom-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex justify-end pt-4 gap-2 px-2 sm:px-8 pb-6 z-20 max-w-xl mx-auto w-full" style={{borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem'}}>
+                <button type="button" onClick={() => setShowModal(false)} className="px-3 sm:px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-sm sm:text-base">Bekor qilish</button>
+                <button type="submit" className="px-3 sm:px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors text-sm sm:text-base" disabled={loading}>
+                  {editingStudent ? 'Saqlash' : loading ? (
+                    <span className="flex items-center gap-2 justify-center">
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                      Qo'shilmoqda...
+                    </span>
+                  ) : "Qo'shish"}
+                </button>
               </div>
             </form>
           </motion.div>

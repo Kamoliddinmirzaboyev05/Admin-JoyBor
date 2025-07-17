@@ -31,7 +31,7 @@ const statusLabels: Record<string, string> = {
 };
 
 function useRoomsByFloor(floorId: number) {
-  return useQuery({
+  return useQuery<Room[]>({
     queryKey: ['rooms', floorId],
     queryFn: async () => {
       const res = await get(`/rooms/?floor=${floorId}`);
@@ -49,7 +49,7 @@ function useRoomsByFloor(floorId: number) {
           capacity,
           currentOccupancy,
           status,
-        };
+        } as Room;
       });
     },
     staleTime: 1000 * 60 * 5,
@@ -65,7 +65,8 @@ const FloorRooms: React.FC<{
   handleDeleteFloor: (floor: Floor) => void;
   navigate: (path: string) => void;
 }> = ({ floor, genderLabels, menuOpen, setMenuOpen, handleEditFloor, handleDeleteFloor, navigate }) => {
-  const { data: rooms, isLoading: roomsLoading } = useRoomsByFloor(floor.id);
+  const { data, isLoading: roomsLoading } = useRoomsByFloor(floor.id);
+  const rooms = Array.isArray(data) ? data : [];
 
   return (
     <div
@@ -77,7 +78,7 @@ const FloorRooms: React.FC<{
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{floor.name}-qavat</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{floor.name.endsWith('-qavat') ? floor.name : `${floor.name}-qavat`}</h2>
           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${floor.gender === 'female' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-200' : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'}`}>{genderLabels[floor.gender]?.label}</span>
         </div>
         <div className="relative floor-actions">
@@ -105,20 +106,20 @@ const FloorRooms: React.FC<{
           )}
         </div>
       </div>
-      <div className="flex flex-wrap gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
         {roomsLoading ? (
           <span className="text-gray-400 dark:text-slate-500">Xonalar yuklanmoqda...</span>
-        ) : !rooms || rooms.length === 0 ? (
+        ) : rooms.length === 0 ? (
           <span className="text-gray-400 dark:text-slate-500">Xona yo'q</span>
         ) : (
           rooms.map((room: Room) => (
             <div
               key={room.id}
-              className="px-6 py-5 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col items-center justify-center min-w-[200px] w-full max-w-[280px]"
+              className="px-2 py-3 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col items-center justify-center min-w-[110px] w-full max-w-[150px]"
               title={room.name}
             >
-              <span className="font-bold text-xl text-gray-900 dark:text-white mb-3">{room.name}</span>
-              <span className={`text-sm px-4 py-2 rounded-full font-semibold ${statusColors[room.status] || 'bg-gray-200 text-gray-700'}`}>
+              <span className="font-bold text-base text-gray-900 dark:text-white mb-2">{room.name}</span>
+              <span className={`text-xs px-3 py-1 rounded-full font-semibold ${statusColors[room.status] || 'bg-gray-200 text-gray-700'}`}>
                 {statusLabels[room.status] || room.status}
               </span>
             </div>

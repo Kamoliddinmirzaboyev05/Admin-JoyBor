@@ -77,22 +77,24 @@ const StudentProfile: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-2 flex flex-col items-center">
-      <div className="w-full max-w-4xl bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-4 sm:p-8 border border-gray-100 dark:border-slate-700">
-        <div className="flex items-center justify-between mb-6">
-          <BackButton label="Orqaga" />
-          <div className="flex items-center gap-2">
-            <BadgeCheck className="w-7 h-7 text-blue-600 dark:text-blue-300" />
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Talaba profili</h1>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-4 sm:py-6 px-1 sm:px-2 flex flex-col items-center">
+      <div className="w-full max-w-4xl bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-2 sm:p-6 md:p-8 border border-gray-100 dark:border-slate-700">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
+          <div className="flex items-center justify-between w-full sm:w-auto">
+            <BackButton label="Orqaga" />
+            <button
+              className="px-3 sm:px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition text-sm sm:text-base ml-2 sm:ml-4"
+              onClick={() => editMode ? handleSave() : setEditMode(true)}
+            >
+              {editMode ? 'Saqlash' : 'Tahrirlash'}
+            </button>
           </div>
-          <button
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
-            onClick={() => editMode ? handleSave() : setEditMode(true)}
-          >
-            {editMode ? 'Saqlash' : 'Tahrirlash'}
-          </button>
+          <div className="flex items-center gap-2 justify-center mt-2 sm:mt-0">
+            <BadgeCheck className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600 dark:text-blue-300" />
+            <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Talaba profili</h1>
+          </div>
         </div>
-        <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
+        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mb-6 sm:mb-8">
           {/* Profil rasmi yoki avatar */}
           {(form as Record<string, any>)?.picture ? (
             <img
@@ -109,7 +111,7 @@ const StudentProfile: React.FC = () => {
                 : ''}
             </div>
           )}
-          <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {editMode ? (
               <>
                 <EditableInput label="Ism" value={(form as Record<string, any>)?.name as string} onChange={v => handleChange('name', v)} />
@@ -127,7 +129,7 @@ const StudentProfile: React.FC = () => {
             )}
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-8 mt-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6 md:gap-8 mt-4 sm:mt-6">
           {editMode ? (
             <>
               <EditableInput label="Fakultet" value={(form as Record<string, any>).faculty} onChange={v => handleChange('faculty', v)} />
