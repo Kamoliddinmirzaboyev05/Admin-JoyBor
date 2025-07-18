@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { Calendar, Users, CreditCard, Home, Edit, Plus, Trash2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Calendar, Users, CreditCard, Home, Edit, Plus, Trash2, AlertTriangle, CheckCircle2, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { get } from '../data/api';
+import { link } from '../data/config';
 
 const mockStats = {
   totalStudents: 245,
@@ -9,23 +11,38 @@ const mockStats = {
   totalDebtors: 17,
 };
 
-const mockActions = [
-  { id: 1, type: 'Talaba qo‘shildi', user: 'Ali Valiyev', date: '2024-06-01', details: 'Yangi talaba qo‘shildi', icon: <Plus className="w-5 h-5 text-green-500" /> },
-  { id: 2, type: 'To‘lov', user: 'Dilshod Karimov', date: '2024-06-01', details: 'To‘lov qabul qilindi: 1,200,000 so‘m', icon: <CreditCard className="w-5 h-5 text-blue-500" /> },
-  { id: 3, type: 'Talaba tahrirlandi', user: 'Aziza Qodirova', date: '2024-05-30', details: 'Talaba maʼlumotlari o‘zgartirildi', icon: <Edit className="w-5 h-5 text-yellow-500" /> },
-  { id: 4, type: 'Talaba o‘chirildi', user: 'Jasur Tursunov', date: '2024-05-29', details: 'Talaba tizimdan o‘chirildi', icon: <Trash2 className="w-5 h-5 text-red-500" /> },
-  { id: 5, type: 'To‘lov', user: 'Ali Valiyev', date: '2024-05-28', details: 'To‘lov qabul qilindi: 900,000 so‘m', icon: <CreditCard className="w-5 h-5 text-blue-500" /> },
-  { id: 6, type: 'Talaba qo‘shildi', user: 'Madina Ergasheva', date: '2024-05-27', details: 'Yangi talaba qo‘shildi', icon: <Plus className="w-5 h-5 text-green-500" /> },
-];
-
 const Reports: React.FC = () => {
   const [search, setSearch] = useState('');
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [recentActivitiesLoading, setRecentActivitiesLoading] = useState(true);
 
-  const filteredActions = mockActions.filter(a =>
-    a.user.toLowerCase().includes(search.toLowerCase()) ||
-    a.type.toLowerCase().includes(search.toLowerCase()) ||
-    a.details.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    const fetchRecentActivities = async () => {
+      setRecentActivitiesLoading(true);
+      try {
+        const res = await get(`${link}/recent_activity/`);
+        setRecentActivities(Array.isArray(res.activities) ? res.activities : []);
+      } catch {
+        setRecentActivities([]);
+      } finally {
+        setRecentActivitiesLoading(false);
+      }
+    };
+    fetchRecentActivities();
+  }, []);
+
+  const filteredActions = recentActivities.filter(a =>
+    a.title?.toLowerCase().includes(search.toLowerCase()) ||
+    a.desc?.toLowerCase().includes(search.toLowerCase()) ||
+    a.time?.toLowerCase().includes(search.toLowerCase())
   );
+
+  function getActivityIcon(type: string) {
+    if (type === 'payment_approved') return <CheckCircle2 className="w-5 h-5 text-green-500" />;
+    if (type === 'debt') return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
+    if (type === 'new_student') return <FileText className="w-5 h-5 text-blue-500" />;
+    return <FileText className="w-5 h-5 text-gray-400" />;
+  }
 
   return (
     <motion.div
@@ -52,7 +69,7 @@ const Reports: React.FC = () => {
             <div className="text-xs uppercase tracking-wider font-semibold opacity-80">Jami talabalar</div>
             <div className="text-3xl font-extrabold mt-1">{mockStats.totalStudents}</div>
             <div className="absolute right-2 bottom-2 opacity-10 text-7xl font-black select-none">{mockStats.totalStudents}</div>
-          </div>
+            </div>
           <div className="rounded-2xl bg-gradient-to-br from-green-400 to-blue-500 shadow-xl p-6 flex flex-col items-center text-white relative overflow-hidden">
             <CreditCard className="w-8 h-8 mb-2 opacity-90" />
             <div className="text-xs uppercase tracking-wider font-semibold opacity-80">Jami to‘lovlar</div>
@@ -82,20 +99,20 @@ const Reports: React.FC = () => {
             <thead className="bg-gradient-to-r from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-950">
               <tr>
                 <th className="px-5 py-3 text-left font-bold text-gray-700 dark:text-gray-200">Amal</th>
-                <th className="px-5 py-3 text-left font-bold text-gray-700 dark:text-gray-200">Foydalanuvchi</th>
-                <th className="px-5 py-3 text-left font-bold text-gray-700 dark:text-gray-200">Sana</th>
                 <th className="px-5 py-3 text-left font-bold text-gray-700 dark:text-gray-200">Tafsilot</th>
+                <th className="px-5 py-3 text-left font-bold text-gray-700 dark:text-gray-200">Vaqt</th>
               </tr>
             </thead>
             <tbody>
-              {filteredActions.length === 0 ? (
-                <tr><td colSpan={4} className="text-center text-gray-400 dark:text-gray-500 py-8 text-lg bg-white dark:bg-gray-950">Hech qanday amal topilmadi</td></tr>
+              {recentActivitiesLoading ? (
+                <tr><td colSpan={3} className="text-center text-gray-400 dark:text-gray-500 py-8 text-lg bg-white dark:bg-gray-950">Yuklanmoqda...</td></tr>
+              ) : filteredActions.length === 0 ? (
+                <tr><td colSpan={3} className="text-center text-gray-400 dark:text-gray-500 py-8 text-lg bg-white dark:bg-gray-950">Hech qanday amal topilmadi</td></tr>
               ) : filteredActions.map((a, idx) => (
-                <tr key={a.id} className={`transition hover:bg-blue-50 dark:hover:bg-gray-900 ${idx % 2 === 0 ? 'bg-white dark:bg-gray-950' : 'bg-blue-50/40 dark:bg-gray-900/60'}`}>
-                  <td className="px-5 py-3 flex items-center gap-3 font-semibold text-gray-800 dark:text-gray-100">{a.icon}{a.type}</td>
-                  <td className="px-5 py-3 text-gray-700 dark:text-gray-200">{a.user}</td>
-                  <td className="px-5 py-3 text-gray-700 dark:text-gray-200">{a.date}</td>
-                  <td className="px-5 py-3 text-gray-700 dark:text-gray-200">{a.details}</td>
+                <tr key={idx} className={`transition hover:bg-blue-50 dark:hover:bg-gray-900 ${idx % 2 === 0 ? 'bg-white dark:bg-gray-950' : 'bg-blue-50/40 dark:bg-gray-900/60'}`}>
+                  <td className="px-5 py-3 flex items-center gap-3 font-semibold text-gray-800 dark:text-gray-100">{getActivityIcon(a.type)}{a.title}</td>
+                  <td className="px-5 py-3 text-gray-700 dark:text-gray-200">{a.desc}</td>
+                  <td className="px-5 py-3 text-gray-700 dark:text-gray-200">{a.time}</td>
                 </tr>
               ))}
             </tbody>

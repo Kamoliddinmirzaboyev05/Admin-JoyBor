@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LogOut, User, KeyRound, Mail, Phone, UserCog, ShieldCheck, CalendarCheck2, CheckCircle2, Activity } from 'lucide-react';
 import BackButton from '../components/UI/BackButton';
 import { useQuery } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
 import { useRef } from 'react';
+import { link } from '../data/config';
 
 const tabList = [
   { key: 'main', label: 'Asosiy', icon: <UserCog className="w-4 h-4 mr-1" /> },
@@ -97,7 +98,7 @@ const Profile: React.FC = () => {
     });
     try {
       const token = localStorage.getItem('access');
-      const res = await fetch('https://joyboryangi.pythonanywhere.com/profile/', {
+      const res = await fetch(`${link}/profile/`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,

@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { MoreVertical, X, Loader2 } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoManSharp, IoWomanSharp } from 'react-icons/io5';
 import { toast } from 'sonner';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { get, post } from '../data/api';
+import { post } from '../data/api';
 import axios from 'axios';
 // import NProgress from 'nprogress';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
 import FloorRooms from '../components/UI/FloorRooms';
+import { link } from '../data/config';
 
 interface Floor {
   id: number;
@@ -23,7 +24,7 @@ interface Student {
   last_name: string;
 }
 
-interface Room {
+export interface Room {
   id: number;
   name: string;
   floor: Floor;
@@ -35,50 +36,10 @@ interface Room {
   students: Student[];
 }
 
-const statusColors: Record<string, string> = {
-  EMPTY: 'bg-gray-200 text-gray-700',
-  OCCUPIED: 'bg-blue-600 text-white',
-  PARTIALLY_OCCUPIED: 'bg-blue-200 text-blue-800',
-};
-
 const genderLabels: Record<string, { label: string; icon: React.ReactNode }> = {
   male: { label: 'Yigitlar', icon: <IoManSharp className="inline w-5 h-5 mr-1" /> },
   female: { label: 'Qizlar', icon: <IoWomanSharp className="inline w-5 h-5 mr-1" /> },
 };
-
-// Add Uzbek status labels
-const statusLabels: Record<string, string> = {
-  OCCUPIED: "To'lgan",
-  PARTIALLY_OCCUPIED: "To'lmagan",
-  EMPTY: "Bo'sh",
-};
-
-// Custom hook for rooms by floor
-function useRoomsByFloor(floorId: number) {
-  return useQuery({
-    queryKey: ['rooms', floorId],
-    queryFn: async () => {
-      const res = await get(`/rooms/?floor=${floorId}`);
-      return (res || []).map((room: Record<string, unknown>) => {
-        const students = Array.isArray(room.students) ? room.students : [];
-        const capacity = typeof room.capacity === 'number' ? room.capacity : Number(room.capacity) || 0;
-        const currentOccupancy = students.length;
-        let status = 'EMPTY';
-        if (currentOccupancy === 0) status = 'EMPTY';
-        else if (currentOccupancy === capacity && capacity > 0) status = 'OCCUPIED';
-        else status = 'PARTIALLY_OCCUPIED';
-        return {
-          ...room,
-          students,
-          capacity,
-          currentOccupancy,
-          status,
-        };
-      });
-    },
-    staleTime: 1000 * 60 * 5,
-  });
-}
 
 const Rooms: React.FC = () => {
   const [showFloorModal, setShowFloorModal] = useState(false);
@@ -97,6 +58,13 @@ const Rooms: React.FC = () => {
   const [editFloorName, setEditFloorName] = useState('');
   const [editFloorGender, setEditFloorGender] = useState<'male' | 'female'>('male');
   const [editingFloor, setEditingFloor] = useState(false);
+  const [editRoom, setEditRoom] = useState<Room | null>(null);
+  const [editRoomName, setEditRoomName] = useState('');
+  const [editRoomCapacity, setEditRoomCapacity] = useState('');
+  const [editRoomFloor, setEditRoomFloor] = useState<number | null>(null);
+  const [editingRoom, setEditingRoom] = useState(false);
+  const [deleteRoom, setDeleteRoom] = useState<Room | null>(null);
+  const [deletingRoom, setDeletingRoom] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -117,7 +85,7 @@ const Rooms: React.FC = () => {
   // No need for allRoomsLoaded, rely on react-query loading states per floor
 
   useEffect(() => {
-    if (location.state && (location.state as any).openAddRoomModal) {
+    if (location.state && (location.state as { openAddRoomModal?: boolean })?.openAddRoomModal) {
       setShowRoomModal(true);
       window.history.replaceState({}, document.title);
     }
@@ -160,7 +128,7 @@ const Rooms: React.FC = () => {
     floorStr = `${floorNumber}-qavat`;
     setAddingFloor(true);
     try {
-      await post('/floor/create/', { name: floorStr, gender: newFloorGender });
+      await post(`${link}/floor/create/`, { name: floorStr, gender: newFloorGender });
       toast.success('Qavat muvaffaqiyatli qo\'shildi!');
       // Refresh floors from API
       refetchFloors();
@@ -190,7 +158,7 @@ const Rooms: React.FC = () => {
         toast.error('Qavat topilmadi!');
         return;
       }
-      await post('/room/create/', {
+      await post(`${link}/room/create/`, {
         name: roomStr,
         floor: floorObj.id,
         capacity: capacity,
@@ -226,7 +194,7 @@ const Rooms: React.FC = () => {
     try {
       const token = localStorage.getItem('access');
       await axios.patch(
-        `https://joyboryangi.pythonanywhere.com/floors/${editFloor.id}/`,
+        `${link}/floors/${editFloor.id}/`,
         { name: editFloorName, gender: editFloorGender },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -252,7 +220,7 @@ const Rooms: React.FC = () => {
     try {
       const token = localStorage.getItem('access');
       await axios.delete(
-        `https://joyboryangi.pythonanywhere.com/floors/${deleteFloorId}/`,
+        `${link}/floors/${deleteFloorId}/`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -266,6 +234,53 @@ const Rooms: React.FC = () => {
       toast.error("Qavatni o'chirishda xatolik!");
     } finally {
       setDeletingFloor(false);
+    }
+  };
+
+  const handleEditRoom = (room: Room) => {
+    setEditRoom(room);
+    setEditRoomName(room.name);
+    setEditRoomCapacity(String(room.capacity));
+    setEditRoomFloor(room.floor?.id || null);
+  };
+  const handleEditRoomSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editRoom) return;
+    setEditingRoom(true);
+    try {
+      const token = localStorage.getItem('access');
+      await axios.patch(
+        `${link}/rooms/${editRoom.id}/`,
+        { name: editRoomName, floor: editRoomFloor, capacity: Number(editRoomCapacity) },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success('Xona tahrirlandi!');
+      setEditRoom(null);
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+      if (editRoomFloor) queryClient.invalidateQueries({ queryKey: ['rooms', editRoomFloor] });
+    } catch {
+      toast.error('Xonani tahrirlashda xatolik!');
+    } finally {
+      setEditingRoom(false);
+    }
+  };
+  const confirmDeleteRoom = async () => {
+    if (!deleteRoom) return;
+    setDeletingRoom(true);
+    try {
+      const token = localStorage.getItem('access');
+      await axios.delete(
+        `${link}/rooms/${deleteRoom.id}/`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success('Xona o\'chirildi!');
+      setDeleteRoom(null);
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+      if (deleteRoom.floor?.id) queryClient.invalidateQueries({ queryKey: ['rooms', deleteRoom.floor.id] });
+    } catch {
+      toast.error('Xonani o\'chirishda xatolik!');
+    } finally {
+      setDeletingRoom(false);
     }
   };
 
@@ -293,10 +308,10 @@ const Rooms: React.FC = () => {
           {floorsLoading ? (
             <div className="text-center text-gray-500 dark:text-gray-400 py-16">Yuklanmoqda...</div>
           ) : floorsError ? (
-            <div className="text-center text-red-500 py-16">{floorsError.toString()}</div>
+            <div className="text-center text-red-500 py-16">{String(floorsError)}</div>
           ) : (
             typedFloors.length > 0 ? (
-              typedFloors.map((floor, idx) => (
+              typedFloors.map((floor) => (
                 <FloorRooms
                   key={floor.id}
                   floor={floor}
@@ -605,6 +620,114 @@ const Rooms: React.FC = () => {
                   className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors disabled:opacity-60"
                 >
                   {deletingFloor ? "O'chirilmoqda..." : "O'chirish"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Xonani tahrirlash modali */}
+      <AnimatePresence>
+        {editRoom && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setEditRoom(null)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 40 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Xonani tahrirlash</h2>
+              <form onSubmit={handleEditRoomSave} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona nomi yoki raqami</label>
+                  <input
+                    type="text"
+                    value={editRoomName}
+                    onChange={e => setEditRoomName(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Qavat</label>
+                  <select
+                    value={editRoomFloor ?? ''}
+                    onChange={e => setEditRoomFloor(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">Qavat tanlang</option>
+                    {typedFloors.map(floor => (
+                      <option key={floor.id} value={floor.id}>{floor.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona sig'imi</label>
+                  <input
+                    type="number"
+                    value={editRoomCapacity}
+                    onChange={e => setEditRoomCapacity(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    min="1"
+                    max="20"
+                    required
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditRoom(null)}
+                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    disabled={editingRoom}
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editingRoom}
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors disabled:opacity-60"
+                  >
+                    {editingRoom ? "Saqlanmoqda..." : "Saqlash"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Xonani o'chirishni tasdiqlash modali */}
+      <AnimatePresence>
+        {deleteRoom && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setDeleteRoom(null)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 40 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Xonani o'chirish</h2>
+              <p className="mb-6 text-gray-700 dark:text-gray-300">Rostdan ham ushbu xonani o'chirmoqchimisiz?</p>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteRoom(null)}
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  disabled={deletingRoom}
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteRoom}
+                  disabled={deletingRoom}
+                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors disabled:opacity-60"
+                >
+                  {deletingRoom ? "O'chirilmoqda..." : "O'chirish"}
                 </button>
               </div>
             </motion.div>

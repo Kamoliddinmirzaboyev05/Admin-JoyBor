@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import DataTable from '../components/UI/DataTable';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import Select from 'react-select';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
 import { useAppStore } from '../stores/useAppStore';
+import { link } from '../data/config';
+import axios from 'axios';
 
 // react-select custom styles for dark mode
 const selectStyles = {
@@ -260,21 +262,42 @@ const Students: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingStudent) {
-      // Local store update (for mock/demo)
-      const updateData: any = {
-        ...formData,
-        course: Number(formData.course.replace(/[^\d]/g, '')) || 1,
-        avatar: typeof formData.avatar === 'string' ? formData.avatar : undefined,
-      };
-      if (formData.gender === 'male' || formData.gender === 'female') {
-        updateData.gender = formData.gender;
-      } else {
-        delete updateData.gender;
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('access');
+        // Prepare payload with only backend-expected fields
+        const payload: any = {
+          name: formData.firstName,
+          last_name: formData.lastName,
+          middle_name: formData.fatherName,
+          phone: formData.phone,
+          faculty: formData.faculty,
+          direction: formData.direction,
+          group: formData.group,
+          passport: formData.passport,
+          tarif: formData.tarif,
+          imtiyoz: formData.isPrivileged,
+          privilegeShare: formData.privilegeShare,
+          course: formData.course,
+          gender: formData.gender,
+        };
+        if (formData.room) payload.room = Number(formData.room);
+        if (formData.floor) payload.floor = Number(formData.floor);
+        if (formData.region) payload.province = Number(formData.region);
+        if (formData.district) payload.district = Number(formData.district);
+        await axios.patch(
+          `${link}/students/${editingStudent.id}/`,
+          payload,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        toast.success('Talaba maʼlumotlari yangilandi!');
+        refetch();
+        setShowModal(false);
+      } catch {
+        toast.error('Talaba maʼlumotlarini saqlashda xatolik!');
+      } finally {
+        setLoading(false);
       }
-      updateStudentStore(String(editingStudent.id), updateData);
-      toast.success('Talaba maʼlumotlari yangilandi');
-      refetch();
-      setShowModal(false);
       return;
     }
     try {
@@ -338,7 +361,7 @@ const Students: React.FC = () => {
   useEffect(() => {
     const token = localStorage.getItem("access");
     const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
-    fetch("https://joyboryangi.pythonanywhere.com/provinces/", { headers })
+    fetch(`${link}/provinces/`, { headers })
       .then(res => {
         if (!res.ok) throw new Error("Viloyatlarni yuklashda xatolik");
         return res.json();
@@ -355,7 +378,7 @@ const Students: React.FC = () => {
     }
     const token = localStorage.getItem("access");
     const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
-    fetch(`https://joyboryangi.pythonanywhere.com/districts/?province=${formData.region}`, { headers })
+    fetch(`${link}/districts/?province=${formData.region}`, { headers })
       .then(res => {
         if (!res.ok) throw new Error("Tumanlarni yuklashda xatolik");
         return res.json();
@@ -436,7 +459,7 @@ const Students: React.FC = () => {
       body: formdata,
     };
 
-    fetch("https://joyboryangi.pythonanywhere.com/student/create/", requestOptions)
+    fetch(`${link}/student/create/`, requestOptions)
       .then(async (response) => {
         let result;
         try {

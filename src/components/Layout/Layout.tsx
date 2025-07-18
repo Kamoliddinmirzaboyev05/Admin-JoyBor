@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { Outlet, useLocation, useNavigationType } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
 import { useAppStore } from '../../stores/useAppStore';
 import Sidebar from './Sidebar';
 
@@ -38,18 +37,6 @@ const Layout: React.FC = () => {
           </div>
         </div>
       </main>
-
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: isDark ? '#374151' : '#ffffff',
-            color: isDark ? '#ffffff' : '#374151',
-            border: `1px solid ${isDark ? '#4B5563' : '#E5E7EB'}`,
-          },
-        }}
-      />
     </div>
   );
 };

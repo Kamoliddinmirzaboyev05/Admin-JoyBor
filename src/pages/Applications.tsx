@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Select from 'react-select';
 import { useQuery } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
+import { link } from '../data/config';
 
 const statusColors = {
   'Yangi': 'bg-blue-100 text-blue-700',

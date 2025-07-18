@@ -4,14 +4,16 @@ import DataTable from '../components/UI/DataTable';
 import { CreditCard, Plus, X, Wallet, Calendar } from 'lucide-react';
 import Select from 'react-select';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import '../index.css';
 import { toast } from 'sonner';
 // import NProgress from 'nprogress';
 import { useQuery } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
 import { useLocation } from 'react-router-dom';
+import { link } from '../data/config';
+import { ReactDatePickerProps } from 'react-datepicker';
 
 const Payments: React.FC = () => {
   // const { students, addPayment } = useAppStore();
@@ -279,7 +281,7 @@ const Payments: React.FC = () => {
                   <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">Talaba</label>
                   <Select
                     options={studentOptions}
-                    value={studentOptions.find(opt => opt.value === Number(form.studentId)) || null}
+                    value={studentOptions.find(opt => opt.value === form.studentId) || null}
                     onChange={handleSelectChange}
                     isClearable
                     placeholder="Talabani tanlang..."
@@ -302,130 +304,28 @@ const Payments: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">To‘lov amal qilish sanasi</label>
-                  <LocalizationProvider dateAdapter={AdapterDateFns}>
-                    <DatePicker
-                      value={form.validUntil ? new Date(form.validUntil) : null}
-                      onChange={date => setForm(f => ({ ...f, validUntil: date ? date.toISOString().slice(0, 10) : '' }))}
-                      format="yyyy-MM-dd"
-                      slotProps={{
-                        textField: {
-                          fullWidth: true,
-                          variant: 'outlined',
-                          placeholder: 'Sanani tanlang',
-                          InputProps: {
-                            startAdornment: (
-                              <span className="pl-2 pr-2 flex items-center">
-                                <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-300" />
-                              </span>
-                            ),
-                            className: 'rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent h-11 text-base',
-                            style: { paddingLeft: 0, height: '44px', fontSize: '1rem' },
-                          },
-                          InputLabelProps: {
-                            shrink: true,
-                            className: 'text-gray-900 dark:text-gray-200',
-                          },
-                          sx: {
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: '0.5rem',
-                              backgroundColor: 'var(--mui-bg, #fff)',
-                              color: 'var(--mui-text, #111827)',
-                              minHeight: '44px',
-                              fontSize: '1rem',
-                              padding: 0,
-                            },
-                            '& .MuiOutlinedInput-notchedOutline': {
-                              borderColor: 'var(--mui-border, #d1d5db)',
-                            },
-                            '& .MuiInputBase-input': {
-                              color: 'var(--mui-text, #111827)',
-                              backgroundColor: 'transparent',
-                              minHeight: '44px',
-                              fontSize: '1rem',
-                              padding: 0,
-                            },
-                            '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                              borderColor: '#2563eb',
-                            },
-                            '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': {
-                              borderColor: '#2563eb',
-                            },
-                            '& .MuiOutlinedInput-root.Mui-focused': {
-                              boxShadow: '0 0 0 2px #2563eb33',
-                            },
-                            // Dark mode overrides
-                            '@media (prefers-color-scheme: dark)': {
-                              '& .MuiOutlinedInput-root': {
-                                backgroundColor: '#1f2937',
-                                color: '#fff',
-                              },
-                              '& .MuiOutlinedInput-notchedOutline': {
-                                borderColor: '#374151',
-                              },
-                              '& .MuiInputBase-input': {
-                                color: '#fff',
-                              },
-                            },
-                          },
-                        },
-                        popper: {
-                          sx: {
-                            '& .MuiPaper-root': {
-                              backgroundColor: 'var(--mui-bg, #fff)',
-                              color: 'var(--mui-text, #111827)',
-                              borderRadius: '0.75rem',
-                              boxShadow: '0 8px 32px 0 rgba(0,0,0,0.18)',
-                              border: '1px solid var(--mui-border, #d1d5db)',
-                              minWidth: '280px',
-                            },
-                            '& .MuiPickersDay-root': {
-                              fontSize: '1rem',
-                              borderRadius: '0.5rem',
-                              color: '#111827',
-                            },
-                            '& .MuiPickersDay-root.Mui-selected': {
-                              backgroundColor: '#2563eb',
-                              color: '#fff',
-                            },
-                            '& .MuiPickersDay-root:focus': {
-                              outline: '2px solid #2563eb',
-                            },
-                            '& .MuiPickersDay-root:hover': {
-                              backgroundColor: '#2563eb22',
-                            },
-                            '& .MuiPickersCalendarHeader-label': {
-                              fontWeight: 600,
-                              fontSize: '1rem',
-                            },
-                            // Dark mode overrides
-                            '@media (prefers-color-scheme: dark)': {
-                              '& .MuiPaper-root': {
-                                backgroundColor: '#1f2937',
-                                color: '#fff',
-                                border: '1px solid #374151',
-                              },
-                              '& .MuiPickersDay-root': {
-                                color: '#e5e7eb',
-                              },
-                              '& .MuiPickersDay-root.Mui-selected': {
-                                backgroundColor: '#2563eb',
-                                color: '#fff',
-                              },
-                              '& .MuiPickersDay-root:focus': {
-                                outline: '2px solid #2563eb',
-                              },
-                              '& .MuiPickersDay-root:hover': {
-                                backgroundColor: '#2563eb44',
-                              },
-                              '& .MuiPickersCalendarHeader-label': {
-                                color: '#fff',
-                              },
-                            },
-                          },
-                        },
-                      }}
-                    />
-                  </LocalizationProvider>
+                  <div className="flex w-full min-w-0">
+                    <div className="relative w-full min-w-0 block">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-300 pointer-events-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                          <path fill="currentColor" d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1zm10 4V6H7v.01H5V20h14V6h-2zm-7 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
+                        </svg>
+                      </span>
+                      <DatePicker
+                        selected={form.validUntil ? new Date(form.validUntil) : null}
+                        onChange={(date: Date | null) => setForm(f => ({ ...f, validUntil: date ? date.toISOString().slice(0, 10) : '' }))}
+                        dateFormat="yyyy-MM-dd"
+                        placeholderText="YYYY-MM-DD"
+                        className="w-full min-w-0 block pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent h-11 text-base"
+                        calendarClassName="!bg-white dark:!bg-gray-900 !text-gray-900 dark:!text-white !border !border-gray-300 dark:!border-gray-700 !rounded-xl"
+                        dayClassName={(date: Date) =>
+                          `!rounded-md !font-normal ${date && form.validUntil && date.toISOString().slice(0, 10) === form.validUntil ? '!bg-primary-600 !text-white' : '!text-gray-900 dark:!text-gray-100'} hover:!bg-primary-100 dark:hover:!bg-primary-900/30`
+                        }
+                        popperClassName="z-50"
+                        showPopperArrow={false}
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">To‘lov turi</label>

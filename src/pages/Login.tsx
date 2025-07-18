@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { link } from '../data/config';
 
 const Login: React.FC = () => {
   const [login, setLogin] = useState('');
@@ -13,7 +14,7 @@ const Login: React.FC = () => {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('https://joyboryangi.pythonanywhere.com/token/', {
+      const res = await fetch(`${link}/token/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: login, password }),

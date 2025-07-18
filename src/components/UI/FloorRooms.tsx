@@ -2,20 +2,12 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { get } from '../../data/api';
 import { MoreVertical } from 'lucide-react';
+import type { Room } from '../../pages/Rooms';
 
 interface Floor {
   id: number;
   name: string;
   gender: 'male' | 'female';
-}
-
-interface Room {
-  id: number;
-  name: string;
-  status: string;
-  students: any[];
-  capacity: number;
-  currentOccupancy: number;
 }
 
 const statusColors: Record<string, string> = {
@@ -115,7 +107,7 @@ const FloorRooms: React.FC<{
           rooms.map((room: Room) => (
             <div
               key={room.id}
-              className="px-2 py-3 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col items-center justify-center min-w-[110px] w-full max-w-[150px]"
+              className="relative px-2 py-3 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col items-center justify-center min-w-[110px] w-full max-w-[150px] group/room"
               title={room.name}
             >
               <span className="font-bold text-base text-gray-900 dark:text-white mb-2">{room.name}</span>

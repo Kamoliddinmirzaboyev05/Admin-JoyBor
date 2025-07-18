@@ -5,6 +5,10 @@ import { get, post } from '../data/api';
 import { useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import axios from 'axios';
+import { MoreVertical } from 'lucide-react';
+import { toast } from 'sonner';
+import { link } from '../data/config';
 
 const CARD_HEIGHT = 'h-44';
 
@@ -40,6 +44,15 @@ const FloorDetail: React.FC = () => {
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [newRoom, setNewRoom] = useState('');
   const [adding, setAdding] = useState(false);
+  // Add state for room actions
+  // Replace global roomActionRoom/showRoomActionModal with a state for openRoomMenuId
+  const [openRoomMenuId, setOpenRoomMenuId] = useState<number | null>(null);
+  const [editRoomModal, setEditRoomModal] = useState<Room | null>(null);
+  const [editRoomName, setEditRoomName] = useState('');
+  const [editRoomCapacity, setEditRoomCapacity] = useState('');
+  const [editingRoom, setEditingRoom] = useState(false);
+  const [deleteRoomModal, setDeleteRoomModal] = useState<Room | null>(null);
+  const [deletingRoom, setDeletingRoom] = useState(false);
 
   // React Query bilan floors va rooms ma'lumotlarini olish
   const {
@@ -175,6 +188,139 @@ const FloorDetail: React.FC = () => {
         )}
       </AnimatePresence>
       {/* End Add Room Modal */}
+      {/* Edit room modal */}
+      <AnimatePresence>
+        {editRoomModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setEditRoomModal(null)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 40 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Xonani tahrirlash</h2>
+              <form
+                onSubmit={async e => {
+                  e.preventDefault();
+                  if (!editRoomModal) return;
+                  setEditingRoom(true);
+                  try {
+                    const token = localStorage.getItem('access');
+                    await axios.patch(
+                      `${link}/rooms/${editRoomModal.id}/`,
+                      { name: editRoomName, capacity: Number(editRoomCapacity) },
+                      { headers: { Authorization: `Bearer ${token}` } }
+                    );
+                    toast.success('Xona tahrirlandi!');
+                    setEditRoomModal(null);
+                    refetchRooms();
+                  } catch {
+                    toast.error('Xonani tahrirlashda xatolik!');
+                  } finally {
+                    setEditingRoom(false);
+                  }
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona nomi yoki raqami</label>
+                  <input
+                    type="text"
+                    value={editRoomName}
+                    onChange={e => setEditRoomName(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona sig'imi</label>
+                  <input
+                    type="number"
+                    value={editRoomCapacity}
+                    onChange={e => setEditRoomCapacity(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    min="1"
+                    max="20"
+                    required
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditRoomModal(null)}
+                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    disabled={editingRoom}
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editingRoom}
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors disabled:opacity-60"
+                  >
+                    {editingRoom ? "Saqlanmoqda..." : "Saqlash"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Delete room modal */}
+      <AnimatePresence>
+        {deleteRoomModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setDeleteRoomModal(null)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 40 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Xonani o'chirish</h2>
+              <p className="mb-6 text-gray-700 dark:text-gray-300">Rostdan ham ushbu xonani o'chirmoqchimisiz?</p>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteRoomModal(null)}
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  disabled={deletingRoom}
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!deleteRoomModal) return;
+                    setDeletingRoom(true);
+                    try {
+                      const token = localStorage.getItem('access');
+                      await axios.delete(
+                        `${link}/rooms/${deleteRoomModal.id}/`,
+                        { headers: { Authorization: `Bearer ${token}` } }
+                      );
+                      toast.success('Xona o\'chirildi!');
+                      setDeleteRoomModal(null);
+                      refetchRooms();
+                    } catch {
+                      toast.error('Xonani o\'chirishda xatolik!');
+                    } finally {
+                      setDeletingRoom(false);
+                    }
+                  }}
+                  disabled={deletingRoom}
+                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors disabled:opacity-60"
+                >
+                  {deletingRoom ? "O'chirilmoqda..." : "O'chirish"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {rooms.length === 0 ? (
           <span className="text-gray-400 dark:text-slate-500 col-span-full">Xona yo'q</span>
@@ -184,8 +330,52 @@ const FloorDetail: React.FC = () => {
             return (
               <div
                 key={room.id}
-                className={`flex flex-col justify-between px-5 py-4 rounded-lg bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white font-medium border border-gray-200 dark:border-slate-600 hover:bg-blue-50 dark:hover:bg-blue-600 hover:border-blue-400 dark:hover:border-blue-600 focus:ring-2 focus:ring-blue-400 transition-colors shadow-sm cursor-pointer ${CARD_HEIGHT}`}
+                className={`flex flex-col justify-between px-5 py-4 rounded-lg bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white font-medium border border-gray-200 dark:border-slate-600 hover:bg-blue-50 dark:hover:bg-blue-600 hover:border-blue-400 dark:hover:border-blue-600 focus:ring-2 focus:ring-blue-400 transition-colors shadow-sm cursor-pointer ${CARD_HEIGHT} relative`}
               >
+                {/* Three dots button */}
+                <div className="absolute top-2 right-2 z-20">
+                  <button
+                    className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-300"
+                    onClick={e => { e.stopPropagation(); setOpenRoomMenuId(room.id === openRoomMenuId ? null : room.id); }}
+                    title="Ko'proq"
+                  >
+                    <MoreVertical size={20} />
+                  </button>
+                  {/* Inline dropdown menu for this room only */}
+                  <AnimatePresence>
+                    {openRoomMenuId === room.id && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
+                        className="absolute right-0 mt-2 w-40 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl shadow-lg z-30"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <button
+                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-800 rounded-t-xl transition-colors"
+                          onClick={() => {
+                            setEditRoomModal(room);
+                            setEditRoomName(room.name);
+                            setEditRoomCapacity(room.capacity.toString());
+                            setOpenRoomMenuId(null);
+                          }}
+                        >
+                          ✏️ Tahrirlash
+                        </button>
+                        <button
+                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded-b-xl transition-colors"
+                          onClick={() => {
+                            setDeleteRoomModal(room);
+                            setOpenRoomMenuId(null);
+                          }}
+                        >
+                          🗑️ O'chirish
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
                 <div>
                   <div className="font-bold text-lg mb-2">{room.name}</div>
                   <div className="grid grid-cols-2 gap-2">

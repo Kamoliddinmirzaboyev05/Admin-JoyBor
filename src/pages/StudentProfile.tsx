@@ -5,6 +5,9 @@ import { BadgeCheck } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
 import { BASE_URL } from '../data/api';
+import { link } from '../data/config';
+import axios from 'axios';
+import { toast } from 'sonner';
 
 function ReadOnlyInput({ label, value }: { label: string; value?: string | number | boolean }) {
   return (
@@ -71,9 +74,42 @@ const StudentProfile: React.FC = () => {
     setForm(f => f ? { ...f, [field]: value } : f);
   };
 
-  const handleSave = () => {
-    // Here you would send the updated data to the backend
-    setEditMode(false);
+  const handleSave = async () => {
+    if (!studentId || !form) return;
+    try {
+      const token = localStorage.getItem('access');
+      // Prepare payload with only backend-expected fields
+      const payload: any = {
+        name: form.name,
+        last_name: form.last_name,
+        middle_name: form.middle_name,
+        phone: form.phone,
+        faculty: form.faculty,
+        direction: form.direction,
+        group: form.group,
+        passport: form.passport,
+        tarif: form.tarif,
+        imtiyoz: form.imtiyoz,
+        accepted_date: form.accepted_date,
+        total_payment: form.total_payment,
+      };
+      // Only send IDs for nested fields if present
+      if (form.room && typeof form.room === 'object' && (form.room as any).id) payload.room = (form.room as any).id;
+      if (form.floor && typeof form.floor === 'object' && (form.floor as any).id) payload.floor = (form.floor as any).id;
+      if (form.province && typeof form.province === 'object' && (form.province as any).id) payload.province = (form.province as any).id;
+      if (form.district && typeof form.district === 'object' && (form.district as any).id) payload.district = (form.district as any).id;
+
+      await axios.patch(
+        `${link}/students/${studentId}/`,
+        payload,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success('Talaba maʼlumotlari saqlandi!');
+      setEditMode(false);
+      refetch();
+    } catch {
+      toast.error('Talaba maʼlumotlarini saqlashda xatolik!');
+    }
   };
 
   return (
@@ -100,7 +136,7 @@ const StudentProfile: React.FC = () => {
             <img
               src={((form as Record<string, any>).picture as string)?.startsWith('http')
                 ? (form as Record<string, any>).picture as string
-                : BASE_URL + (form as Record<string, any>).picture}
+                : link + (form as Record<string, any>).picture}
               alt={(form as Record<string, any>).name as string}
               className="w-32 h-32 object-cover rounded-md border border-gray-200 dark:border-slate-600 shadow"
             />

@@ -7,6 +7,7 @@ import StatsCard from '../components/UI/StatsCard';
 import { useEffect, useState } from 'react';
 import { get, del, put, apiQueries, post } from '../data/api';
 import { useNavigate } from 'react-router-dom';
+import { link } from '../data/config';
 
 function formatSum(sum: number) {
   return sum.toLocaleString('uz-UZ').replace(/,/g, ' ') + " so'm";
@@ -24,6 +25,8 @@ const Dashboard: React.FC = () => {
   const [editValue, setEditValue] = useState('');
   const [monthlyRevenue, setMonthlyRevenue] = useState<any[]>([]);
   const [monthlyRevenueLoading, setMonthlyRevenueLoading] = useState(true);
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [recentActivitiesLoading, setRecentActivitiesLoading] = useState(true);
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -44,7 +47,7 @@ const Dashboard: React.FC = () => {
     const fetchMonthlyRevenue = async () => {
       setMonthlyRevenueLoading(true);
       try {
-        const data = await get('/monthly_revenue/');
+        const data = await get(`${link}/monthly_revenue/`);
         setMonthlyRevenue(Array.isArray(data) ? data : []);
       } catch {
         setMonthlyRevenue([]);
@@ -55,11 +58,26 @@ const Dashboard: React.FC = () => {
     fetchMonthlyRevenue();
   }, []);
 
+  useEffect(() => {
+    const fetchRecentActivities = async () => {
+      setRecentActivitiesLoading(true);
+      try {
+        const res = await get(`${link}/recent_activity/`);
+        setRecentActivities(Array.isArray(res.activities) ? res.activities : []);
+      } catch {
+        setRecentActivities([]);
+      } finally {
+        setRecentActivitiesLoading(false);
+      }
+    };
+    fetchRecentActivities();
+  }, []);
+
   // Fetch todos from backend
   const fetchTodos = async () => {
     setTodoLoading(true);
     try {
-      const res = await get('/tasks/');
+      const res = await get(`${link}/tasks/`);
       setTodos(Array.isArray(res) ? res.map((t: any) => ({ id: t.id, description: t.description, status: t.status })) : []);
     } catch {
       setTodos([]);
@@ -74,7 +92,7 @@ const Dashboard: React.FC = () => {
     if (newTodo.trim()) {
       setTodoLoading(true);
       try {
-        await post('/tasks/', { title: 'Vazifa', description: newTodo.trim(), status: 'PENDING' });
+        await post(`${link}/tasks/`, { title: 'Vazifa', description: newTodo.trim(), status: 'PENDING' });
         setNewTodo('');
         setTodoModalOpen(false);
         fetchTodos();
@@ -89,7 +107,7 @@ const Dashboard: React.FC = () => {
   const handleDeleteTodo = async (id: number) => {
     setTodoLoading(true);
     try {
-      await del(`https://joyboryangi.pythonanywhere.com/tasks/${id}/`);
+      await del(`${link}/tasks/${id}/`);
       fetchTodos();
     } finally {
       setTodoLoading(false);
@@ -104,7 +122,7 @@ const Dashboard: React.FC = () => {
   const handleEditSave = async (id: number) => {
     setTodoLoading(true);
     try {
-      await put(`/tasks/${id}/`, { title: 'Vazifa', description: editValue, status: 'PENDING' });
+      await put(`${link}/tasks/${id}/`, { title: 'Vazifa', description: editValue, status: 'PENDING' });
       setEditId(null);
       setEditValue('');
       fetchTodos();
@@ -121,7 +139,7 @@ const Dashboard: React.FC = () => {
   const handleToggleTodoStatus = async (todo: { id: number; status: string; description: string }) => {
     setTodoLoading(true);
     try {
-      await put(`/tasks/${todo.id}/`, {
+      await put(`${link}/tasks/${todo.id}/`, {
         title: 'Vazifa',
         description: todo.description,
         status: todo.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED',
@@ -365,12 +383,12 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Quick Actions and Recent Activity */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8 max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
         {/* Quick Actions */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-card p-6 border border-gray-200 dark:border-gray-700"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-card p-6 border border-gray-200 dark:border-gray-700 min-w-0 flex-1"
         >
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
             Tezkor Amallar
@@ -400,32 +418,40 @@ const Dashboard: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Recent Activity */}
+        {/* Recent Activity Card (move above grid on mobile, first on desktop) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-card p-6 border border-gray-200 dark:border-gray-700"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-card p-6 border border-gray-200 dark:border-gray-700 mb-8 md:mb-0 md:col-span-1 min-w-0"
         >
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-            So'nggi Faoliyat
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+            <Clock4 className="w-5 h-5 text-primary-500" /> So'nggi Faoliyat
           </h3>
           <div className="space-y-4">
-            {recentApplications.length === 0 ? (
+            {recentActivitiesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <svg className="animate-spin h-6 w-6 text-blue-500" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
+              </div>
+            ) : recentActivities.length === 0 ? (
               <div className="text-gray-400 dark:text-gray-500 text-center py-4">Ma'lumot yo'q</div>
-            ) : recentApplications.map((app: any) => (
-              <div key={app.id} className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            ) : (recentActivities.slice(0, 3)).map((activity, idx) => (
+              <div key={idx} className="flex items-start space-x-3">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
+                  activity.type === 'payment_approved' ? 'bg-green-100 dark:bg-green-900/20' :
+                  activity.type === 'debt' ? 'bg-yellow-100 dark:bg-yellow-900/20' :
+                  activity.type === 'new_student' ? 'bg-blue-100 dark:bg-blue-900/20' :
+                  'bg-gray-100 dark:bg-gray-800/40'
+                }`}>
+                  {activity.type === 'payment_approved' && <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />}
+                  {activity.type === 'debt' && <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />}
+                  {activity.type === 'new_student' && <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
+                  {!['payment_approved','debt','new_student'].includes(activity.type) && <FileText className="w-5 h-5 text-gray-400" />}
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {app.student_name || 'Talaba'} - {app.type || 'Ariza'}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {app.status || ''}
-                  </p>
-                  <p className="text-xs text-gray-400">{app.created_at ? new Date(app.created_at).toLocaleString('uz-UZ') : ''}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{activity.title}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{activity.desc}</div>
+                  <div className="text-xs text-gray-400 mt-1">{activity.time}</div>
                 </div>
               </div>
             ))}
@@ -437,7 +463,7 @@ const Dashboard: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-card p-6 border border-gray-200 dark:border-gray-700 relative"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-card p-6 border border-gray-200 dark:border-gray-700 relative min-w-0 flex-1"
         >
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center justify-between">
             Bugungi Vazifalar
