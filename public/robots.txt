@@ -3,7 +3,7 @@ Allow: /
 Allow: /login
 
 # Sitemap
-Sitemap: https://joyboradmin.uz/sitemap.xml
+Sitemap: https://admin.joyboronline.uz/sitemap.xml
 
 # Crawl-delay
 Crawl-delay: 1

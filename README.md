@@ -140,9 +140,9 @@ Bu loyiha MIT litsenziyasi ostida tarqatiladi. Batafsil ma'lumot uchun `LICENSE`
 
 ## 📞 Aloqa
 
-- **Email**: info@joyboradmin.uz
-- **Website**: https://joyboradmin.uz
-- **Telegram**: @joyboradmin
+- **Email**: info@joyboronline.uz
+- **Website**: https://admin.joyboronline.uz
+- **Telegram**: @joyboronline
 
 ## 🙏 Minnatdorchilik
 
