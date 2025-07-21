@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Building2, CreditCard, FileText, TrendingUp, AlertTriangle, CheckCircle2, Clock4, Plus, X, Edit2, Trash2 } from 'lucide-react';
+import { Users, Building2, CreditCard, FileText, AlertTriangle, CheckCircle2, Clock4, Plus, X, Edit2, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useAppStore } from '../stores/useAppStore';
@@ -8,14 +8,13 @@ import { useEffect, useState } from 'react';
 import { get, del, put, apiQueries, post } from '../data/api';
 import { useNavigate } from 'react-router-dom';
 import { link } from '../data/config';
+import { useQuery } from '@tanstack/react-query';
 
 function formatSum(sum: number) {
   return sum.toLocaleString('uz-UZ').replace(/,/g, ' ') + " so'm";
 }
 
 const Dashboard: React.FC = () => {
-  const [dashboardData, setDashboardData] = useState<any>(null);
-  const [dashboardLoading, setDashboardLoading] = useState(true);
   const navigate = useNavigate();
   const [todoModalOpen, setTodoModalOpen] = useState(false);
   const [newTodo, setNewTodo] = useState('');
@@ -23,55 +22,39 @@ const Dashboard: React.FC = () => {
   const [todoLoading, setTodoLoading] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [monthlyRevenue, setMonthlyRevenue] = useState<any[]>([]);
-  const [monthlyRevenueLoading, setMonthlyRevenueLoading] = useState(true);
-  const [recentActivities, setRecentActivities] = useState<any[]>([]);
-  const [recentActivitiesLoading, setRecentActivitiesLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchDashboard = async () => {
-      setDashboardLoading(true);
-      try {
-        const data = await apiQueries.getDashboard();
-        setDashboardData(data);
-      } catch {
-        setDashboardData(null);
-      } finally {
-        setDashboardLoading(false);
-      }
-    };
-    fetchDashboard();
-  }, []);
+  // React Query bilan dashboard ma'lumotlarini olish
+  const { 
+    data: dashboardData, 
+    isLoading: dashboardLoading 
+  } = useQuery({
+    queryKey: ['dashboard'],
+    queryFn: apiQueries.getDashboard,
+    staleTime: 1000 * 60 * 5, // 5 daqiqa cache
+  });
 
-  useEffect(() => {
-    const fetchMonthlyRevenue = async () => {
-      setMonthlyRevenueLoading(true);
-      try {
-        const data = await get(`${link}/monthly_revenue/`);
-        setMonthlyRevenue(Array.isArray(data) ? data : []);
-      } catch {
-        setMonthlyRevenue([]);
-      } finally {
-        setMonthlyRevenueLoading(false);
-      }
-    };
-    fetchMonthlyRevenue();
-  }, []);
+  // React Query bilan monthly revenue ma'lumotlarini olish
+  const { 
+    data: monthlyRevenue = [], 
+    isLoading: monthlyRevenueLoading 
+  } = useQuery({
+    queryKey: ['monthlyRevenue'],
+    queryFn: () => get(`${link}/monthly_revenue/`),
+    staleTime: 1000 * 60 * 10, // 10 daqiqa cache
+  });
 
-  useEffect(() => {
-    const fetchRecentActivities = async () => {
-      setRecentActivitiesLoading(true);
-      try {
-        const res = await get(`${link}/recent_activity/`);
-        setRecentActivities(Array.isArray(res.activities) ? res.activities : []);
-      } catch {
-        setRecentActivities([]);
-      } finally {
-        setRecentActivitiesLoading(false);
-      }
-    };
-    fetchRecentActivities();
-  }, []);
+  // React Query bilan recent activities ma'lumotlarini olish
+  const { 
+    data: recentActivities = [], 
+    isLoading: recentActivitiesLoading 
+  } = useQuery({
+    queryKey: ['recentActivities'],
+    queryFn: async () => {
+      const res = await get(`${link}/recent_activity/`);
+      return Array.isArray(res.activities) ? res.activities : [];
+    },
+    staleTime: 1000 * 60 * 5, // 5 daqiqa cache
+  });
 
   // Fetch todos from backend
   const fetchTodos = async () => {
@@ -435,7 +418,7 @@ const Dashboard: React.FC = () => {
               </div>
             ) : recentActivities.length === 0 ? (
               <div className="text-gray-400 dark:text-gray-500 text-center py-4">Ma'lumot yo'q</div>
-            ) : (recentActivities.slice(0, 3)).map((activity, idx) => (
+            ) : (recentActivities.slice(0, 3)).map((activity: any, idx: number) => (
               <div key={idx} className="flex items-start space-x-3">
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
                   activity.type === 'payment_approved' ? 'bg-green-100 dark:bg-green-900/20' :
@@ -509,7 +492,7 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
           )}
-          <div className="space-y-3 mb-4">
+          <div className="space-y-3 mb-4 max-h-52 overflow-y-auto pr-1">
             {todoLoading ? (
               <div className="flex items-center justify-center py-6">
                 <svg className="animate-spin h-6 w-6 text-blue-500" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>

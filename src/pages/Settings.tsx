@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Edit, Image as ImageIcon, DollarSign, ListChecks, Plus, Wifi, BookOpen, WashingMachine, Tv, Coffee, MapPin, Info, FileImage, Loader2, User, School, Map, Layers, Users as UsersIcon, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
+import { toast } from 'sonner';
 
 const allAmenities = [
   { key: 'Wifi', icon: <Wifi className="w-6 h-6" />, name: 'Wi-Fi', description: 'Tez va bepul internet' },
@@ -48,20 +49,38 @@ function EditableInput({ label, value, onChange, disabled, placeholder, helper, 
 }
 
 const Settings: React.FC = () => {
+  // All hooks at the top!
   const queryClient = useQueryClient();
   const { data: settings, isLoading, error } = useQuery({
     queryKey: ['settings'],
     queryFn: apiQueries.getSettings,
     staleTime: 1000 * 60 * 5,
   });
-
-  // --- PRICES STATE ---
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [editSection, setEditSection] = useState<string | null>(null);
   const [prices, setPrices] = useState<{ type: string; price: string }[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(allAmenities.map(a => a.key));
   const [editImages, setEditImages] = useState(false);
-  // --- NOTIFICATION STATE ---
   const [notif, setNotif] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [rules, setRules] = useState<string[]>([]);
+  const [amenities, setAmenities] = useState<string[]>([]);
+  const [contact, setContact] = useState<{ phone: string; email: string; address: string }>({ phone: '', email: '', address: '' });
+  const [dormImages, setDormImages] = useState<{ url: string; caption: string }[]>([]);
+  const [editDorm, setEditDorm] = useState(false);
+  const [dormForm, setDormForm] = useState({
+    name: '', address: '', description: '', month_price: '', year_price: '', latitude: '', longitude: '', images: [] as File[],
+  });
+  const [dormLoading, setDormLoading] = useState(false);
+  const [editDormCard, setEditDormCard] = useState(false);
+  const [editPricesCard, setEditPricesCard] = useState(false);
+  const [dormCardForm, setDormCardForm] = useState({
+    name: '', address: '', description: '', latitude: '', longitude: '',
+  });
+  const [pricesCardForm, setPricesCardForm] = useState({
+    month_price: '', year_price: '', total_capacity: '', available_capacity: '', total_rooms: '',
+  });
+  const [isUploading, setIsUploading] = useState(false);
+  const [deleteImageId, setDeleteImageId] = useState<number | null>(null);
   const updateSettingsMutation = useMutation({
     mutationFn: (data: any) => apiQueries.updateSettings(data),
     onSuccess: () => {
@@ -73,12 +92,64 @@ const Settings: React.FC = () => {
       setNotif({ type: 'error', message: err?.toString() || 'Xatolik yuz berdi!' });
     },
   });
+
+  // All useEffect at the top
+  React.useEffect(() => {
+    if (settings) {
+      setDormForm({
+        name: settings.name || '',
+        address: settings.address || '',
+        description: settings.description || '',
+        month_price: settings.month_price ? String(settings.month_price) : '',
+        year_price: settings.year_price ? String(settings.year_price) : '',
+        latitude: settings.latitude ? String(settings.latitude) : '',
+        longitude: settings.longitude ? String(settings.longitude) : '',
+        images: [],
+      });
+      setDormCardForm({
+        name: settings.name || '',
+        address: settings.address || '',
+        description: settings.description || '',
+        latitude: settings.latitude ? String(settings.latitude) : '',
+        longitude: settings.longitude ? String(settings.longitude) : '',
+      });
+      setPricesCardForm({
+        month_price: settings.month_price ? String(settings.month_price) : '',
+        year_price: settings.year_price ? String(settings.year_price) : '',
+        total_capacity: settings.total_capacity ? String(settings.total_capacity) : '',
+        available_capacity: settings.available_capacity ? String(settings.available_capacity) : '',
+        total_rooms: settings.total_rooms ? String(settings.total_rooms) : '',
+      });
+      setPrices(settings.prices || []);
+      setRules(settings.rules || []);
+      setAmenities(settings.amenities || []);
+      setContact(settings.contact || { phone: '', email: '', address: '' });
+      setDormImages((settings.dormImages || []).map((img: any) => typeof img === 'string' ? { url: img, caption: '' } : img));
+    }
+  }, [settings]);
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div></div>;
+  }
+  if (error || !settings) {
+    return <div className="text-center py-10 text-red-600 dark:text-red-400">Sozlamalarni yuklashda xatolik yuz berdi.</div>;
+  }
+
+  // --- PRICES HANDLERS ---
+  const handlePriceChange = (idx: number, field: 'type' | 'price', value: string) => {
+    setPrices(prices => prices.map((p, i) => i === idx ? { ...p, [field]: value } : p));
+  };
+  const handleAddPrice = () => {
+    setPrices(prices => [...prices, { type: '', price: '' }]);
+  };
+  const handleRemovePrice = (idx: number) => {
+    setPrices(prices => prices.filter((_, i) => i !== idx));
+  };
+
   const handleSavePrices = () => {
     updateSettingsMutation.mutate({ ...settings, prices });
   };
   // --- RULES STATE ---
-  const [rules, setRules] = useState<string[]>([]);
-  // --- RULES HANDLERS ---
   const handleRuleChange = (idx: number, value: string) => {
     setRules(rules => rules.map((r, i) => i === idx ? value : r));
   };
@@ -92,7 +163,6 @@ const Settings: React.FC = () => {
     updateSettingsMutation.mutate({ ...settings, rules });
   };
   // --- AMENITIES STATE ---
-  const [amenities, setAmenities] = useState<string[]>([]);
   const handleAmenityChange = (key: string) => {
     setAmenities(amenities => amenities.includes(key)
       ? amenities.filter(k => k !== key)
@@ -102,7 +172,6 @@ const Settings: React.FC = () => {
     updateSettingsMutation.mutate({ ...settings, amenities });
   };
   // --- CONTACT STATE ---
-  const [contact, setContact] = useState<{ phone: string; email: string; address: string }>({ phone: '', email: '', address: '' });
   const handleContactChange = (field: 'phone' | 'email' | 'address', value: string) => {
     setContact(contact => ({ ...contact, [field]: value }));
   };
@@ -110,7 +179,6 @@ const Settings: React.FC = () => {
     updateSettingsMutation.mutate({ ...settings, contact });
   };
   // --- IMAGES STATE ---
-  const [dormImages, setDormImages] = useState<{ url: string; caption: string }[]>([]);
   const handleImageCaptionChange = (idx: number, value: string) => {
     setDormImages(images => images.map((img, i) => i === idx ? { ...img, caption: value } : img));
   };
@@ -132,35 +200,6 @@ const Settings: React.FC = () => {
   };
 
   // --- DORMITORY INFO STATE ---
-  const [editDorm, setEditDorm] = useState(false);
-  const [dormForm, setDormForm] = useState({
-    name: '',
-    address: '',
-    description: '',
-    month_price: '',
-    year_price: '',
-    latitude: '',
-    longitude: '',
-    images: [] as File[],
-  });
-  const [dormLoading, setDormLoading] = useState(false);
-
-  // Sync dormitory info from settings
-  React.useEffect(() => {
-    if (settings) {
-      setDormForm({
-        name: settings.name || '',
-        address: settings.address || '',
-        description: settings.description || '',
-        month_price: settings.month_price ? String(settings.month_price) : '',
-        year_price: settings.year_price ? String(settings.year_price) : '',
-        latitude: settings.latitude ? String(settings.latitude) : '',
-        longitude: settings.longitude ? String(settings.longitude) : '',
-        images: [], // images handled separately
-      });
-    }
-  }, [settings]);
-
   const handleDormFormChange = (field: string, value: string) => {
     setDormForm(f => ({ ...f, [field]: value }));
   };
@@ -201,40 +240,6 @@ const Settings: React.FC = () => {
   };
 
   // Add state for editing dormitory info and prices
-  const [editDormCard, setEditDormCard] = useState(false);
-  const [editPricesCard, setEditPricesCard] = useState(false);
-  const [dormCardForm, setDormCardForm] = useState({
-    name: '',
-    address: '',
-    description: '',
-    latitude: '',
-    longitude: '',
-  });
-  const [pricesCardForm, setPricesCardForm] = useState({
-    month_price: '',
-    year_price: '',
-    total_capacity: '',
-    available_capacity: '',
-    total_rooms: '',
-  });
-  React.useEffect(() => {
-    if (settings) {
-      setDormCardForm({
-        name: settings.name || '',
-        address: settings.address || '',
-        description: settings.description || '',
-        latitude: settings.latitude ? String(settings.latitude) : '',
-        longitude: settings.longitude ? String(settings.longitude) : '',
-      });
-      setPricesCardForm({
-        month_price: settings.month_price ? String(settings.month_price) : '',
-        year_price: settings.year_price ? String(settings.year_price) : '',
-        total_capacity: settings.total_capacity ? String(settings.total_capacity) : '',
-        available_capacity: settings.available_capacity ? String(settings.available_capacity) : '',
-        total_rooms: settings.total_rooms ? String(settings.total_rooms) : '',
-      });
-    }
-  }, [settings]);
   const handleDormCardChange = (field: string, value: string) => {
     setDormCardForm(f => ({ ...f, [field]: value }));
   };
@@ -284,34 +289,26 @@ const Settings: React.FC = () => {
     }
   };
 
-  // EFFECTS: settings kelganda state-larni to'g'ri sync qilish
-  React.useEffect(() => {
-    if (settings) {
-      setPrices(settings.prices || []);
-      setRules(settings.rules || []);
-      setAmenities(settings.amenities || []);
-      setContact(settings.contact || { phone: '', email: '', address: '' });
-      setDormImages((settings.dormImages || []).map((img: any) => typeof img === 'string' ? { url: img, caption: '' } : img));
+  const handleDeleteImage = async (imageId: number) => {
+    try {
+      const token = localStorage.getItem('access');
+      if (!token) {
+        toast.error('Avtorizatsiya talab qilinadi!');
+        return;
+      }
+      const res = await fetch(`https://joyboryangi.pythonanywhere.com/dormitory_images/${imageId}/`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        toast.error('Rasmni o\'chirishda xatolik!');
+        return;
+      }
+      toast.success('Rasm o\'chirildi!');
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+    } catch (err) {
+      toast.error('Rasmni o\'chirishda xatolik!');
     }
-  }, [settings]);
-
-  // LOADING/ERROR faqat return ichida
-  if (isLoading) {
-    return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div></div>;
-  }
-  if (error || !settings) {
-    return <div className="text-center py-10 text-red-600 dark:text-red-400">Sozlamalarni yuklashda xatolik yuz berdi.</div>;
-  }
-
-  // --- PRICES HANDLERS ---
-  const handlePriceChange = (idx: number, field: 'type' | 'price', value: string) => {
-    setPrices(prices => prices.map((p, i) => i === idx ? { ...p, [field]: value } : p));
-  };
-  const handleAddPrice = () => {
-    setPrices(prices => [...prices, { type: '', price: '' }]);
-  };
-  const handleRemovePrice = (idx: number) => {
-    setPrices(prices => prices.filter((_, i) => i !== idx));
   };
 
   return (
@@ -516,33 +513,101 @@ const Settings: React.FC = () => {
       <SectionCard
         icon={<FileImage className="w-6 h-6" />}
         title="Yotoqxona suratlari"
-        description="Yotoqxona va xonalar haqidagi suratlar. Suratlarni tahrirlash va har biriga izoh qo‘shish mumkin."
-        onEdit={() => setEditImages(!editImages)}
+        description="Yotoqxona va xonalar haqidagi suratlar."
       >
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          {dormImages.map((img, i) => (
-            <div key={i} className="relative group flex flex-col items-center">
-              <img src={img.url} alt={`Yotoqxona ${i+1}`} className="w-40 h-28 object-cover rounded-lg shadow border border-gray-200 dark:border-slate-700" />
-              {editImages && (
-                <button className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-700" onClick={() => handleRemoveImage(i)} title="O‘chirish"><span className="text-lg">×</span></button>
-              )}
-              {editImages && (
-                <input type="text" className="mt-2 w-36 px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs" placeholder="Rasm tavsifi (ixtiyoriy)" value={img.caption} onChange={e => handleImageCaptionChange(i, e.target.value)} />
-              )}
-            </div>
-          ))}
-          {editImages && (
-            <label className="w-40 h-28 flex flex-col items-center justify-center border-2 border-dashed border-blue-400 rounded-lg cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition">
-              <span className="text-blue-500"><Plus className="w-8 h-8" /></span>
-              <span className="text-xs mt-2">Yangi rasm qo‘shish</span>
-              <input type="file" accept="image/*" className="hidden" onChange={handleAddImage} />
-            </label>
+        <div className="mb-4">
+          <button
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition mb-2 flex items-center gap-2"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+          >
+            {isUploading && (
+              <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+              </svg>
+            )}
+            {isUploading ? 'Yuklanmoqda...' : "+ Rasm qo'shish"}
+          </button>
+          <input
+            type="file"
+            accept="image/*"
+            ref={fileInputRef}
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setIsUploading(true);
+              const token = localStorage.getItem('access');
+              if (!token) {
+                toast.error('Avtorizatsiya talab qilinadi!');
+                setIsUploading(false);
+                return;
+              }
+              const formData = new FormData();
+              formData.append('image', file);
+              const res = await fetch('https://joyboryangi.pythonanywhere.com/dormitory_image_create', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData,
+              });
+              setIsUploading(false);
+              if (!res.ok) {
+                toast.error('Rasm yuklashda xatolik!');
+                return;
+              }
+              toast.success('Rasm muvaffaqiyatli yuklandi!');
+              queryClient.invalidateQueries({ queryKey: ['settings'] });
+            }}
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {settings.images && settings.images.length > 0 ? (
+            settings.images.map((img: any, i: number) => (
+              <div key={img.id || i} className="relative group flex flex-col items-center">
+                <img
+                  src={img.image}
+                  alt={`Yotoqxona rasm ${i + 1}`}
+                  className="w-full h-40 object-cover rounded-lg shadow border border-gray-200 dark:border-slate-700"
+                />
+                <button
+                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 shadow hover:bg-red-700 transition-opacity opacity-80 hover:opacity-100"
+                  title="Rasmni o'chirish"
+                  onClick={() => setDeleteImageId(img.id)}
+                >
+                  <span className="text-lg">×</span>
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="text-gray-400 dark:text-gray-500 col-span-full">Rasmlar mavjud emas</div>
           )}
         </div>
-        {editImages && (
-          <button className="mt-4 px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSaveImages} disabled={updateSettingsMutation.status === 'pending'}>
-            {updateSettingsMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
-          </button>
+        {/* Delete confirmation modal */}
+        {deleteImageId !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 max-w-xs w-full text-center">
+              <div className="text-lg font-bold mb-4 text-gray-900 dark:text-white">Rasmni o'chirish</div>
+              <div className="mb-6 text-gray-700 dark:text-gray-300">Rostdan ham ushbu rasmni o'chirmoqchimisiz?</div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setDeleteImageId(null)}
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  onClick={async () => {
+                    await handleDeleteImage(deleteImageId);
+                    setDeleteImageId(null);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors"
+                >
+                  O'chirish
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </SectionCard>
       {/* DORMITORY EDIT MODAL */}

@@ -485,6 +485,40 @@ const Students: React.FC = () => {
       });
   };
 
+  // Export handler for DataTable
+  const handleExportStudents = async () => {
+    try {
+      const token = localStorage.getItem('access');
+      if (!token) {
+        toast.error('Avtorizatsiya talab qilinadi!');
+        return;
+      }
+      const response = await fetch('https://joyboryangi.pythonanywhere.com/export-student/', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json',
+        },
+      });
+      if (!response.ok) {
+        toast.error('Export xatolik yuz berdi!');
+        return;
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `talabalar_ro'yxati_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Talabalar ro\'yxati muvaffaqiyatli yuklandi!');
+    } catch (error) {
+      toast.error('Export xatolik yuz berdi!');
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto py-4 sm:py-8 px-1 sm:px-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
@@ -564,6 +598,7 @@ const Students: React.FC = () => {
           filterable={false}
           pagination={true}
           pageSize={10}
+          onExport={handleExportStudents}
         />
       </div>
 

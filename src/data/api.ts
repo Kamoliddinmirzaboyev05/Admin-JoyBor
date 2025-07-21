@@ -1,4 +1,3 @@
-import { link } from './config';
 // Universal API helper for authenticated requests
 export const BASE_URL = 'https://joyboryangi.pythonanywhere.com';
 

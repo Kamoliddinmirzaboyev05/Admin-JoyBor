@@ -1,37 +1,35 @@
-import React, { useEffect, useState } from 'react';
-import { Calendar, Users, CreditCard, Home, Edit, Plus, Trash2, AlertTriangle, CheckCircle2, FileText } from 'lucide-react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { FileText, TrendingUp, TrendingDown, Users, Building2, CreditCard, Clock4, CheckCircle2, AlertTriangle, X, Calendar, Home } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { get } from '../data/api';
 import { link } from '../data/config';
 
 const mockStats = {
   totalStudents: 245,
-  totalPayments: '120,500,000 so‘m',
+  totalPayments: '120,500,000 so\'m',
   totalRooms: 48,
   totalDebtors: 17,
 };
 
 const Reports: React.FC = () => {
+  const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [search, setSearch] = useState('');
-  const [recentActivities, setRecentActivities] = useState<any[]>([]);
-  const [recentActivitiesLoading, setRecentActivitiesLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchRecentActivities = async () => {
-      setRecentActivitiesLoading(true);
-      try {
-        const res = await get(`${link}/recent_activity/`);
-        setRecentActivities(Array.isArray(res.activities) ? res.activities : []);
-      } catch {
-        setRecentActivities([]);
-      } finally {
-        setRecentActivitiesLoading(false);
-      }
-    };
-    fetchRecentActivities();
-  }, []);
+  // React Query bilan recent activities ma'lumotlarini olish
+  const { 
+    data: recentActivities = [], 
+    isLoading: recentActivitiesLoading 
+  } = useQuery({
+    queryKey: ['recentActivities'],
+    queryFn: async () => {
+      const res = await get(`${link}/recent_activity/`);
+      return Array.isArray(res.activities) ? res.activities : [];
+    },
+    staleTime: 1000 * 60 * 5, // 5 daqiqa cache
+  });
 
-  const filteredActions = recentActivities.filter(a =>
+  const filteredActions = recentActivities.filter((a: any) =>
     a.title?.toLowerCase().includes(search.toLowerCase()) ||
     a.desc?.toLowerCase().includes(search.toLowerCase()) ||
     a.time?.toLowerCase().includes(search.toLowerCase())
@@ -108,7 +106,7 @@ const Reports: React.FC = () => {
                 <tr><td colSpan={3} className="text-center text-gray-400 dark:text-gray-500 py-8 text-lg bg-white dark:bg-gray-950">Yuklanmoqda...</td></tr>
               ) : filteredActions.length === 0 ? (
                 <tr><td colSpan={3} className="text-center text-gray-400 dark:text-gray-500 py-8 text-lg bg-white dark:bg-gray-950">Hech qanday amal topilmadi</td></tr>
-              ) : filteredActions.map((a, idx) => (
+              ) : filteredActions.map((a: any, idx: number) => (
                 <tr key={idx} className={`transition hover:bg-blue-50 dark:hover:bg-gray-900 ${idx % 2 === 0 ? 'bg-white dark:bg-gray-950' : 'bg-blue-50/40 dark:bg-gray-900/60'}`}>
                   <td className="px-5 py-3 flex items-center gap-3 font-semibold text-gray-800 dark:text-gray-100">{getActivityIcon(a.type)}{a.title}</td>
                   <td className="px-5 py-3 text-gray-700 dark:text-gray-200">{a.desc}</td>

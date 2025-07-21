@@ -1,14 +1,92 @@
 <!doctype html>
 <html lang="uz">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JoyBor Admin</title>
-    <meta name="description" content="Zamonaviy yotoqxona boshqaruv tizimi - talabalar, to'lovlar, xonalar va arizalarni boshqarish uchun professional platforma." />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+
+  <!-- Favicon va ikonlar -->
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <link rel="apple-touch-icon" href="/logo.png" />
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" hr"/manifest.json" />
+
+  <!-- Viewport -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Asosiy SEO meta teglar -->
+  <title>JoyBor Admin - Yotoqxona Boshqaruv Tizimi | Talabalar va Xonalar Boshqaruvi</title>
+  <meta name="description"
+    content="JoyBor Admin - zamonaviy yotoqxona boshqaruv tizimi. Talabalar, to'lovlar, xonalar va arizalarni boshqarish uchun professional platforma. Samarali va oson foydalanish." />
+  <meta name="keywords"
+    content="yotoqxona boshqaruv, talaba boshqaruv, xona boshqaruv, to'lov tizimi, ariza boshqaruv, JoyBor, admin panel, yotoqxona admin" />
+  <meta name="author" content="JoyBor Team" />
+  <meta name="robots" content="index, follow" />
+  <meta name="language" content="uz" />
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://admin.joyboronline.uz/" />
+  <meta property="og:title" content="JoyBor Admin - Yotoqxona Boshqaruv Tizimi" />
+  <meta property="og:description"
+    content="Zamonaviy yotoqxona boshqaruv tizimi - talabalar, to'lovlar, xonalar va arizalarni boshqarish uchun professional platforma." />
+  <meta property="og:image" content="https://admin.joyboronline.uz/logo.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:site_name" content="JoyBor Admin" />
+  <meta property="og:locale" content="uz_UZ" />
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:url" content="https://joyboradmin.uz/" />
+  <meta property="twitter:title" content="JoyBor Admin - Yotoqxona Boshqaruv Tizimi" />
+  <meta property="twitter:description"
+    content="Zamonaviy yotoqxona boshqaruv tizimi - talabalar, to'lovlar, xonalar va arizalarni boshqarish uchun professional platforma." />
+  <meta property="twitter:image" content="https://joyboradmin.uz/logo.png" />
+
+  <!-- Telegram -->
+  <meta property="telegram:channel" content="@joyboronline" />
+
+  <!-- Qo'shimcha SEO -->
+  <meta name="theme-color" content="#3B82F6" />
+  <meta name="msapplication-TileColor" content="#3B82F6" />
+  <meta name="application-name" content="JoyBor Admin" />
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://admin.joyboronline.uz/" />
+
+  <!-- Preconnect -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <!-- JSON-LD Structured Data -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "JoyBor Admin",
+      "description": "Zamonaviy yotoqxona boshqaruv tizimi - talabalar, to'lovlar, xonalar va arizalarni boshqarish uchun professional platforma",
+      "url": "https://admin.joyboronline.uz",
+      "logo": "https://admin.joyboronline.uz/logo.png",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "UZS"
+      },
+      "creator": {
+        "@type": "Organization",
+        "name": "JoyBor Team"
+      }
+    }
+    </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

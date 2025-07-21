@@ -18,6 +18,8 @@ interface DataTableProps {
   pageSize?: number;
   onRowClick?: (row: Record<string, unknown>) => void;
   actions?: React.ReactNode;
+  onExport?: () => void;
+  hideExportButton?: boolean; // <-- add this
 }
 
 const DataTable: React.FC<DataTableProps> = ({
@@ -29,6 +31,8 @@ const DataTable: React.FC<DataTableProps> = ({
   pageSize = 10,
   onRowClick,
   actions,
+  onExport,
+  hideExportButton = false, // <-- add this
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState<string>('');
@@ -105,10 +109,16 @@ const DataTable: React.FC<DataTableProps> = ({
 
           <div className="flex items-center space-x-2">
             {actions}
-            <button className="flex items-center space-x-2 px-3 sm:px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-xs sm:text-sm">
-              <Download className="w-4 h-4" />
-              <span>Export</span>
-            </button>
+            {!hideExportButton && (
+              <button
+                className="flex items-center space-x-2 px-3 sm:px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-xs sm:text-sm"
+                onClick={onExport}
+                type="button"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

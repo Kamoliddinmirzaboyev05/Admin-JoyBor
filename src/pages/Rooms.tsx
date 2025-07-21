@@ -92,10 +92,10 @@ const Rooms: React.FC = () => {
   }, [location.state]);
 
   // Now, after all hooks, handle early returns:
-  if (floorsLoading || typedFloors.length === 0) {
+  if (floorsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="animate-spin w-16 h-16 text-blue-500" />
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
       </div>
     );
   }
@@ -306,7 +306,9 @@ const Rooms: React.FC = () => {
         </div>
         <div className="space-y-6">
           {floorsLoading ? (
-            <div className="text-center text-gray-500 dark:text-gray-400 py-16">Yuklanmoqda...</div>
+            <div className="flex items-center justify-center py-16">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+            </div>
           ) : floorsError ? (
             <div className="text-center text-red-500 py-16">{String(floorsError)}</div>
           ) : (

@@ -1,0 +1,20 @@
+User-agent: *
+Allow: /
+Allow: /login
+
+# Sitemap
+Sitemap: https://joyboradmin.uz/sitemap.xml
+
+# Crawl-delay
+Crawl-delay: 1
+
+# Disallow private areas (if any)
+# Disallow: /private/
+
+# Allow search engines to index main pages
+Allow: /students
+Allow: /payments
+Allow: /rooms
+Allow: /applications
+Allow: /reports
+Allow: /settings

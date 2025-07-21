@@ -3,6 +3,28 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "description": "Zamonaviy yotoqxona boshqaruv tizimi - talabalar, to'lovlar, xonalar va arizalarni boshqarish uchun professional platforma",
+  "keywords": [
+    "yotoqxona",
+    "boshqaruv",
+    "admin",
+    "talaba",
+    "to'lov",
+    "xona",
+    "ariza",
+    "react",
+    "typescript",
+    "vite"
+  ],
+  "author": "JoyBor Team",
+  "homepage": "https://joyboradmin.uz",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/joyBor-admin-platform.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/joyBor-admin-platform/issues"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

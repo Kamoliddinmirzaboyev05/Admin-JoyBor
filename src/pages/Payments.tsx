@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 // import { useAppStore } from '../stores/useAppStore';
 import DataTable from '../components/UI/DataTable';
-import { CreditCard, Plus, X, Wallet, Calendar } from 'lucide-react';
+import { CreditCard, Plus, X, Wallet, Calendar, Download } from 'lucide-react';
 import Select from 'react-select';
 import { motion, AnimatePresence } from 'framer-motion';
 import DatePicker from 'react-datepicker';
@@ -27,6 +27,7 @@ const Payments: React.FC = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
   const location = useLocation();
 
   // React Query bilan payments ma'lumotlarini olish
@@ -144,6 +145,40 @@ const Payments: React.FC = () => {
 
   const studentOptions = students.map((s: any) => ({ value: String(s.id), label: `${s.name} ${s.last_name}` }));
 
+  // Export handler for DataTable
+  const handleExportPayments = async () => {
+    try {
+      const token = localStorage.getItem('access');
+      if (!token) {
+        toast.error('Avtorizatsiya talab qilinadi!');
+        return;
+      }
+      const response = await fetch('https://joyboryangi.pythonanywhere.com/export-payment/', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json',
+        },
+      });
+      if (!response.ok) {
+        toast.error('Export xatolik yuz berdi!');
+        return;
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `to'lovlar_ro'yxati_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('To\'lovlar ro\'yxati muvaffaqiyatli yuklandi!');
+    } catch (error) {
+      toast.error('Export xatolik yuz berdi!');
+    }
+  };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const selectStyles = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -248,6 +283,7 @@ const Payments: React.FC = () => {
         filterable={true}
         pagination={true}
         pageSize={10}
+        onExport={handleExportPayments}
       />
 
       {/* Modal for adding payment */}
