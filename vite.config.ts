@@ -21,13 +21,7 @@ export default defineConfig({
     // SEO uchun muhim
     assetsDir: 'assets',
     sourcemap: false,
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true
-      }
-    }
+    minify: 'esbuild'
   },
   // SEO uchun server sozlamalari
   server: {

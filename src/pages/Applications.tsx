@@ -1,18 +1,57 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, X } from 'lucide-react';
+import { ChevronRight, X, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Select from 'react-select';
+import Select, { SingleValue } from 'react-select';
 import { useQuery } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
 import { link } from '../data/config';
 
-const statusColors = {
+interface StatusColors {
+  [key: string]: string;
+}
+
+interface Application {
+  id: string | number;
+  fullName?: string;
+  full_name?: string;
+  phone: string;
+  date: string;
+  status: keyof typeof statusColors;
+}
+
+interface FormData {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  room: string;
+  course: number;
+  faculty: string;
+  group: string;
+  region: string;
+  district: string;
+  passport: string;
+  isPrivileged: boolean;
+  privilegeShare: string;
+  direction: string;
+  floor: string;
+  birthDate: string;
+  address: string;
+  type: string;
+}
+
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
+const statusColors: StatusColors = {
   'Yangi': 'bg-blue-100 text-blue-700',
-  'Ko‘rib chiqilmoqda': 'bg-yellow-100 text-yellow-700',
+  'Ko\'rib chiqilmoqda': 'bg-yellow-100 text-yellow-700',
   'Rad etilgan': 'bg-red-100 text-red-700',
   'Qabul qilindi': 'bg-green-100 text-green-700',
-};
+} as const;
 
 const facultyOptions = [
   { value: 'Informatika', label: 'Informatika' },
@@ -25,7 +64,7 @@ const facultyOptions = [
 const regionOptions = [
   { value: 'Toshkent', label: 'Toshkent' },
   { value: 'Samarqand', label: 'Samarqand' },
-  { value: 'Farg‘ona', label: 'Farg‘ona' },
+  { value: 'Farg\'ona', label: 'Farg\'ona' },
   { value: 'Andijon', label: 'Andijon' },
   { value: 'Buxoro', label: 'Buxoro' },
   { value: 'Namangan', label: 'Namangan' },
@@ -40,9 +79,9 @@ const districtOptions: Record<string, { value: string; label: string }[]> = {
     { value: 'Samarqand sh.', label: 'Samarqand sh.' },
     { value: 'Urgut', label: 'Urgut' },
   ],
-  'Farg‘ona': [
-    { value: 'Farg‘ona sh.', label: 'Farg‘ona sh.' },
-    { value: 'Qo‘qon', label: 'Qo‘qon' },
+  'Farg\'ona': [
+    { value: 'Farg\'ona sh.', label: 'Farg\'ona sh.' },
+    { value: 'Qo\'qon', label: 'Qo\'qon' },
   ],
   'Andijon': [
     { value: 'Andijon sh.', label: 'Andijon sh.' },
@@ -50,7 +89,7 @@ const districtOptions: Record<string, { value: string; label: string }[]> = {
   ],
   'Buxoro': [
     { value: 'Buxoro sh.', label: 'Buxoro sh.' },
-    { value: 'G‘ijduvon', label: 'G‘ijduvon' },
+    { value: 'G\'ijduvon', label: 'G\'ijduvon' },
   ],
   'Namangan': [
     { value: 'Namangan sh.', label: 'Namangan sh.' },
@@ -59,10 +98,11 @@ const districtOptions: Record<string, { value: string; label: string }[]> = {
 };
 
 const Applications: React.FC = () => {
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({
+  const [search, setSearch] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<keyof typeof statusColors | ''>('');
+  const [showModal, setShowModal] = useState<boolean>(false);
+  
+  const [form, setForm] = useState<FormData>({
     firstName: '',
     lastName: '',
     phone: '',
@@ -89,37 +129,67 @@ const Applications: React.FC = () => {
     isLoading,
     error,
     refetch
-  } = useQuery({
+  } = useQuery<Application[], Error>({
     queryKey: ['applications'],
-    queryFn: apiQueries.getApplications,
-    staleTime: 1000 * 60 * 5,
+    queryFn: async () => {
+      const token = localStorage.getItem('access');
+      if (!token) {
+        throw new Error('Avtorizatsiya talab qilinadi');
+      }
+      
+      const response = await fetch('https://joyboryangi.pythonanywhere.com/applications/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Arizalarni yuklashda xatolik yuz berdi');
+      }
+      
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 1,
   });
 
-  // Filter API data
-  const filteredApps = applications.filter((app: Record<string, any>) =>
-    (app.fullName || app.full_name || '').toLowerCase().includes(search.toLowerCase()) &&
-    (statusFilter ? (app.status === statusFilter) : true)
-  );
+  // Filter API data with proper type safety
+  const filteredApps = applications.filter((app) => {
+    const searchLower = search.toLowerCase();
+    const nameMatch = (app.fullName || app.full_name || '').toLowerCase().includes(searchLower);
+    const statusMatch = statusFilter ? app.status === statusFilter : true;
+    return nameMatch && statusMatch;
+  });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     setForm(f => ({
       ...f,
-      [name]: type === 'checkbox' && 'checked' in e.target ? (e.target as HTMLInputElement).checked : value,
+      [name]: type === 'checkbox' && 'checked' in e.target 
+        ? (e.target as HTMLInputElement).checked 
+        : value,
     }));
   };
-  const handleSelectChange = (name: string, option: { value: string; label: string } | null) => {
-    setForm(f => ({ ...f, [name]: option ? option.value : '' }));
-    if (name === 'region') setForm(f => ({ ...f, district: '' }));
+  const handleSelectChange = (
+    name: keyof Pick<FormData, 'faculty' | 'region' | 'district'>,
+    option: SingleValue<SelectOption>
+  ) => {
+    setForm(f => ({ ...f, [name]: option?.value || '' }));
+    if (name === 'region') {
+      setForm(f => ({ ...f, district: '' }));
+    }
   };
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     // Yangi arizani qo'shish logikasi (mock)
+    console.log('Form submitted:', form);
     setShowModal(false);
   };
 
-  // Replace mockApplications with filteredApps in render
-  // Add loading and error states
+  // Loading and error states
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -155,31 +225,41 @@ const Applications: React.FC = () => {
           />
           <select
             value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
+            onChange={e => setStatusFilter(e.target.value as keyof typeof statusColors | '')}
             className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white w-full sm:w-48"
           >
             <option value="">Barcha holatlar</option>
-            <option value="Yangi">Yangi</option>
-            <option value="Ko‘rib chiqilmoqda">Ko‘rib chiqilmoqda</option>
-            <option value="Rad etilgan">Rad etilgan</option>
-            <option value="Qabul qilindi">Qabul qilindi</option>
+            {Object.keys(statusColors).map(status => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
           </select>
         </div>
       </div>
+      
       <div className="grid grid-cols-1 gap-4">
         {filteredApps.length === 0 ? (
           <div className="text-center text-gray-400 py-10">Arizalar topilmadi</div>
         ) : (
-          filteredApps.map((app: Record<string, any>) => (
+          filteredApps.map((app: Application) => (
             <div
               key={app.id}
               className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 border border-gray-100 dark:border-slate-700 hover:shadow-lg transition"
             >
               <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                <div className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">{app.fullName || app.full_name}</div>
-                <div className="text-gray-500 dark:text-gray-300 text-sm sm:text-base">{app.phone}</div>
-                <div className="text-gray-400 text-xs sm:text-sm">{app.date}</div>
-                <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${statusColors[app.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-700'}`}>{app.status}</div>
+                <div className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
+                  {app.fullName || app.full_name || 'Noma\'lum'}
+                </div>
+                <div className="text-gray-500 dark:text-gray-300 text-sm sm:text-base">{app.phone || 'Telefon raqami kiritilmagan'}</div>
+                <div className="text-gray-400 text-xs sm:text-sm">{app.date || 'Sana kiritilmagan'}</div>
+                <div 
+                  className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
+                    statusColors[app.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {app.status}
+                </div>
               </div>
               <Link
                 to={`/application/${app.id}`}

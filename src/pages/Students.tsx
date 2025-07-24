@@ -154,11 +154,6 @@ const Students: React.FC = () => {
       ) as React.ReactNode,
     },
     {
-      key: "faculty",
-      title: "Fakultet",
-      render: (value: unknown) => <span className="text-sm text-gray-700 dark:text-gray-300">{value as string}</span>,
-    },
-    {
       key: "direction",
       title: "Yo'nalish",
       render: (value: unknown) => <span className="text-sm text-gray-700 dark:text-gray-300">{value as string}</span>,
@@ -167,16 +162,6 @@ const Students: React.FC = () => {
       key: "room",
       title: "Xona",
       render: (_: unknown, row: Record<string, unknown>) => <span className="px-2 py-1 bg-primary-100 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300 rounded-full text-sm font-medium">{row.room && typeof row.room === 'object' ? (row.room as any).name : "-"}</span>,
-    },
-    {
-      key: "province",
-      title: "Viloyat",
-      render: (_: unknown, row: Record<string, unknown>) => <span className="text-sm text-gray-700 dark:text-gray-300">{row.province && typeof row.province === 'object' ? (row.province as any).name : "-"}</span>,
-    },
-    {
-      key: "phone",
-      title: "Telefon",
-      render: (value: unknown) => <span className="text-sm text-gray-700 dark:text-gray-300">{value as string}</span>,
     },
     {
       key: "total_payment",
@@ -629,7 +614,7 @@ const Students: React.FC = () => {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-2 sm:px-8 py-6 sm:py-8 pb-32 space-y-6 sm:space-y-8">
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-2 sm:px-8 py-6 sm:py-8 pb-40 space-y-6 sm:space-y-8">
               {/* Profil rasmi */}
               <div className="flex flex-col items-center gap-3 mb-4">
                 <label className="block text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200 mb-2">Profil rasmi</label>
@@ -797,8 +782,8 @@ const Students: React.FC = () => {
                   </div>
                 </div>
                 {/* Gender radio group */}
-                <div className="mt-4">
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Jinsi</label>
+                <div className="mt-4 mb-6">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Jinsi</label>
                   <div className="flex gap-4 sm:gap-6">
                     <label className="inline-flex items-center cursor-pointer">
                       <input
@@ -825,7 +810,7 @@ const Students: React.FC = () => {
                   </div>
                 </div>
                 {formData.isPrivileged && (
-                  <div className="mt-4">
+                  <div className="mt-4 mb-6">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Imtiyoz ulushi (%)</label>
                     <input type="number" name="privilegeShare" value={formData.privilegeShare} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" min={1} max={100} />
                   </div>

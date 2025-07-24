@@ -19,7 +19,7 @@ interface DataTableProps {
   onRowClick?: (row: Record<string, unknown>) => void;
   actions?: React.ReactNode;
   onExport?: () => void;
-  hideExportButton?: boolean; // <-- add this
+  hideExportButton?: boolean;
 }
 
 const DataTable: React.FC<DataTableProps> = ({
@@ -32,7 +32,7 @@ const DataTable: React.FC<DataTableProps> = ({
   onRowClick,
   actions,
   onExport,
-  hideExportButton = false, // <-- add this
+  hideExportButton = false,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState<string>('');
@@ -50,10 +50,10 @@ const DataTable: React.FC<DataTableProps> = ({
   // Sort data
   const sortedData = [...filteredData].sort((a, b) => {
     if (!sortKey) return 0;
-    
+
     const aValue = a[sortKey];
     const bValue = b[sortKey];
-    
+
     if (typeof aValue === 'number' && typeof bValue === 'number') {
       return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
     }
@@ -98,7 +98,7 @@ const DataTable: React.FC<DataTableProps> = ({
                 />
               </div>
             )}
-            
+
             {filterable && (
               <button className="flex items-center space-x-2 px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-xs sm:text-sm">
                 <Filter className="w-4 h-4" />
@@ -109,7 +109,7 @@ const DataTable: React.FC<DataTableProps> = ({
 
           <div className="flex items-center space-x-2">
             {actions}
-            {!hideExportButton && (
+            {!hideExportButton && onExport && (
               <button
                 className="flex items-center space-x-2 px-3 sm:px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-xs sm:text-sm"
                 onClick={onExport}
@@ -131,9 +131,8 @@ const DataTable: React.FC<DataTableProps> = ({
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-2 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider ${
-                    column.sortable ? 'cursor-pointer hover:text-gray-700 dark:hover:text-gray-200' : ''
-                  }`}
+                  className={`px-2 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider ${column.sortable ? 'cursor-pointer hover:text-gray-700 dark:hover:text-gray-200' : ''
+                    }`}
                   onClick={() => column.sortable && handleSort(column.key)}
                 >
                   <div className="flex items-center space-x-1">
@@ -155,9 +154,8 @@ const DataTable: React.FC<DataTableProps> = ({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-                  onRowClick ? 'cursor-pointer' : ''
-                }`}
+                className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${onRowClick ? 'cursor-pointer' : ''
+                  }`}
                 onClick={() => onRowClick?.(row)}
               >
                 {columns.map((column) => (
@@ -180,7 +178,7 @@ const DataTable: React.FC<DataTableProps> = ({
               {sortedData.length} natija
             </span>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
@@ -189,7 +187,7 @@ const DataTable: React.FC<DataTableProps> = ({
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            
+
             <div className="flex items-center space-x-1">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 const page = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
@@ -197,18 +195,17 @@ const DataTable: React.FC<DataTableProps> = ({
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
-                    className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-                      currentPage === page
+                    className={`px-3 py-1 text-sm rounded-lg transition-colors ${currentPage === page
                         ? 'bg-primary-600 text-white'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
+                      }`}
                   >
                     {page}
                   </button>
                 );
               })}
             </div>
-            
+
             <button
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}

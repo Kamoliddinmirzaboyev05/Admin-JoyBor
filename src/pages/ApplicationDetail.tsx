@@ -8,17 +8,17 @@ import { apiQueries } from '../data/api';
 import { link } from '../data/config';
 
 const statusColors = {
-  'Yangi': 'bg-blue-100 text-blue-700',
-  'Ko‘rib chiqilmoqda': 'bg-yellow-100 text-yellow-700',
-  'Rad etilgan': 'bg-red-100 text-red-700',
-  'Qabul qilindi': 'bg-green-100 text-green-700',
+  'Yangi': 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200',
+  'Ko‘rib chiqilmoqda': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-200',
+  'Rad etilgan': 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200',
+  'Qabul qilindi': 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200',
 };
 
 function ReadOnlyInput({ label, value }: { label: string; value?: string | number | boolean }) {
   return (
     <div className="flex flex-col gap-1 w-full">
       <span className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-0.5 pl-1">{label}</span>
-      <div className="bg-gray-50 dark:bg-slate-700 border border-gray-100 dark:border-slate-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-base font-medium min-h-[40px] flex items-center">
+      <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-gray-900 dark:text-gray-100 text-base font-medium min-h-[40px] flex items-center">
         {typeof value === 'boolean' ? (value ? 'Ha' : 'Yo\'q') : value || '-'}
       </div>
     </div>
@@ -80,13 +80,13 @@ const ApplicationDetail: React.FC = () => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 40 }}
       transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-8 px-2 flex flex-col items-center"
+      className="min-h-screen bg-white dark:bg-slate-900 py-8 px-2 flex flex-col items-center"
     >
-      <div className="w-full max-w-3xl bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 border border-gray-100 dark:border-slate-700">
+      <div className="w-full max-w-3xl bg-white dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-slate-700">
         <div className="flex flex-col items-center gap-2 mb-6">
           <div className="flex w-full justify-between items-center mb-2">
             <BackButton label="Orqaga" />
-            <span className={`flex items-center gap-2 px-4 py-1 rounded-full text-sm font-bold ${statusColors[app.status as keyof typeof statusColors]} shadow`}>
+            <span className={`flex items-center gap-2 px-4 py-1 rounded-full text-sm font-medium ${statusColors[app.status as keyof typeof statusColors]} shadow`}>
               <BadgeCheck className="w-5 h-5" /> {app.status}
             </span>
           </div>
@@ -102,7 +102,7 @@ const ApplicationDetail: React.FC = () => {
             </div>
           )}
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mt-2 text-center">{app.fullName || app.full_name}</h1>
-          <div className="text-gray-400 dark:text-gray-300 text-sm">{app.type} arizasi</div>
+          <div className="text-gray-500 dark:text-gray-400 text-sm">{app.type} arizasi</div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <ReadOnlyInput label="Ism" value={firstName} />
@@ -119,16 +119,16 @@ const ApplicationDetail: React.FC = () => {
           <ReadOnlyInput label="Jinsi" value={app.gender} />
         </div>
         {app.comment && (
-          <div className="bg-blue-50 dark:bg-slate-700 border border-blue-100 dark:border-slate-600 rounded-xl px-6 py-4 mt-4">
-            <div className="text-xs text-blue-500 dark:text-blue-300 mb-1 font-semibold">Izoh</div>
-            <div className="text-base text-gray-900 dark:text-white font-medium break-words">{app.comment}</div>
+          <div className="bg-blue-50/50 dark:bg-slate-700/50 border border-blue-100 dark:border-slate-600 rounded-xl px-6 py-4 mt-4">
+            <div className="text-xs text-blue-600 dark:text-blue-400 mb-1 font-semibold">Izoh</div>
+            <div className="text-base text-gray-800 dark:text-gray-200 font-medium break-words">{app.comment}</div>
           </div>
         )}
       </div>
       {/* Qabul qilish va rad etish tugmalari */}
       <div className="flex gap-3 mt-8 justify-end w-full max-w-3xl">
-        <button className="px-5 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition">Qabul qilish</button>
-        <button className="px-5 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition">Rad etish</button>
+        <button className="px-5 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-colors duration-200">Qabul qilish</button>
+        <button className="px-5 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition-colors duration-200">Rad etish</button>
       </div>
     </motion.div>
   );

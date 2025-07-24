@@ -57,7 +57,7 @@ export const apiQueries = {
 
   // Settings (dormitory info)
   getSettings: () => get('/my-dormitory/'),
-  updateSettings: (data: any) => put('/my-dormitory/', data),
+  updateSettings: (data: any) => patch('/my-dormitory/', data),
   patchMyDormitory: (data: any) => patch('/my-dormitory-update/', data),
 
   // Dashboard

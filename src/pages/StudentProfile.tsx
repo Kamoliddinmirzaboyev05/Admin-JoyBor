@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import BackButton from '../components/UI/BackButton';
-import { BadgeCheck } from 'lucide-react';
+import { BadgeCheck, Calendar } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
 import { BASE_URL } from '../data/api';
@@ -9,29 +9,79 @@ import { link } from '../data/config';
 import axios from 'axios';
 import { toast } from 'sonner';
 
-function ReadOnlyInput({ label, value }: { label: string; value?: string | number | boolean }) {
+// Format date to a more readable format (DD.MM.YYYY)
+const formatDate = (dateString?: string) => {
+  if (!dateString) return '-';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}.${month}.${year}`;
+  } catch (e) {
+    return dateString;
+  }
+};
+
+// Format currency with thousand separators
+const formatCurrency = (amount?: string | number) => {
+  if (amount === undefined || amount === null || amount === '') return '-';
+  
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (isNaN(numAmount)) return amount;
+  
+  return numAmount.toLocaleString('uz-UZ') + ' so\'m';
+};
+
+function ReadOnlyInput({ label, value, type }: { label: string; value?: string | number | boolean; type?: 'date' | 'currency' | 'default' }) {
+  let displayValue = typeof value === 'boolean' ? (value ? 'Ha' : 'Yo\'q') : value || '-';
+  
+  // Format based on type
+  if (type === 'date') {
+    displayValue = formatDate(displayValue as string);
+  } else if (type === 'currency') {
+    displayValue = formatCurrency(displayValue as string | number);
+  }
+  
   return (
     <div className="flex flex-col gap-1 w-full">
       <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">{label}</label>
-      <input
-        className="bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-base font-medium cursor-default focus:outline-none focus:ring-2 focus:ring-blue-300 w-full"
-        value={typeof value === 'boolean' ? (value ? 'Ha' : 'Yo\'q') : value || '-'}
-        readOnly
-        tabIndex={-1}
-      />
+      <div className={`bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-base font-medium cursor-default focus:outline-none focus:ring-2 focus:ring-blue-300 w-full flex items-center ${type === 'date' || type === 'currency' ? 'text-blue-600 dark:text-blue-300' : ''}`}>
+        {type === 'date' && <Calendar className="w-4 h-4 mr-2 text-blue-500 dark:text-blue-400" />}
+        {type === 'currency' && <span className="mr-2 text-green-500 dark:text-green-400">₩</span>}
+        {displayValue}
+      </div>
     </div>
   );
 }
 
 function EditableInput({ label, value, onChange, type = 'text' }: { label: string; value?: string | number; onChange: (v: string) => void; type?: string }) {
+  // Convert date format for date inputs (YYYY-MM-DD for HTML date input)
+  let inputValue = value ?? '';
+  let inputType = type;
+  
+  if (type === 'date' && typeof value === 'string') {
+    try {
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        inputValue = date.toISOString().split('T')[0];
+      }
+    } catch (e) {
+      // Keep original value if parsing fails
+    }
+  }
+  
   return (
     <div className="flex flex-col gap-1 w-full">
       <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">{label}</label>
       <input
         className="bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-base font-medium focus:outline-none focus:ring-2 focus:ring-blue-300 w-full"
-        value={value ?? ''}
+        value={inputValue}
         onChange={e => onChange(e.target.value)}
-        type={type}
+        type={inputType}
       />
     </div>
   );
@@ -178,8 +228,8 @@ const StudentProfile: React.FC = () => {
               <EditableInput label="Pasport" value={(form as Record<string, any>).passport || ''} onChange={v => handleChange('passport', v)} />
               <EditableInput label="Tarif" value={(form as Record<string, any>).tarif || ''} onChange={v => handleChange('tarif', v)} />
               <EditableInput label="Imtiyoz" value={(form as Record<string, any>).imtiyoz || ''} onChange={v => handleChange('imtiyoz', v)} />
-              <EditableInput label="Qabul qilingan sana" value={(form as Record<string, any>).accepted_date || ''} onChange={v => handleChange('accepted_date', v)} />
-              <EditableInput label="Jami to'lov" value={(form as Record<string, any>).total_payment || ''} onChange={v => handleChange('total_payment', v)} />
+              <EditableInput label="Qabul qilingan sana" value={(form as Record<string, any>).accepted_date || ''} onChange={v => handleChange('accepted_date', v)} type="date" />
+              <EditableInput label="Jami to'lov" value={(form as Record<string, any>).total_payment || ''} onChange={v => handleChange('total_payment', v)} type="number" />
             </>
           ) : (
             <>
@@ -193,8 +243,8 @@ const StudentProfile: React.FC = () => {
               <ReadOnlyInput label="Pasport" value={(form as Record<string, any>).passport} />
               <ReadOnlyInput label="Tarif" value={(form as Record<string, any>).tarif} />
               <ReadOnlyInput label="Imtiyoz" value={(form as Record<string, any>).imtiyoz} />
-              <ReadOnlyInput label="Qabul qilingan sana" value={(form as Record<string, any>).accepted_date} />
-              <ReadOnlyInput label="Jami to'lov" value={(form as Record<string, any>).total_payment} />
+              <ReadOnlyInput label="Qabul qilingan sana" value={(form as Record<string, any>).accepted_date} type="date" />
+              <ReadOnlyInput label="Jami to'lov" value={(form as Record<string, any>).total_payment} type="currency" />
             </>
           )}
         </div>
