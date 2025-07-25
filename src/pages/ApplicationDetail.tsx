@@ -1,58 +1,190 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import BackButton from '../components/UI/BackButton';
-import { BadgeCheck } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { BadgeCheck, Phone, MapPin, GraduationCap, Calendar, User, FileText, Image, X, Check, XCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
-import { apiQueries } from '../data/api';
 import { link } from '../data/config';
+import { toast } from 'sonner';
 
 const statusColors = {
-  'Yangi': 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200',
-  'Ko‘rib chiqilmoqda': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-200',
-  'Rad etilgan': 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200',
-  'Qabul qilindi': 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200',
+  'PENDING': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700',
+  'APPROVED': 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700',
+  'REJECTED': 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700',
+  'NEW': 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700',
 };
 
-function ReadOnlyInput({ label, value }: { label: string; value?: string | number | boolean }) {
+const statusLabels = {
+  'PENDING': 'Ko\'rib chiqilmoqda',
+  'APPROVED': 'Qabul qilindi',
+  'REJECTED': 'Rad etilgan',
+  'NEW': 'Yangi',
+};
+
+function InfoCard({ icon, label, value }: { icon: React.ReactNode; label: string; value?: string | number | null }) {
   return (
-    <div className="flex flex-col gap-1 w-full">
-      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-0.5 pl-1">{label}</span>
-      <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 text-gray-900 dark:text-gray-100 text-base font-medium min-h-[40px] flex items-center">
-        {typeof value === 'boolean' ? (value ? 'Ha' : 'Yo\'q') : value || '-'}
+    <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-center gap-3">
+        <div className="text-blue-600 dark:text-blue-400">
+          {icon}
+        </div>
+        <div className="flex-1">
+          <div className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">{label}</div>
+          <div className="text-gray-900 dark:text-gray-100 font-semibold">
+            {value || '-'}
+          </div>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function ImageCard({ src, alt, label }: { src?: string | null; alt: string; label: string }) {
+  if (!src) return null;
+  
+  return (
+    <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Image className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
+      </div>
+      <img 
+        src={src} 
+        alt={alt}
+        className="w-full h-48 object-cover rounded-lg border border-gray-200 dark:border-slate-600"
+      />
     </div>
   );
 }
 
 const ApplicationDetail: React.FC = () => {
   const { id } = useParams();
-  // Fetch all applications and find by id (API does not have getApplicationById)
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [comment, setComment] = useState('');
+  const [loading, setLoading] = useState(false);
+  
+  // Fetch application details from API
   const {
-    data: applications = [],
+    data: application,
     isLoading,
     error,
     refetch
   } = useQuery({
-    queryKey: ['applications'],
-    queryFn: apiQueries.getApplications,
+    queryKey: ['application', id],
+    queryFn: async () => {
+      const token = localStorage.getItem('access');
+      const response = await fetch(`${link}/applications/${id}/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Ariza ma\'lumotlarini yuklashda xatolik');
+      }
+      return response.json();
+    },
+    enabled: !!id,
     staleTime: 1000 * 60 * 5,
   });
-  const app = applications.find((a: Record<string, any>) => String(a.id) === String(id));
 
-  const getNameParts = (fullName: string) => {
-    const parts = fullName.split(' ');
-    return {
-      lastName: parts[0] || '-',
-      firstName: parts[1] || '-',
-      fatherName: parts.slice(2).join(' ') || '-',
-    };
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('uz-UZ', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return dateString;
+    }
   };
-  const { lastName, firstName, fatherName } = app ? getNameParts(app.fullName || app.full_name || '') : { lastName: '-', firstName: '-', fatherName: '-' };
+
+  const handleApprove = async () => {
+    if (!comment.trim()) {
+      toast.error('Iltimos, qabul qilish sababini yozing!');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('access');
+      const response = await fetch(`${link}/applications/${id}/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'APPROVED',
+          comment: comment.trim()
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Arizani qabul qilishda xatolik');
+      }
+      
+      toast.success('Ariza muvaffaqiyatli qabul qilindi!');
+      setShowApproveModal(false);
+      setComment('');
+      refetch();
+    } catch (error) {
+      toast.error('Arizani qabul qilishda xatolik yuz berdi!');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!comment.trim()) {
+      toast.error('Iltimos, rad etish sababini yozing!');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('access');
+      const response = await fetch(`${link}/applications/${id}/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'REJECTED',
+          comment: comment.trim()
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Arizani rad etishda xatolik');
+      }
+      
+      toast.success('Ariza rad etildi!');
+      setShowRejectModal(false);
+      setComment('');
+      refetch();
+    } catch (error) {
+      toast.error('Arizani rad etishda xatolik yuz berdi!');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div></div>;
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+      </div>
+    );
   }
+
   if (error) {
     return (
       <div className="text-center py-10 text-red-600 dark:text-red-400">
@@ -66,9 +198,10 @@ const ApplicationDetail: React.FC = () => {
       </div>
     );
   }
-  if (!app) {
+
+  if (!application) {
     return (
-      <div className="p-8 text-center text-red-500">
+      <div className="p-8 text-center text-red-500 dark:text-red-400">
         Ariza topilmadi. <BackButton label="Orqaga qaytish" className="mx-auto mt-4" />
       </div>
     );
@@ -80,58 +213,298 @@ const ApplicationDetail: React.FC = () => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 40 }}
       transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className="min-h-screen bg-white dark:bg-slate-900 py-8 px-2 flex flex-col items-center"
+      className="min-h-screen bg-gray-50 dark:bg-slate-900 py-8 px-4"
     >
-      <div className="w-full max-w-3xl bg-white dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-slate-700">
-        <div className="flex flex-col items-center gap-2 mb-6">
-          <div className="flex w-full justify-between items-center mb-2">
-            <BackButton label="Orqaga" />
-            <span className={`flex items-center gap-2 px-4 py-1 rounded-full text-sm font-medium ${statusColors[app.status as keyof typeof statusColors]} shadow`}>
-              <BadgeCheck className="w-5 h-5" /> {app.status}
-            </span>
-          </div>
-          {app.avatar ? (
-            <img
-              src={app.avatar}
-              alt={app.fullName || app.full_name}
-              className="w-28 h-28 object-cover rounded-full border-4 border-blue-200 dark:border-slate-700 shadow-lg -mt-6"
-            />
-          ) : (
-            <div className="w-28 h-28 flex items-center justify-center bg-gradient-to-br from-blue-100 to-blue-300 dark:from-slate-700 dark:to-slate-900 text-4xl font-bold text-blue-700 dark:text-blue-200 rounded-full border-4 border-blue-200 dark:border-slate-700 shadow-lg -mt-6">
-              {(app.fullName || app.full_name || '').split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <BackButton label="Orqaga" />
+          <span className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border ${statusColors[application.status as keyof typeof statusColors] || statusColors.NEW}`}>
+            <BadgeCheck className="w-4 h-4" />
+            {statusLabels[application.status as keyof typeof statusLabels] || application.status}
+          </span>
+        </div>
+
+        {/* Main Card */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
+          {/* Profile Section */}
+          <div className="bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 p-6 text-white">
+            <div className="flex items-center gap-6">
+              {application.user_image ? (
+                <img
+                  src={application.user_image}
+                  alt={application.name}
+                  className="w-20 h-20 rounded-full border-4 border-white/20 object-cover"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-full border-4 border-white/20 bg-white/10 flex items-center justify-center text-2xl font-bold">
+                  {application.name?.charAt(0) || 'A'}
+                </div>
+              )}
+              <div>
+                <h1 className="text-2xl font-bold mb-1">{application.fio || application.name}</h1>
+                <p className="text-blue-100 mb-2">{application.university}</p>
+                <div className="flex items-center gap-4 text-sm text-blue-100">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    {formatDate(application.created_at)}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Phone className="w-4 h-4" />
+                    +{application.phone}
+                  </span>
+                </div>
+              </div>
             </div>
-          )}
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mt-2 text-center">{app.fullName || app.full_name}</h1>
-          <div className="text-gray-500 dark:text-gray-400 text-sm">{app.type} arizasi</div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-          <ReadOnlyInput label="Ism" value={firstName} />
-          <ReadOnlyInput label="Familiya" value={lastName} />
-          <ReadOnlyInput label="Otasining ismi" value={fatherName} />
-          <ReadOnlyInput label="Telefon" value={app.phone} />
-          <ReadOnlyInput label="Fakultet" value={app.faculty} />
-          <ReadOnlyInput label="Yo'nalish" value={app.direction} />
-          <ReadOnlyInput label="Guruh" value={app.group} />
-          <ReadOnlyInput label="Viloyat" value={app.region} />
-          <ReadOnlyInput label="Tuman yoki shahar" value={app.district} />
-          <ReadOnlyInput label="Pasport" value={app.passport} />
-          <ReadOnlyInput label="Kurs" value={app.course ? app.course + '-kurs' : ''} />
-          <ReadOnlyInput label="Jinsi" value={app.gender} />
-        </div>
-        {app.comment && (
-          <div className="bg-blue-50/50 dark:bg-slate-700/50 border border-blue-100 dark:border-slate-600 rounded-xl px-6 py-4 mt-4">
-            <div className="text-xs text-blue-600 dark:text-blue-400 mb-1 font-semibold">Izoh</div>
-            <div className="text-base text-gray-800 dark:text-gray-200 font-medium break-words">{app.comment}</div>
           </div>
+
+          {/* Details Section */}
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              <InfoCard 
+                icon={<User className="w-5 h-5" />}
+                label="To'liq ism"
+                value={application.fio || application.name}
+              />
+              <InfoCard 
+                icon={<Phone className="w-5 h-5" />}
+                label="Telefon raqam"
+                value={`+${application.phone}`}
+              />
+              <InfoCard 
+                icon={<GraduationCap className="w-5 h-5" />}
+                label="Universitet"
+                value={application.university}
+              />
+              <InfoCard 
+                icon={<MapPin className="w-5 h-5" />}
+                label="Shahar"
+                value={application.city}
+              />
+              <InfoCard 
+                icon={<MapPin className="w-5 h-5" />}
+                label="Qishloq/Tuman"
+                value={application.village}
+              />
+              <InfoCard 
+                icon={<FileText className="w-5 h-5" />}
+                label="Yo'nalish"
+                value={application.direction}
+              />
+            </div>
+
+            {/* Comment Section */}
+            {application.comment && (
+              <div className="bg-blue-50 dark:bg-slate-700/50 border border-blue-200 dark:border-slate-600 rounded-xl p-4 mb-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Izoh</span>
+                </div>
+                <p className="text-gray-700 dark:text-gray-300">{application.comment}</p>
+              </div>
+            )}
+
+            {/* Passport Images */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <ImageCard 
+                src={application.passport_image_first}
+                alt="Pasport birinchi sahifa"
+                label="Pasport (birinchi sahifa)"
+              />
+              <ImageCard 
+                src={application.passport_image_second}
+                alt="Pasport ikkinchi sahifa"
+                label="Pasport (ikkinchi sahifa)"
+              />
+            </div>
+
+            {/* Document */}
+            {application.document && (
+              <div className="bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl p-4 mb-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Hujjat</span>
+                </div>
+                <a 
+                  href={application.document}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Hujjatni ko'rish
+                </a>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-slate-700">
+              <button 
+                onClick={() => setShowApproveModal(true)}
+                className="px-6 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-colors duration-200 flex items-center gap-2"
+              >
+                <BadgeCheck className="w-4 h-4" />
+                Qabul qilish
+              </button>
+              <button 
+                onClick={() => setShowRejectModal(true)}
+                className="px-6 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition-colors duration-200"
+              >
+                Rad etish
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Approve Modal */}
+      <AnimatePresence>
+        {showApproveModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowApproveModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 40 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 40 }}
+              className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-200 dark:border-slate-700"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                  <Check className="w-6 h-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Arizani qabul qilish</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Qabul qilish sababini yozing</p>
+                </div>
+              </div>
+              
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Qabul qilish sababi *
+                </label>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Masalan: Barcha talablar bajarilgan, hujjatlar to'liq..."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                  rows={4}
+                  required
+                />
+              </div>
+              
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => {
+                    setShowApproveModal(false);
+                    setComment('');
+                  }}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-lg transition-colors"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  onClick={handleApprove}
+                  disabled={loading || !comment.trim()}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Qabul qilinmoqda...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Qabul qilish
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
-      </div>
-      {/* Qabul qilish va rad etish tugmalari */}
-      <div className="flex gap-3 mt-8 justify-end w-full max-w-3xl">
-        <button className="px-5 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-colors duration-200">Qabul qilish</button>
-        <button className="px-5 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition-colors duration-200">Rad etish</button>
-      </div>
+      </AnimatePresence>
+
+      {/* Reject Modal */}
+      <AnimatePresence>
+        {showRejectModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowRejectModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 40 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 40 }}
+              className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-200 dark:border-slate-700"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                  <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Arizani rad etish</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Rad etish sababini yozing</p>
+                </div>
+              </div>
+              
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Rad etish sababi *
+                </label>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Masalan: Hujjatlar to'liq emas, talablar bajarilmagan..."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                  rows={4}
+                  required
+                />
+              </div>
+              
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setComment('');
+                  }}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-lg transition-colors"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  onClick={handleReject}
+                  disabled={loading || !comment.trim()}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Rad etilmoqda...
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-4 h-4" />
+                      Rad etish
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
 
-export default ApplicationDetail; 
+export default ApplicationDetail;

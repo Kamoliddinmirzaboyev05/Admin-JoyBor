@@ -126,8 +126,8 @@ const Sidebar: React.FC = () => {
           >
             <div className="bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-900/40 rounded-xl p-3 border border-blue-200 dark:border-blue-800">
               <div className="flex items-center space-x-2">
-                <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">TTU</span>
+                <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center p-1">
+                  <img src="/logo.svg" alt="TTU Logo" className="w-full h-full object-contain" />
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-gray-900 dark:text-white">

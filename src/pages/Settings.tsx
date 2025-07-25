@@ -322,9 +322,9 @@ const Settings: React.FC = () => {
       <div className="flex flex-col sm:flex-row items-center gap-6 mb-10">
         {/* University logo and name */}
         <div className="flex items-center gap-4">
-          {settings.university?.logo && (
-            <img src={settings.university.logo} alt="University Logo" className="w-16 h-16 rounded-xl object-cover border border-gray-200 dark:border-gray-700 shadow" />
-          )}
+          <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center border border-gray-200 dark:border-gray-700 shadow p-2">
+            <img src="/logo.svg" alt="University Logo" className="w-full h-full object-contain" />
+          </div>
           <div>
             <div className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2"><School className="w-5 h-5 text-blue-500" /> {settings.university?.name}</div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{settings.university?.address}</div>

@@ -15,7 +15,9 @@ export async function apiFetch(url: string, options: RequestInit = {}) {
   const res = await fetch(fullUrl, { ...options, headers });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw data?.detail || data?.message || 'API xatolik';
+    const error = new Error(data?.detail || data?.message || 'API xatolik');
+    (error as any).response = { data, status: res.status, statusText: res.statusText };
+    throw error;
   }
   return data;
 }
@@ -43,7 +45,9 @@ export const apiQueries = {
   
   // Rooms
   getFloors: () => get('/floors/'),
+  getAvailableFloors: () => get('/available-floors/'),
   getRooms: (floorId?: number) => get(`/rooms/${floorId ? `?floor=${floorId}` : ''}`),
+  getAvailableRooms: (floorId?: number) => get(`/available-rooms/${floorId ? `?floor=${floorId}` : ''}`),
   
   // Payments
   getPayments: () => get('/payments/'),
@@ -54,6 +58,7 @@ export const apiQueries = {
   
   // Student Profile
   getStudentProfile: (id: string) => get(`/students/${id}/`),
+  updateStudent: (id: string, data: Record<string, unknown>) => patch(`/students/${id}/`, data),
 
   // Settings (dormitory info)
   getSettings: () => get('/my-dormitory/'),

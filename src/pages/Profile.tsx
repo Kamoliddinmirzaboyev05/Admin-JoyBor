@@ -157,11 +157,11 @@ const Profile: React.FC = () => {
           <div className="absolute top-4 left-4 z-10">
             <BackButton />
           </div>
-          <div className="w-32 h-32 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center shadow border-4 border-white dark:border-[#1E293B] mb-3">
+          <div className="w-32 h-32 rounded-full bg-white dark:bg-gray-700 flex items-center justify-center shadow border-4 border-white dark:border-[#1E293B] mb-3 p-4">
             {admin.image ? (
               <img src={admin.image} alt={admin.username} className="w-full h-full object-cover rounded-full" />
             ) : (
-              <User className="w-20 h-20 text-[#1E293B] dark:text-gray-200 opacity-90" />
+              <img src="/logo.svg" alt="Profile Logo" className="w-full h-full object-contain" />
             )}
           </div>
           <h2 className="text-xl sm:text-3xl font-bold text-[#1E293B] dark:text-white mb-1 flex items-center gap-2">

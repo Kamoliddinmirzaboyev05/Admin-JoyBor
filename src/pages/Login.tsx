@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { link } from '../data/config';
+import { toast } from 'sonner';
 
 const Login: React.FC = () => {
   const [login, setLogin] = useState('');
@@ -21,15 +22,24 @@ const Login: React.FC = () => {
       });
       const result = await res.json();
       if (res.ok && result.access) {
-        localStorage.setItem('access', result.access);
-        localStorage.setItem('isAuth', 'true');
-        window.location.href = '/';
+        // Role tekshiruvi qo'shish
+        if (result.role && result.role === 'admin') {
+          localStorage.setItem('access', result.access);
+          localStorage.setItem('isAuth', 'true');
+          localStorage.setItem('userRole', result.role);
+          window.location.href = '/';
+        } else {
+          // Admin emas bo'lsa xatolik ko'rsatish
+          toast.error('Bunday foydalanuvchi topilmadi yoki sizda admin huquqi yo\'q!');
+          setError('Bunday foydalanuvchi topilmadi yoki sizda admin huquqi yo\'q!');
+          setLoading(false);
+        }
       } else {
-        setError(result.detail || 'Login yoki parol noto‘g‘ri!');
+        setError(result.detail || 'Login yoki parol noto\'g\'ri!');
         setLoading(false);
       }
     } catch {
-      setError('Tarmoqda xatolik. Qayta urinib ko‘ring.');
+      setError('Tarmoqda xatolik. Qayta urinib ko\'ring.');
       setLoading(false);
     }
   };
@@ -42,8 +52,8 @@ const Login: React.FC = () => {
         className="bg-white dark:bg-[#1E293B] rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-md border border-gray-200 dark:border-gray-800"
       >
         <div className="mb-8 text-center">
-          <div className="w-16 h-16 mx-auto mb-2 bg-gradient-to-br from-blue-600 to-[#1E293B] rounded-full flex items-center justify-center shadow">
-            <span className="text-white text-2xl font-bold tracking-wide">JB</span>
+          <div className="w-16 h-16 mx-auto mb-2 bg-white rounded-full flex items-center justify-center shadow p-2">
+            <img src="/logo.svg" alt="JoyBor Logo" className="w-full h-full object-contain" />
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-[#1E293B] dark:text-white font-sans">Xush kelibsiz, Admin!</h2>
           <p className="text-gray-500 dark:text-gray-300 text-xs sm:text-sm mt-1 font-sans">Platformaga kirish uchun login va parolingizni kiriting</p>
@@ -75,12 +85,18 @@ const Login: React.FC = () => {
                 tabIndex={-1}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none"
                 onClick={() => setShowPassword(v => !v)}
-                aria-label={showPassword ? 'Parolni yashirish' : 'Parolni ko‘rsatish'}
+                aria-label={showPassword ? 'Parolni yashirish' : 'Parolni ko\'rsatish'}
               >
                 {showPassword ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.336-3.236.938-4.675m2.122 2.122A7.963 7.963 0 004 9c0 4.418 3.582 8 8 8 1.657 0 3.236-.336 4.675-.938m2.122-2.122A7.963 7.963 0 0020 15c0-4.418-3.582-8-8-8-1.657 0-3.236.336-4.675.938" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.336-3.236.938-4.675m2.122 2.122A7.963 7.963 0 004 9c0 4.418 3.582 8 8 8 1.657 0 3.236-.336 4.675-.938m2.122-2.122A7.963 7.963 0 0020 15c0-4.418-3.582-8-8-8-1.657 0-3.236.336-4.675.938" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
                 ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.336-3.236.938-4.675m2.122 2.122A7.963 7.963 0 004 9c0 4.418 3.582 8 8 8 1.657 0 3.236-.336 4.675-.938m2.122-2.122A7.963 7.963 0 0020 15c0-4.418-3.582-8-8-8-1.657 0-3.236.336-4.675.938" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
                 )}
               </button>
             </div>
@@ -99,4 +115,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login; 
+export default Login;

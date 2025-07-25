@@ -4,7 +4,6 @@ import BackButton from '../components/UI/BackButton';
 import { BadgeCheck, Calendar } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
-import { BASE_URL } from '../data/api';
 import { link } from '../data/config';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -15,11 +14,11 @@ const formatDate = (dateString?: string) => {
   try {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return dateString;
-    
+
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
-    
+
     return `${day}.${month}.${year}`;
   } catch (e) {
     return dateString;
@@ -29,23 +28,23 @@ const formatDate = (dateString?: string) => {
 // Format currency with thousand separators
 const formatCurrency = (amount?: string | number) => {
   if (amount === undefined || amount === null || amount === '') return '-';
-  
+
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (isNaN(numAmount)) return amount;
-  
+
   return numAmount.toLocaleString('uz-UZ') + ' so\'m';
 };
 
 function ReadOnlyInput({ label, value, type }: { label: string; value?: string | number | boolean; type?: 'date' | 'currency' | 'default' }) {
   let displayValue = typeof value === 'boolean' ? (value ? 'Ha' : 'Yo\'q') : value || '-';
-  
+
   // Format based on type
   if (type === 'date') {
     displayValue = formatDate(displayValue as string);
   } else if (type === 'currency') {
     displayValue = formatCurrency(displayValue as string | number);
   }
-  
+
   return (
     <div className="flex flex-col gap-1 w-full">
       <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">{label}</label>
@@ -62,7 +61,7 @@ function EditableInput({ label, value, onChange, type = 'text' }: { label: strin
   // Convert date format for date inputs (YYYY-MM-DD for HTML date input)
   let inputValue = value ?? '';
   let inputType = type;
-  
+
   if (type === 'date' && typeof value === 'string') {
     try {
       const date = new Date(value);
@@ -73,7 +72,7 @@ function EditableInput({ label, value, onChange, type = 'text' }: { label: strin
       // Keep original value if parsing fails
     }
   }
-  
+
   return (
     <div className="flex flex-col gap-1 w-full">
       <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">{label}</label>
@@ -106,7 +105,13 @@ const StudentProfile: React.FC = () => {
   });
 
   React.useEffect(() => {
-    if (student) setForm(student);
+    if (student) {
+      setForm({
+        ...student,
+        course: student.course || '1-kurs',
+        gender: student.gender || 'Erkak',
+      });
+    }
   }, [student]);
 
   if (isLoading) {
@@ -126,39 +131,125 @@ const StudentProfile: React.FC = () => {
 
   const handleSave = async () => {
     if (!studentId || !form) return;
+
+    // Prepare payload exactly like in Students.tsx
+    const payload: any = {
+      name: form.name || '',
+      last_name: form.last_name || '',
+      middle_name: form.middle_name || '',
+      phone: form.phone || '',
+      faculty: form.faculty || '',
+      direction: form.direction || '',
+      group: form.group || '',
+      passport: form.passport || '',
+      privilege: form.imtiyoz ? true : false,
+      course: (form as any).course || '1-kurs',
+      gender: (form as any).gender || 'Erkak',
+      province: 0,
+      district: 0,
+      floor: 0,
+      room: 0,
+    };
+
+    // Override with actual IDs if available
+    if (form.province && typeof form.province === 'object' && (form.province as any).id) {
+      payload.province = Number((form.province as any).id);
+    }
+
+    if (form.district && typeof form.district === 'object' && (form.district as any).id) {
+      payload.district = Number((form.district as any).id);
+    }
+
+    // Always use original room and floor IDs to keep student in same room
+    const originalStudent = student as any;
+    console.log('Original student room:', originalStudent.room);
+    console.log('Original student floor:', originalStudent.floor);
+
+    if (originalStudent.room && originalStudent.room.id) {
+      payload.room = Number(originalStudent.room.id);
+    }
+    if (originalStudent.floor && originalStudent.floor.id) {
+      payload.floor = Number(originalStudent.floor.id);
+    }
+
+    console.log('=== STUDENT PROFILE UPDATE DEBUG ===');
+    console.log('Original student data:', JSON.stringify(student, null, 2));
+    console.log('Original form data:', JSON.stringify(form, null, 2));
+    console.log('Sending payload:', JSON.stringify(payload, null, 2));
+    console.log('Student ID:', studentId);
+    console.log('Full URL:', `${link}/students/${studentId}/`);
+    console.log('Token exists:', !!localStorage.getItem('access'));
+
     try {
       const token = localStorage.getItem('access');
-      // Prepare payload with only backend-expected fields
-      const payload: any = {
-        name: form.name,
-        last_name: form.last_name,
-        middle_name: form.middle_name,
-        phone: form.phone,
-        faculty: form.faculty,
-        direction: form.direction,
-        group: form.group,
-        passport: form.passport,
-        tarif: form.tarif,
-        imtiyoz: form.imtiyoz,
-        accepted_date: form.accepted_date,
-        total_payment: form.total_payment,
-      };
-      // Only send IDs for nested fields if present
-      if (form.room && typeof form.room === 'object' && (form.room as any).id) payload.room = (form.room as any).id;
-      if (form.floor && typeof form.floor === 'object' && (form.floor as any).id) payload.floor = (form.floor as any).id;
-      if (form.province && typeof form.province === 'object' && (form.province as any).id) payload.province = (form.province as any).id;
-      if (form.district && typeof form.district === 'object' && (form.district as any).id) payload.district = (form.district as any).id;
-
-      await axios.patch(
+      console.log('Making request...');
+      const response = await axios.patch(
         `${link}/students/${studentId}/`,
         payload,
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
       );
+      console.log('Success! Response:', response.data);
       toast.success('Talaba maʼlumotlari saqlandi!');
       setEditMode(false);
       refetch();
-    } catch {
-      toast.error('Talaba maʼlumotlarini saqlashda xatolik!');
+    } catch (error: any) {
+      console.error('Save error:', error);
+      console.error('Error response:', JSON.stringify(error.response?.data, null, 2));
+      console.error('Error status:', error.response?.status);
+      console.error('Error headers:', error.response?.headers);
+      console.error('Request payload was:', JSON.stringify(payload, null, 2));
+
+      let errorMessage = 'Noma\'lum xatolik';
+
+      if (error.response?.status === 500) {
+        errorMessage = 'Server xatoligi. Iltimos, keyinroq qayta urinib ko\'ring.';
+      } else if (error.response?.data) {
+        const errorData = error.response.data;
+
+        // Check if response is HTML (server error page)
+        if (typeof errorData === 'string' && errorData.includes('<html>')) {
+          errorMessage = 'Server xatoligi yuz berdi. Iltimos, admin bilan bog\'laning.';
+        } else if (errorData.non_field_errors && Array.isArray(errorData.non_field_errors)) {
+          const roomError = errorData.non_field_errors.find((err: string) =>
+            err.includes('xona to\'lgan') || err.includes('room is full')
+          );
+          if (roomError) {
+            errorMessage = roomError;
+          } else {
+            errorMessage = errorData.non_field_errors.join('; ');
+          }
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        } else {
+          // Show all field errors
+          const fieldErrors = [];
+          for (const [field, errors] of Object.entries(errorData)) {
+            if (Array.isArray(errors)) {
+              fieldErrors.push(`${field}: ${errors.join(', ')}`);
+            } else if (typeof errors === 'string') {
+              fieldErrors.push(`${field}: ${errors}`);
+            }
+          }
+          if (fieldErrors.length > 0) {
+            errorMessage = fieldErrors.join('; ');
+          }
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      toast.error(`Xatolik: ${errorMessage}`);
     }
   };
 
@@ -166,18 +257,31 @@ const StudentProfile: React.FC = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-4 sm:py-6 px-1 sm:px-2 flex flex-col items-center">
       <div className="w-full max-w-4xl bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-2 sm:p-6 md:p-8 border border-gray-100 dark:border-slate-700">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-          <div className="flex items-center justify-between w-full sm:w-auto">
-            <BackButton label="Orqaga" />
+          <BackButton label="Orqaga" />
+
+          <div className="flex items-center gap-2 justify-center">
+            <BadgeCheck className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600 dark:text-blue-300" />
+            <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Talaba profili</h1>
+          </div>
+
+          <div className="flex gap-2">
+            {editMode && (
+              <button
+                className="px-3 sm:px-4 py-2 rounded-lg bg-gray-500 text-white font-semibold hover:bg-gray-600 transition text-sm sm:text-base"
+                onClick={() => {
+                  setEditMode(false);
+                  setForm(student); // Reset form to original data
+                }}
+              >
+                Bekor qilish
+              </button>
+            )}
             <button
-              className="px-3 sm:px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition text-sm sm:text-base ml-2 sm:ml-4"
+              className="px-3 sm:px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition text-sm sm:text-base"
               onClick={() => editMode ? handleSave() : setEditMode(true)}
             >
               {editMode ? 'Saqlash' : 'Tahrirlash'}
             </button>
-          </div>
-          <div className="flex items-center gap-2 justify-center mt-2 sm:mt-0">
-            <BadgeCheck className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600 dark:text-blue-300" />
-            <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Talaba profili</h1>
           </div>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mb-6 sm:mb-8">
@@ -221,10 +325,18 @@ const StudentProfile: React.FC = () => {
               <EditableInput label="Fakultet" value={(form as Record<string, any>).faculty} onChange={v => handleChange('faculty', v)} />
               <EditableInput label="Yo'nalish" value={(form as Record<string, any>).direction} onChange={v => handleChange('direction', v)} />
               <EditableInput label="Guruh" value={(form as Record<string, any>).group || ''} onChange={v => handleChange('group', v)} />
-              <EditableInput label="Xona" value={(form as Record<string, any>).room?.name || ''} onChange={v => handleChange('room', v)} />
-              <EditableInput label="Qavat" value={(form as Record<string, any>).floor?.name || ''} onChange={v => handleChange('floor', v)} />
-              <EditableInput label="Viloyat" value={(form as Record<string, any>).province?.name || ''} onChange={v => handleChange('province', v)} />
-              <EditableInput label="Tuman" value={(form as Record<string, any>).district?.name || ''} onChange={v => handleChange('district', v)} />
+              <ReadOnlyInput label="Xona" value={(form as Record<string, any>).room?.name} />
+              <ReadOnlyInput label="Qavat" value={(form as Record<string, any>).floor?.name} />
+              <EditableInput label="Viloyat" value={
+                typeof (form as Record<string, any>).province === 'object'
+                  ? (form as Record<string, any>).province?.name || ''
+                  : (form as Record<string, any>).province || ''
+              } onChange={v => handleChange('province', v)} />
+              <EditableInput label="Tuman" value={
+                typeof (form as Record<string, any>).district === 'object'
+                  ? (form as Record<string, any>).district?.name || ''
+                  : (form as Record<string, any>).district || ''
+              } onChange={v => handleChange('district', v)} />
               <EditableInput label="Pasport" value={(form as Record<string, any>).passport || ''} onChange={v => handleChange('passport', v)} />
               <EditableInput label="Tarif" value={(form as Record<string, any>).tarif || ''} onChange={v => handleChange('tarif', v)} />
               <EditableInput label="Imtiyoz" value={(form as Record<string, any>).imtiyoz || ''} onChange={v => handleChange('imtiyoz', v)} />

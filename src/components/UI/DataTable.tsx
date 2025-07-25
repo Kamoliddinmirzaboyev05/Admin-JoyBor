@@ -196,8 +196,8 @@ const DataTable: React.FC<DataTableProps> = ({
                     key={page}
                     onClick={() => setCurrentPage(page)}
                     className={`px-3 py-1 text-sm rounded-lg transition-colors ${currentPage === page
-                        ? 'bg-primary-600 text-white'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      ? 'bg-primary-600 text-white'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
                   >
                     {page}

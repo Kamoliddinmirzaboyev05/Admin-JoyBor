@@ -115,17 +115,17 @@ const Students: React.FC = () => {
     staleTime: 1000 * 60 * 5, // 5 daqiqa cache
   });
 
-  // Fetch floors
+  // Fetch available floors (only floors with empty rooms)
   const { data: floors = [] } = useQuery({
-    queryKey: ['floors'],
-    queryFn: apiQueries.getFloors,
+    queryKey: ['available-floors'],
+    queryFn: apiQueries.getAvailableFloors,
     staleTime: 1000 * 60 * 5,
   });
 
-  // Fetch rooms for selected floor
+  // Fetch available rooms for selected floor (only empty rooms)
   const { data: rooms = [] } = useQuery({
-    queryKey: ['rooms', formData.floor],
-    queryFn: () => formData.floor ? apiQueries.getRooms(Number(formData.floor)) : Promise.resolve([]),
+    queryKey: ['available-rooms', formData.floor],
+    queryFn: () => formData.floor ? apiQueries.getAvailableRooms(Number(formData.floor)) : Promise.resolve([]),
     enabled: !!formData.floor,
     staleTime: 1000 * 60 * 5,
   });
@@ -250,7 +250,7 @@ const Students: React.FC = () => {
       setLoading(true);
       try {
         const token = localStorage.getItem('access');
-        // Prepare payload with only backend-expected fields
+        // Prepare payload according to API documentation
         const payload: any = {
           name: formData.firstName,
           last_name: formData.lastName,
@@ -260,20 +260,23 @@ const Students: React.FC = () => {
           direction: formData.direction,
           group: formData.group,
           passport: formData.passport,
-          tarif: formData.tarif,
-          imtiyoz: formData.isPrivileged,
-          privilegeShare: formData.privilegeShare,
+          privilege: formData.isPrivileged, // Use 'privilege' as per API docs
           course: formData.course,
           gender: formData.gender,
+          province: formData.region ? Number(formData.region) : 0,
+          district: formData.district ? Number(formData.district) : 0,
+          floor: formData.floor ? Number(formData.floor) : 0,
+          room: formData.room ? Number(formData.room) : 0,
         };
-        if (formData.room) payload.room = Number(formData.room);
-        if (formData.floor) payload.floor = Number(formData.floor);
-        if (formData.region) payload.province = Number(formData.region);
-        if (formData.district) payload.district = Number(formData.district);
         await axios.patch(
           `${link}/students/${editingStudent.id}/`,
           payload,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { 
+            headers: { 
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            } 
+          }
         );
         toast.success('Talaba maʼlumotlari yangilandi!');
         refetch();
