@@ -44,7 +44,10 @@ function useRoomsByFloor(floorId: number) {
         } as Room;
       });
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0, // Cache ni butunlay o'chiramiz
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchInterval: 30000, // Har 30 soniyada yangilash
   });
 }
 

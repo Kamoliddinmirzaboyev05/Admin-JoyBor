@@ -1,20 +1,25 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, TrendingUp, TrendingDown, Users, Building2, CreditCard, Clock4, CheckCircle2, AlertTriangle, X, Calendar, Home } from 'lucide-react';
+import { FileText, Users, Building2, CreditCard, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { get } from '../data/api';
+import { get, apiQueries } from '../data/api';
 import { link } from '../data/config';
 
-const mockStats = {
-  totalStudents: 245,
-  totalPayments: '120,500,000 so\'m',
-  totalRooms: 48,
-  totalDebtors: 17,
-};
+// Mock data ni olib tashlaymiz, API dan foydalanamiz
 
 const Reports: React.FC = () => {
-  const [selectedPeriod, setSelectedPeriod] = useState('month');
+  // const [selectedPeriod, setSelectedPeriod] = useState('month'); // Hozircha ishlatilmaydi
   const [search, setSearch] = useState('');
+
+  // React Query bilan dashboard ma'lumotlarini olish
+  const { 
+    data: dashboardData, 
+    isLoading: dashboardLoading 
+  } = useQuery({
+    queryKey: ['dashboard'],
+    queryFn: apiQueries.getDashboard,
+    staleTime: 1000 * 60 * 5, // 5 daqiqa cache
+  });
 
   // React Query bilan recent activities ma'lumotlarini olish
   const { 
@@ -28,6 +33,12 @@ const Reports: React.FC = () => {
     },
     staleTime: 1000 * 60 * 5, // 5 daqiqa cache
   });
+
+  // Dashboard ma'lumotlarini ajratib olish
+  const students = dashboardData?.students || { total: 0, male: 0, female: 0 };
+  const rooms = dashboardData?.rooms || { total_available: 0, male_rooms: 0, female_rooms: 0 };
+  const payments = dashboardData?.payments || { total_payment: 0, debtor_students_count: 0, non_debtor_students_count: 0 };
+  const applications = dashboardData?.applications || { total: 0, approved: 0, rejected: 0 };
 
   const filteredActions = recentActivities.filter((a: any) =>
     a.title?.toLowerCase().includes(search.toLowerCase()) ||
@@ -43,47 +54,46 @@ const Reports: React.FC = () => {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 40 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 40 }}
-      transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-100 dark:from-gray-800 dark:via-gray-900 dark:to-gray-900 py-0"
-    >
-      {/* Sticky header */}
-      <div className="sticky top-0 z-30 bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-800 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-5 flex items-center gap-4">
-          <span className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-lg">
-            <Calendar className="w-7 h-7" />
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">Hisobotlar</h1>
+    <div className="space-y-8">
+      {/* Page Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Hisobotlar</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Yotoqxona faoliyati hisobotlari va statistikalar
+          </p>
         </div>
-      </div>
-      <div className="max-w-6xl mx-auto w-full px-2 sm:px-6 py-8 bg-white dark:bg-gray-900/80 rounded-2xl shadow-none">
+      </motion.div>
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 shadow-xl p-6 flex flex-col items-center text-white relative overflow-hidden">
             <Users className="w-8 h-8 mb-2 opacity-90" />
             <div className="text-xs uppercase tracking-wider font-semibold opacity-80">Jami talabalar</div>
-            <div className="text-3xl font-extrabold mt-1">{mockStats.totalStudents}</div>
-            <div className="absolute right-2 bottom-2 opacity-10 text-7xl font-black select-none">{mockStats.totalStudents}</div>
+            <div className="text-3xl font-extrabold mt-1">{dashboardLoading ? '...' : students.total}</div>
+            <div className="absolute right-2 bottom-2 opacity-10 text-7xl font-black select-none">{students.total}</div>
             </div>
           <div className="rounded-2xl bg-gradient-to-br from-green-400 to-blue-500 shadow-xl p-6 flex flex-col items-center text-white relative overflow-hidden">
             <CreditCard className="w-8 h-8 mb-2 opacity-90" />
             <div className="text-xs uppercase tracking-wider font-semibold opacity-80">Jami to‘lovlar</div>
-            <div className="text-3xl font-extrabold mt-1">{mockStats.totalPayments}</div>
+            <div className="text-3xl font-extrabold mt-1">
+              {dashboardLoading ? '...' : `${(payments.total_payment / 1000000).toFixed(1)}M`}
+            </div>
             <div className="absolute right-2 bottom-2 opacity-10 text-7xl font-black select-none">💸</div>
           </div>
           <div className="rounded-2xl bg-gradient-to-br from-indigo-400 to-purple-500 shadow-xl p-6 flex flex-col items-center text-white relative overflow-hidden">
-            <Home className="w-8 h-8 mb-2 opacity-90" />
-            <div className="text-xs uppercase tracking-wider font-semibold opacity-80">Xonalar</div>
-            <div className="text-3xl font-extrabold mt-1">{mockStats.totalRooms}</div>
+            <Building2 className="w-8 h-8 mb-2 opacity-90" />
+            <div className="text-xs uppercase tracking-wider font-semibold opacity-80">Bo'sh xonalar</div>
+            <div className="text-3xl font-extrabold mt-1">{dashboardLoading ? '...' : rooms.total_available}</div>
             <div className="absolute right-2 bottom-2 opacity-10 text-7xl font-black select-none">🏠</div>
           </div>
           <div className="rounded-2xl bg-gradient-to-br from-pink-500 to-red-500 shadow-xl p-6 flex flex-col items-center text-white relative overflow-hidden">
-            <Users className="w-8 h-8 mb-2 opacity-90" />
+            <AlertTriangle className="w-8 h-8 mb-2 opacity-90" />
             <div className="text-xs uppercase tracking-wider font-semibold opacity-80">Qarzdorlar</div>
-            <div className="text-3xl font-extrabold mt-1 text-yellow-200">{mockStats.totalDebtors}</div>
+            <div className="text-3xl font-extrabold mt-1 text-yellow-200">{dashboardLoading ? '...' : payments.debtor_students_count}</div>
             <div className="absolute right-2 bottom-2 opacity-10 text-7xl font-black select-none">⚠️</div>
           </div>
         </div>
@@ -116,8 +126,7 @@ const Reports: React.FC = () => {
             </tbody>
           </table>
         </div>
-      </div>
-    </motion.div>
+    </div>
   );
 };
 

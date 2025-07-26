@@ -77,7 +77,9 @@ const Rooms: React.FC = () => {
   } = useQuery({
     queryKey: ['floors'],
     queryFn: apiQueries.getFloors,
-    staleTime: 1000 * 60 * 5, // 5 daqiqa cache
+    staleTime: 1000 * 30, // Cache ni qisqartirdik
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   // Helper: check if all rooms for all floors are loaded
@@ -172,6 +174,10 @@ const Rooms: React.FC = () => {
       // Force refetch for all rooms and this floor's rooms
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
       queryClient.invalidateQueries({ queryKey: ['rooms', floorObj.id] });
+      queryClient.invalidateQueries({ queryKey: ['floors'] });
+      
+      // Global refetch
+      queryClient.refetchQueries({ queryKey: ['rooms'] });
     } catch {
       toast.error('Xona qo\'shishda xatolik!');
     } finally {

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import BackButton from '../components/UI/BackButton';
 import { get, post } from '../data/api';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import axios from 'axios';
@@ -41,8 +41,10 @@ interface Room {
 
 const FloorDetail: React.FC = () => {
   const { floorId } = useParams();
+  const queryClient = useQueryClient();
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [newRoom, setNewRoom] = useState('');
+  const [newRoomCapacity, setNewRoomCapacity] = useState('');
   const [adding, setAdding] = useState(false);
   // Add state for room actions
   // Replace global roomActionRoom/showRoomActionModal with a state for openRoomMenuId
@@ -82,23 +84,63 @@ const FloorDetail: React.FC = () => {
 
   const handleAddRoom = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newRoom.trim() || !floor) return;
+    if (!newRoom.trim() || !newRoomCapacity.trim() || !floor) return;
     setAdding(true);
+    
     try {
-      await post('/rooms/', {
-        name: newRoom.trim(),
-        floor: floor.id,
-        capacity: 0,
-        room_type: '',
-        gender: floor.gender,
-        status: 'EMPTY',
-      });
-      setShowRoomModal(false);
-      setNewRoom('');
-      // Refresh rooms
-      refetchRooms();
-    } catch {
-      // toast.error('Xona qo\'shishda xatolik!');
+      const token = localStorage.getItem('access');
+      const myHeaders = new Headers();
+      myHeaders.append("Authorization", `Bearer ${token}`);
+      myHeaders.append("Content-Type", "application/json");
+
+      const requestOptions = {
+        method: "POST",
+        headers: myHeaders,
+        body: JSON.stringify({
+          name: newRoom.trim(),
+          floor: floor.id,
+          capacity: Number(newRoomCapacity),
+          room_type: '',
+          gender: floor.gender,
+          status: 'EMPTY',
+        }),
+      };
+
+      // Try /room/create/ first, if it fails, try /rooms/
+      let response = await fetch(`${link}/room/create/`, requestOptions);
+      
+      if (response.status === 405 || response.status === 404) {
+        // Try alternative endpoint
+        response = await fetch(`${link}/rooms/`, requestOptions);
+      }
+      
+      if (response.ok) {
+        setShowRoomModal(false);
+        setNewRoom('');
+        setNewRoomCapacity('');
+        toast.success('Xona muvaffaqiyatli qo\'shildi!');
+        
+        // Cache ni yangilash - barcha bog'liq ma'lumotlarni yangilash
+        queryClient.invalidateQueries({ queryKey: ['floors'] });
+        queryClient.invalidateQueries({ queryKey: ['floor', floorId] });
+        queryClient.invalidateQueries({ queryKey: ['rooms'] });
+        queryClient.invalidateQueries({ queryKey: ['students'] });
+        
+        // Har bir qavat uchun xonalarni yangilash
+        queryClient.invalidateQueries({ queryKey: ['rooms', parseInt(floorId || '0')] });
+        
+        // Global cache ni tozalash
+        queryClient.refetchQueries({ queryKey: ['rooms'] });
+        
+        // Refresh rooms
+        refetchRooms();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.detail || errorData.message || 'Xona qo\'shishda xatolik!');
+      }
+    } catch (error) {
+      console.error('Room creation error:', error);
+      toast.error('Xona qo\'shishda xatolik!');
     } finally {
       setAdding(false);
     }
@@ -128,7 +170,11 @@ const FloorDetail: React.FC = () => {
         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${floor.gender === 'female' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-200' : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'}`}>{floor.gender === 'female' ? 'Qizlar' : 'Yigitlar'}</span>
         <button
           className="ml-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition-colors"
-          onClick={() => setShowRoomModal(true)}
+          onClick={() => {
+            setShowRoomModal(true);
+            setNewRoom('');
+            setNewRoomCapacity('');
+          }}
         >
           + Xona qo'shish
         </button>
@@ -138,7 +184,11 @@ const FloorDetail: React.FC = () => {
         {showRoomModal && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowRoomModal(false)}
+            onClick={() => {
+              setShowRoomModal(false);
+              setNewRoom('');
+              setNewRoomCapacity('');
+            }}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 40 }}
@@ -150,11 +200,18 @@ const FloorDetail: React.FC = () => {
             >
               <button
                 className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded transition-colors"
-                onClick={() => setShowRoomModal(false)}
+                onClick={() => {
+                  setShowRoomModal(false);
+                  setNewRoom('');
+                  setNewRoomCapacity('');
+                }}
               >
                 <X size={22} />
               </button>
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Yangi xona qo'shish</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Qavat: <span className="font-semibold text-blue-600 dark:text-blue-400">{floor.name}</span>
+              </p>
               <form onSubmit={handleAddRoom} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona nomi yoki raqami</label>
@@ -163,13 +220,31 @@ const FloorDetail: React.FC = () => {
                     value={newRoom}
                     onChange={e => setNewRoom(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Masalan: 101, A-12, yoki Xona 1"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona sig'imi</label>
+                  <input
+                    type="number"
+                    value={newRoomCapacity}
+                    onChange={e => setNewRoomCapacity(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Necha kishi sig'adi?"
+                    min="1"
+                    max="20"
                     required
                   />
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
                   <button
                     type="button"
-                    onClick={() => setShowRoomModal(false)}
+                    onClick={() => {
+                      setShowRoomModal(false);
+                      setNewRoom('');
+                      setNewRoomCapacity('');
+                    }}
                     className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                   >
                     Bekor qilish

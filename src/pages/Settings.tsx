@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Edit, Image as ImageIcon, DollarSign, ListChecks, Plus, Wifi, BookOpen, WashingMachine, Tv, Coffee, MapPin, Info, FileImage, Loader2, User, School, Map, Layers, Users as UsersIcon, CheckCircle2 } from 'lucide-react';
+import { Edit, DollarSign, ListChecks, Wifi, BookOpen, WashingMachine, Tv, Coffee, Plus, Info, MapPin, User, School, FileImage, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
@@ -36,7 +36,7 @@ function EditableInput({ label, value, onChange, disabled, placeholder, helper, 
     <div className={`flex flex-col gap-1 ${fullWidth ? 'w-full' : ''}`}>
       <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">{label}</label>
       <input
-        className={`bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-base font-medium focus:outline-none focus:ring-2 focus:ring-blue-300 ${disabled ? 'cursor-default' : 'cursor-text'}`}
+        className={`bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-base font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${disabled ? 'cursor-default' : 'cursor-text'}`}
         value={value}
         onChange={e => onChange(e.target.value)}
         disabled={disabled}
@@ -56,31 +56,13 @@ const Settings: React.FC = () => {
     queryFn: apiQueries.getSettings,
     staleTime: 1000 * 60 * 5,
   });
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [editSection, setEditSection] = useState<string | null>(null);
-  const [prices, setPrices] = useState<{ type: string; price: string }[]>([]);
-  const [selectedAmenities, setSelectedAmenities] = useState<string[]>(allAmenities.map(a => a.key));
-  const [editImages, setEditImages] = useState(false);
-  const [notif, setNotif] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [rules, setRules] = useState<string[]>([]);
   const [amenities, setAmenities] = useState<string[]>([]);
-  const [contact, setContact] = useState<{ phone: string; email: string; address: string }>({ phone: '', email: '', address: '' });
-  const [dormImages, setDormImages] = useState<{ url: string; caption: string }[]>([]);
-  const [editDorm, setEditDorm] = useState(false);
-  const [dormForm, setDormForm] = useState({
-    name: '', address: '', description: '', month_price: '', year_price: '', latitude: '', longitude: '', images: [] as File[],
-  });
   const [dormLoading, setDormLoading] = useState(false);
-  const [editDormCard, setEditDormCard] = useState(false);
   const [editPricesCard, setEditPricesCard] = useState(false);
-  const [dormCardForm, setDormCardForm] = useState({
-    name: '', address: '', description: '', latitude: '', longitude: '',
-  });
   const [pricesCardForm, setPricesCardForm] = useState({
-    month_price: '', year_price: '', total_capacity: '', available_capacity: '', total_rooms: '',
+    month_price: '', year_price: '', total_capacity: '', available_capacity: '', total_rooms: '', distance_to_university: '',
   });
-  const [isUploading, setIsUploading] = useState(false);
-  const [deleteImageId, setDeleteImageId] = useState<number | null>(null);
   const updateSettingsMutation = useMutation({
     mutationFn: (data: any) => apiQueries.updateSettings(data),
     onSuccess: () => {
@@ -110,8 +92,7 @@ const Settings: React.FC = () => {
         name: settings.name || '',
         address: settings.address || '',
         description: settings.description || '',
-        latitude: settings.latitude ? String(settings.latitude) : '',
-        longitude: settings.longitude ? String(settings.longitude) : '',
+        distance_to_university: settings.distance_to_university ? String(settings.distance_to_university) : '',
       });
       setPricesCardForm({
         month_price: settings.month_price ? String(settings.month_price) : '',
@@ -119,9 +100,16 @@ const Settings: React.FC = () => {
         total_capacity: settings.total_capacity ? String(settings.total_capacity) : '',
         available_capacity: settings.available_capacity ? String(settings.available_capacity) : '',
         total_rooms: settings.total_rooms ? String(settings.total_rooms) : '',
+        distance_to_university: settings.distance_to_university ? String(settings.distance_to_university) : '',
       });
       setPrices(settings.prices || []);
-      setRules(settings.rules || []);
+      // Handle rules data structure - convert from object format to string array
+      const rulesData = settings.rules || [];
+      if (rulesData.length > 0 && typeof rulesData[0] === 'object' && rulesData[0].rule) {
+        setRules(rulesData.map((r: any) => r.rule));
+      } else {
+        setRules(rulesData);
+      }
       setAmenities(settings.amenities || []);
       setContact(settings.contact || { phone: '', email: '', address: '' });
       setDormImages((settings.dormImages || []).map((img: any) => typeof img === 'string' ? { url: img, caption: '' } : img));
@@ -160,7 +148,12 @@ const Settings: React.FC = () => {
     setRules(rules => rules.filter((_, i) => i !== idx));
   };
   const handleSaveRules = () => {
-    updateSettingsMutation.mutate({ ...settings, rules });
+    // Convert rules back to object format if needed
+    const rulesData = rules.map((rule, index) => ({
+      id: index + 1,
+      rule: rule
+    }));
+    updateSettingsMutation.mutate({ ...settings, rules: rulesData });
   };
   // --- AMENITIES STATE ---
   const handleAmenityChange = (key: string) => {
@@ -253,8 +246,7 @@ const Settings: React.FC = () => {
         name: dormCardForm.name,
         address: dormCardForm.address,
         description: dormCardForm.description,
-        latitude: dormCardForm.latitude,
-        longitude: dormCardForm.longitude,
+        distance_to_university: dormCardForm.distance_to_university,
         admin: settings.admin?.id,
         university: settings.university?.id,
       });
@@ -276,6 +268,7 @@ const Settings: React.FC = () => {
         total_capacity: pricesCardForm.total_capacity,
         available_capacity: pricesCardForm.available_capacity,
         total_rooms: pricesCardForm.total_rooms,
+        distance_to_university: pricesCardForm.distance_to_university,
         admin: settings.admin?.id,
         university: settings.university?.id,
       });
@@ -322,7 +315,7 @@ const Settings: React.FC = () => {
       <div className="flex flex-col sm:flex-row items-center gap-6 mb-10">
         {/* University logo and name */}
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center border border-gray-200 dark:border-gray-700 shadow p-2">
+          <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center border border-gray-200 dark:border-gray-700 shadow p-2">
             <img src="/logo.svg" alt="University Logo" className="w-full h-full object-contain" />
           </div>
           <div>
@@ -352,8 +345,7 @@ const Settings: React.FC = () => {
                 <EditableInput label="Nomi" value={dormCardForm.name} onChange={v => handleDormCardChange('name', v)} disabled={dormLoading} fullWidth />
                 <EditableInput label="Manzil" value={dormCardForm.address} onChange={v => handleDormCardChange('address', v)} disabled={dormLoading} fullWidth />
                 <EditableInput label="Tavsif" value={dormCardForm.description} onChange={v => handleDormCardChange('description', v)} disabled={dormLoading} fullWidth />
-                <EditableInput label="Latitude" value={dormCardForm.latitude} onChange={v => handleDormCardChange('latitude', v)} disabled={dormLoading} fullWidth />
-                <EditableInput label="Longitude" value={dormCardForm.longitude} onChange={v => handleDormCardChange('longitude', v)} disabled={dormLoading} fullWidth />
+                <EditableInput label="Universitetgacha masofa (km)" value={dormCardForm.distance_to_university} onChange={v => handleDormCardChange('distance_to_university', v)} disabled={dormLoading} fullWidth />
                 <div className="flex gap-2 mt-2">
                   <button className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSaveDormCard} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
                   <button className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition" onClick={() => setEditDormCard(false)} disabled={dormLoading}>Bekor qilish</button>
@@ -370,8 +362,8 @@ const Settings: React.FC = () => {
                   <span className="text-gray-700 dark:text-gray-200">{settings.address}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Map className="w-5 h-5 text-green-500" />
-                  <span className="text-gray-700 dark:text-gray-200">{settings.latitude}, {settings.longitude}</span>
+                  <School className="w-5 h-5 text-purple-500" />
+                  <span className="text-gray-700 dark:text-gray-200">Universitetgacha: {settings.distance_to_university} km</span>
                 </div>
               </>
             )}
@@ -384,7 +376,7 @@ const Settings: React.FC = () => {
           description={editPricesCard ? undefined : "Oylik va yillik narxlar, umumiy va bo‘sh o‘rinlar, xonalar soni"}
           onEdit={() => setEditPricesCard(true)}
         >
-          <div className="rounded-xl bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/40 dark:to-blue-900/30 p-4 flex flex-col gap-4 shadow-inner">
+          <div className="rounded-xl bg-gray-50 dark:bg-slate-700/50 p-4 flex flex-col gap-4 border border-gray-100 dark:border-slate-600">
             {editPricesCard ? (
               <>
                 <EditableInput label="Oylik narx" value={pricesCardForm.month_price} onChange={v => handlePricesCardChange('month_price', v)} disabled={dormLoading} fullWidth />
@@ -392,37 +384,27 @@ const Settings: React.FC = () => {
                 <EditableInput label="Umumiy sig‘im" value={pricesCardForm.total_capacity} onChange={v => handlePricesCardChange('total_capacity', v)} disabled={dormLoading} fullWidth />
                 <EditableInput label="Bo‘sh o‘rinlar" value={pricesCardForm.available_capacity} onChange={v => handlePricesCardChange('available_capacity', v)} disabled={dormLoading} fullWidth />
                 <EditableInput label="Xonalar soni" value={pricesCardForm.total_rooms} onChange={v => handlePricesCardChange('total_rooms', v)} disabled={dormLoading} fullWidth />
+                <EditableInput label="Universitetgacha masofa (km)" value={pricesCardForm.distance_to_university} onChange={v => handlePricesCardChange('distance_to_university', v)} disabled={dormLoading} fullWidth />
                 <div className="flex gap-2 mt-2">
                   <button className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSavePricesCard} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
                   <button className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition" onClick={() => setEditPricesCard(false)} disabled={dormLoading}>Bekor qilish</button>
                 </div>
               </>
             ) : (
-              <div className="grid grid-cols-1 gap-2">
-                <div className="flex items-center gap-3">
-                  <DollarSign className="w-5 h-5 text-green-500" />
-                  <span className="font-semibold">Oylik narx:</span>
-                  <span className="text-gray-700 dark:text-gray-200">{settings.month_price?.toLocaleString()} so‘m</span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-600">
+                  <div className="flex items-center gap-3">
+                    <DollarSign className="w-5 h-5 text-green-500" />
+                    <span className="font-medium text-gray-700 dark:text-gray-300">Oylik narx</span>
+                  </div>
+                  <span className="font-bold text-green-600 dark:text-green-400">{settings.month_price?.toLocaleString()} so'm</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <DollarSign className="w-5 h-5 text-green-500" />
-                  <span className="font-semibold">Yillik narx:</span>
-                  <span className="text-gray-700 dark:text-gray-200">{settings.year_price?.toLocaleString()} so‘m</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <UsersIcon className="w-5 h-5 text-blue-500" />
-                  <span className="font-semibold">Umumiy sig‘im:</span>
-                  <span className="text-gray-700 dark:text-gray-200">{settings.total_capacity}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-green-500" />
-                  <span className="font-semibold">Bo‘sh o‘rinlar:</span>
-                  <span className="text-gray-700 dark:text-gray-200">{settings.available_capacity}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Layers className="w-5 h-5 text-indigo-500" />
-                  <span className="font-semibold">Xonalar soni:</span>
-                  <span className="text-gray-700 dark:text-gray-200">{settings.total_rooms}</span>
+                <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-600">
+                  <div className="flex items-center gap-3">
+                    <DollarSign className="w-5 h-5 text-green-500" />
+                    <span className="font-medium text-gray-700 dark:text-gray-300">Yillik narx</span>
+                  </div>
+                  <span className="font-bold text-green-600 dark:text-green-400">{settings.year_price?.toLocaleString()} so'm</span>
                 </div>
               </div>
             )}
@@ -442,7 +424,7 @@ const Settings: React.FC = () => {
                   type="checkbox"
                   checked={amenities.includes(item.key)}
                   onChange={() => handleAmenityChange(item.key)}
-                  className="form-checkbox h-5 w-5 text-blue-600 transition"
+                  className="h-5 w-5 text-blue-600 bg-white dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded focus:ring-blue-500 dark:focus:ring-blue-400 transition"
                   disabled={editSection !== 'amenities'}
                 />
                 <span className="text-blue-600 dark:text-blue-200">{item.icon}</span>
@@ -585,7 +567,7 @@ const Settings: React.FC = () => {
         </div>
         {/* Delete confirmation modal */}
         {deleteImageId !== null && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
             <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 max-w-xs w-full text-center">
               <div className="text-lg font-bold mb-4 text-gray-900 dark:text-white">Rasmni o'chirish</div>
               <div className="mb-6 text-gray-700 dark:text-gray-300">Rostdan ham ushbu rasmni o'chirmoqchimisiz?</div>
@@ -612,7 +594,7 @@ const Settings: React.FC = () => {
       </SectionCard>
       {/* DORMITORY EDIT MODAL */}
       {editDorm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-2" onClick={() => setEditDorm(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-2" onClick={() => setEditDorm(false)}>
           <motion.div
             initial={{ y: 40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}

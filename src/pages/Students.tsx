@@ -5,7 +5,7 @@ import DataTable from '../components/UI/DataTable';
 import { toast } from 'sonner';
 import Select from 'react-select';
 import { Link, useLocation } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
 import { useAppStore } from '../stores/useAppStore';
 import { link } from '../data/config';
@@ -48,6 +48,7 @@ const selectStyles = {
 };
 
 const Students: React.FC = () => {
+  const queryClient = useQueryClient();
   const updateStudentStore = useAppStore(state => state.updateStudent);
   const [showModal, setShowModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Record<string, unknown> | null>(null);
@@ -76,6 +77,8 @@ const Students: React.FC = () => {
     direction: string;
     floor: string;
     gender: string;
+    passportImage1: string | File | null;
+    passportImage2: string | File | null;
   }>({
     firstName: "",
     lastName: "",
@@ -96,6 +99,8 @@ const Students: React.FC = () => {
     direction: "",
     floor: "",
     gender: "",
+    passportImage1: null,
+    passportImage2: null,
   });
   const [loading, setLoading] = useState(false);
   // 1. Add avatarPreview state
@@ -211,6 +216,8 @@ const Students: React.FC = () => {
       direction: "",
       floor: "",
       gender: "",
+      passportImage1: null,
+      passportImage2: null,
     });
     setAvatarPreview("");
     setShowModal(true);
@@ -329,21 +336,76 @@ const Students: React.FC = () => {
   // Add filter states for gender and payment status
   const [genderFilter, setGenderFilter] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
-
-  // Filtering logic
-  const filteredStudents = students.filter((s: Record<string, any>) => {
-    const matchesGender = genderFilter ? s.gender === genderFilter : true;
-    // Assume s.total_payment and s.tarif exist and are numbers
-    let isHaqdor = false;
-    let isQarzdor = false;
-    if (typeof s.total_payment === "number" && s.tarif) {
-      const tarifNum = Number(String(s.tarif).replace(/[^\d]/g, ""));
-      isHaqdor = s.total_payment >= tarifNum;
-      isQarzdor = s.total_payment < tarifNum;
+  
+  // Debug: API dan kelayotgan ma'lumotlarni ko'rish
+  React.useEffect(() => {
+    if (students.length > 0) {
+      console.log('First student data:', students[0]);
+      console.log('All gender values:', students.map(s => s.gender).filter(Boolean));
     }
-    const matchesPayment = paymentStatusFilter === "haqdor" ? isHaqdor : paymentStatusFilter === "qarzdor" ? isQarzdor : true;
-    return matchesGender && matchesPayment;
-  });
+  }, [students]);
+
+  // Filtering and sorting logic
+  const filteredStudents = students
+    .filter((s: Record<string, any>) => {
+      // Debug: gender qiymatlarini tekshirish
+      if (genderFilter && !s.gender) {
+        console.log('Student without gender:', s);
+      }
+      
+      // Gender filter - API dan kelayotgan qiymatlarni tekshirish
+      let matchesGender = true;
+      if (genderFilter) {
+        const studentGender = String(s.gender || '').toLowerCase().trim();
+        const filterGender = genderFilter.toLowerCase();
+        
+        // Barcha mumkin bo'lgan variantlarni tekshirish
+        matchesGender = studentGender === filterGender || 
+                       (studentGender === 'erkak' && filterGender === 'male') ||
+                       (studentGender === 'ayol' && filterGender === 'female') ||
+                       (studentGender === 'male' && filterGender === 'male') ||
+                       (studentGender === 'female' && filterGender === 'female') ||
+                       (studentGender === 'м' && filterGender === 'male') || // Rus tilida
+                       (studentGender === 'ж' && filterGender === 'female'); // Rus tilida
+        
+        // Debug
+        if (!matchesGender && genderFilter) {
+          console.log(`Gender mismatch: student="${studentGender}", filter="${filterGender}"`);
+        }
+      }
+      
+      // Payment filter
+      let isHaqdor = false;
+      let isQarzdor = false;
+      let matchesPayment = true;
+      
+      if (paymentStatusFilter) {
+        if (typeof s.total_payment === "number" && s.tarif) {
+          const tarifNum = Number(String(s.tarif).replace(/[^\d]/g, ""));
+          isHaqdor = s.total_payment >= tarifNum;
+          isQarzdor = s.total_payment < tarifNum;
+          
+          matchesPayment = paymentStatusFilter === "haqdor" ? isHaqdor : isQarzdor;
+          
+          // Debug
+          if (paymentStatusFilter && !matchesPayment) {
+            console.log(`Payment mismatch: total=${s.total_payment}, tarif=${tarifNum}, filter=${paymentStatusFilter}, isHaqdor=${isHaqdor}, isQarzdor=${isQarzdor}`);
+          }
+        } else {
+          // Agar payment ma'lumotlari yo'q bo'lsa, filter bo'yicha ko'rsatmaslik
+          matchesPayment = false;
+          console.log(`No payment data for student:`, s.name, s.total_payment, s.tarif);
+        }
+      }
+      
+      return matchesGender && matchesPayment;
+    })
+    .sort((a: Record<string, any>, b: Record<string, any>) => {
+      // Alifbo tartibida saralash (ism bo'yicha)
+      const nameA = (a.name || '').toLowerCase();
+      const nameB = (b.name || '').toLowerCase();
+      return nameA.localeCompare(nameB, 'uz-UZ');
+    });
 
   // Fetch provinces
   useEffect(() => {
@@ -376,9 +438,47 @@ const Students: React.FC = () => {
   }, [formData.region]);
 
   useEffect(() => {
+    // URL parametrlarini tekshirish
+    const urlParams = new URLSearchParams(window.location.search);
+    const openModal = urlParams.get('openModal');
+    
+    if (openModal === 'true') {
+      setShowModal(true);
+      // URL dan parametrni olib tashlash
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // LocalStorage dan ma'lumotlarni olish
+      const pendingData = localStorage.getItem('pendingStudentData');
+      if (pendingData) {
+        try {
+          const studentData = JSON.parse(pendingData);
+          setFormData(prev => ({
+            ...prev,
+            firstName: studentData.firstName || '',
+            lastName: studentData.lastName || '',
+            fatherName: studentData.fatherName || '',
+            phone: studentData.phone || '',
+            direction: studentData.direction || '',
+            faculty: '', // Bo'sh qoldirish
+            passport: studentData.passport || '',
+            course: studentData.course || '1-kurs',
+            gender: studentData.gender || 'Erkak',
+            isPrivileged: studentData.isPrivileged || false,
+            tarif: studentData.tarif || '500000',
+            passportImage1: studentData.passportImage1Base64 || null,
+            passportImage2: studentData.passportImage2Base64 || null,
+          }));
+          // Ma'lumotlarni tozalash
+          localStorage.removeItem('pendingStudentData');
+        } catch (error) {
+          console.error('Pending student data parse error:', error);
+        }
+      }
+    }
+    
+    // Eski location.state logikasi
     if (location.state && (location.state as any).openAddModal) {
       setShowModal(true);
-      // Optionally, clear the state after opening
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
@@ -460,6 +560,11 @@ const Students: React.FC = () => {
           toast.error(result.detail || result.message || JSON.stringify(result) || "Xatolik yuz berdi");
           throw new Error(result.detail || result.message || JSON.stringify(result) || "Xatolik yuz berdi");
         }
+        // Cache ni yangilash
+        queryClient.invalidateQueries({ queryKey: ['students'] });
+        queryClient.invalidateQueries({ queryKey: ['floors'] });
+        queryClient.invalidateQueries({ queryKey: ['rooms'] });
+        
         refetch();
         setShowModal(false);
         toast.success("Talaba muvaffaqiyatli qo'shildi!");
