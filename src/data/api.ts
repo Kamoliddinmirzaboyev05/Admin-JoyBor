@@ -63,10 +63,34 @@ export const apiQueries = {
   // Settings (dormitory info)
   getSettings: () => get('/my-dormitory/'),
   updateSettings: (data: any) => patch('/my-dormitory/', data),
-  patchMyDormitory: (data: any) => patch('/my-dormitory-update/', data),
+  patchMyDormitory: (data: any) => {
+    // Handle FormData differently from regular objects
+    if (data instanceof FormData) {
+      const token = localStorage.getItem('access');
+      return fetch(`${BASE_URL}/my-dormitory-update/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: data,
+      }).then(async (res) => {
+        const responseData = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const error = new Error(responseData?.detail || responseData?.message || 'API xatolik');
+          (error as any).response = { data: responseData, status: res.status, statusText: res.statusText };
+          throw error;
+        }
+        return responseData;
+      });
+    }
+    return patch('/my-dormitory-update/', data);
+  },
 
   // Dashboard
   getDashboard: () => get('/dashboard/'),
   // Admin Profile (updated to use absolute URL)
   getAdminProfile: () => get('https://joyboryangi.pythonanywhere.com/profile/'),
+  
+  // Rules
+  createRule: (data: { rule: string }) => post('/rules/create/', data),
 }; 

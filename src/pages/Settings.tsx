@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Edit, DollarSign, ListChecks, Wifi, BookOpen, WashingMachine, Tv, Coffee, Plus, Info, MapPin, User, School, FileImage, Loader2 } from 'lucide-react';
+import { Edit, DollarSign, ListChecks, Wifi, BookOpen, WashingMachine, Tv, Coffee, Plus, Info, MapPin, User, School, FileImage } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
@@ -7,9 +7,9 @@ import { toast } from 'sonner';
 
 const allAmenities = [
   { key: 'Wifi', icon: <Wifi className="w-6 h-6" />, name: 'Wi-Fi', description: 'Tez va bepul internet' },
-  { key: 'BookOpen', icon: <BookOpen className="w-6 h-6" />, name: 'Darsxona', description: '24/7 ochiq o‘quv xonasi' },
+  { key: 'BookOpen', icon: <BookOpen className="w-6 h-6" />, name: 'Darsxona', description: '24/7 ochiq o\'quv xonasi' },
   { key: 'WashingMachine', icon: <WashingMachine className="w-6 h-6" />, name: 'Kir yuvish mashinasi', description: 'Bepul kir yuvish xizmati' },
-  { key: 'Tv', icon: <Tv className="w-6 h-6" />, name: 'Dam olish xonasi', description: 'Televizor va o‘yinlar' },
+  { key: 'Tv', icon: <Tv className="w-6 h-6" />, name: 'Dam olish xonasi', description: 'Televizor va o\'yinlar' },
   { key: 'Coffee', icon: <Coffee className="w-6 h-6" />, name: 'Kichik oshxona', description: 'Choy va yengil taomlar uchun' },
 ];
 
@@ -51,43 +51,54 @@ function EditableInput({ label, value, onChange, disabled, placeholder, helper, 
 const Settings: React.FC = () => {
   // All hooks at the top!
   const queryClient = useQueryClient();
-  const { data: settings, isLoading, error } = useQuery({
+  const { data: settings, isLoading, error } = useQuery<any>({
     queryKey: ['settings'],
     queryFn: apiQueries.getSettings,
     staleTime: 1000 * 60 * 5,
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [editSection, setEditSection] = useState<string | null>(null);
+  const [rules, setRules] = useState<string[]>([]);
   const [amenities, setAmenities] = useState<string[]>([]);
+  const [contact, setContact] = useState<{ phone: string; email: string; address: string }>({ phone: '', email: '', address: '' });
   const [dormLoading, setDormLoading] = useState(false);
+  const [editDormCard, setEditDormCard] = useState(false);
   const [editPricesCard, setEditPricesCard] = useState(false);
-  const [pricesCardForm, setPricesCardForm] = useState({
-    month_price: '', year_price: '', total_capacity: '', available_capacity: '', total_rooms: '', distance_to_university: '',
+
+  const [dormCardForm, setDormCardForm] = useState({
+    name: '', address: '', description: '', distance_to_university: '',
   });
+  const [pricesCardForm, setPricesCardForm] = useState({
+    month_price: '', year_price: '', distance_to_university: '',
+  });
+  const [isUploading, setIsUploading] = useState(false);
+
   const updateSettingsMutation = useMutation({
     mutationFn: (data: any) => apiQueries.updateSettings(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       setEditSection(null);
-      setNotif({ type: 'success', message: 'Sozlamalar muvaffaqiyatli saqlandi!' });
+      toast.success('Sozlamalar muvaffaqiyatli saqlandi!');
     },
     onError: (err: any) => {
-      setNotif({ type: 'error', message: err?.toString() || 'Xatolik yuz berdi!' });
+      toast.error(err?.toString() || 'Xatolik yuz berdi!');
+    },
+  });
+
+  const createRuleMutation = useMutation({
+    mutationFn: (data: { rule: string }) => apiQueries.createRule(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      toast.success('Qoida muvaffaqiyatli qo\'shildi!');
+    },
+    onError: (err: any) => {
+      toast.error(err?.toString() || 'Qoida qo\'shishda xatolik yuz berdi!');
     },
   });
 
   // All useEffect at the top
   React.useEffect(() => {
     if (settings) {
-      setDormForm({
-        name: settings.name || '',
-        address: settings.address || '',
-        description: settings.description || '',
-        month_price: settings.month_price ? String(settings.month_price) : '',
-        year_price: settings.year_price ? String(settings.year_price) : '',
-        latitude: settings.latitude ? String(settings.latitude) : '',
-        longitude: settings.longitude ? String(settings.longitude) : '',
-        images: [],
-      });
       setDormCardForm({
         name: settings.name || '',
         address: settings.address || '',
@@ -97,12 +108,8 @@ const Settings: React.FC = () => {
       setPricesCardForm({
         month_price: settings.month_price ? String(settings.month_price) : '',
         year_price: settings.year_price ? String(settings.year_price) : '',
-        total_capacity: settings.total_capacity ? String(settings.total_capacity) : '',
-        available_capacity: settings.available_capacity ? String(settings.available_capacity) : '',
-        total_rooms: settings.total_rooms ? String(settings.total_rooms) : '',
         distance_to_university: settings.distance_to_university ? String(settings.distance_to_university) : '',
       });
-      setPrices(settings.prices || []);
       // Handle rules data structure - convert from object format to string array
       const rulesData = settings.rules || [];
       if (rulesData.length > 0 && typeof rulesData[0] === 'object' && rulesData[0].rule) {
@@ -112,7 +119,6 @@ const Settings: React.FC = () => {
       }
       setAmenities(settings.amenities || []);
       setContact(settings.contact || { phone: '', email: '', address: '' });
-      setDormImages((settings.dormImages || []).map((img: any) => typeof img === 'string' ? { url: img, caption: '' } : img));
     }
   }, [settings]);
 
@@ -123,20 +129,7 @@ const Settings: React.FC = () => {
     return <div className="text-center py-10 text-red-600 dark:text-red-400">Sozlamalarni yuklashda xatolik yuz berdi.</div>;
   }
 
-  // --- PRICES HANDLERS ---
-  const handlePriceChange = (idx: number, field: 'type' | 'price', value: string) => {
-    setPrices(prices => prices.map((p, i) => i === idx ? { ...p, [field]: value } : p));
-  };
-  const handleAddPrice = () => {
-    setPrices(prices => [...prices, { type: '', price: '' }]);
-  };
-  const handleRemovePrice = (idx: number) => {
-    setPrices(prices => prices.filter((_, i) => i !== idx));
-  };
 
-  const handleSavePrices = () => {
-    updateSettingsMutation.mutate({ ...settings, prices });
-  };
   // --- RULES STATE ---
   const handleRuleChange = (idx: number, value: string) => {
     setRules(rules => rules.map((r, i) => i === idx ? value : r));
@@ -144,16 +137,26 @@ const Settings: React.FC = () => {
   const handleAddRule = () => {
     setRules(rules => [...rules, '']);
   };
+
+
   const handleRemoveRule = (idx: number) => {
     setRules(rules => rules.filter((_, i) => i !== idx));
   };
-  const handleSaveRules = () => {
-    // Convert rules back to object format if needed
-    const rulesData = rules.map((rule, index) => ({
-      id: index + 1,
-      rule: rule
-    }));
-    updateSettingsMutation.mutate({ ...settings, rules: rulesData });
+  const handleSaveRules = async () => {
+    try {
+      // Save only new rules that are not empty and not already in the database
+      const existingRules = settings?.rules || [];
+      const existingRuleTexts = existingRules.map((r: any) => typeof r === 'object' ? r.rule : r);
+
+      for (const rule of rules) {
+        if (rule.trim() && !existingRuleTexts.includes(rule.trim())) {
+          await createRuleMutation.mutateAsync({ rule: rule.trim() });
+        }
+      }
+      setEditSection(null);
+    } catch (err: any) {
+      // Error handling is done in the mutation
+    }
   };
   // --- AMENITIES STATE ---
   const handleAmenityChange = (key: string) => {
@@ -171,68 +174,10 @@ const Settings: React.FC = () => {
   const handleSaveContact = () => {
     updateSettingsMutation.mutate({ ...settings, contact });
   };
-  // --- IMAGES STATE ---
-  const handleImageCaptionChange = (idx: number, value: string) => {
-    setDormImages(images => images.map((img, i) => i === idx ? { ...img, caption: value } : img));
-  };
-  const handleRemoveImage = (idx: number) => {
-    setDormImages(images => images.filter((_, i) => i !== idx));
-  };
-  const handleAddImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setDormImages(images => [...images, { url: ev.target?.result as string, caption: '' }]);
-    };
-    reader.readAsDataURL(file);
-  };
-  const handleSaveImages = () => {
-    updateSettingsMutation.mutate({ ...settings, dormImages });
-    setEditImages(false);
-  };
+
+
 
   // --- DORMITORY INFO STATE ---
-  const handleDormFormChange = (field: string, value: string) => {
-    setDormForm(f => ({ ...f, [field]: value }));
-  };
-  const handleDormImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      setDormForm(f => ({ ...f, images: Array.from(files) }));
-    }
-  };
-  const handleSaveDorm = async () => {
-    setDormLoading(true);
-    try {
-      // Prepare form data for PATCH
-      const formData = new FormData();
-      formData.append('name', dormForm.name);
-      formData.append('address', dormForm.address);
-      formData.append('description', dormForm.description);
-      formData.append('month_price', dormForm.month_price);
-      formData.append('year_price', dormForm.year_price);
-      formData.append('latitude', dormForm.latitude);
-      formData.append('longitude', dormForm.longitude);
-      if (dormForm.images.length > 0) {
-        dormForm.images.forEach((img, i) => formData.append('images', img));
-      }
-      // Get admin and university from settings if available
-      if (settings?.admin) formData.append('admin', String(settings.admin));
-      if (settings?.university) formData.append('university', String(settings.university));
-      await apiQueries.patchMyDormitory(formData);
-      setNotif({ type: 'success', message: 'Yotoqxona maʼlumotlari yangilandi!' });
-      setEditDorm(false);
-      // Optionally refetch settings
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-    } catch (err: any) {
-      setNotif({ type: 'error', message: err?.toString() || 'Xatolik yuz berdi!' });
-    } finally {
-      setDormLoading(false);
-    }
-  };
-
-  // Add state for editing dormitory info and prices
   const handleDormCardChange = (field: string, value: string) => {
     setDormCardForm(f => ({ ...f, [field]: value }));
   };
@@ -242,19 +187,20 @@ const Settings: React.FC = () => {
   const handleSaveDormCard = async () => {
     setDormLoading(true);
     try {
-      await apiQueries.patchMyDormitory({
+      const updateData = {
         name: dormCardForm.name,
         address: dormCardForm.address,
         description: dormCardForm.description,
-        distance_to_university: dormCardForm.distance_to_university,
+        distance_to_university: parseFloat(dormCardForm.distance_to_university) || 0,
         admin: settings.admin?.id,
         university: settings.university?.id,
-      });
-      setNotif({ type: 'success', message: 'Yotoqxona maʼlumotlari yangilandi!' });
+      };
+      await apiQueries.patchMyDormitory(updateData);
+      toast.success('Yotoqxona maʼlumotlari yangilandi!');
       setEditDormCard(false);
       queryClient.invalidateQueries({ queryKey: ['settings'] });
     } catch (err: any) {
-      setNotif({ type: 'error', message: err?.toString() || 'Xatolik yuz berdi!' });
+      toast.error(err?.toString() || 'Xatolik yuz berdi!');
     } finally {
       setDormLoading(false);
     }
@@ -262,21 +208,19 @@ const Settings: React.FC = () => {
   const handleSavePricesCard = async () => {
     setDormLoading(true);
     try {
-      await apiQueries.patchMyDormitory({
-        month_price: pricesCardForm.month_price,
-        year_price: pricesCardForm.year_price,
-        total_capacity: pricesCardForm.total_capacity,
-        available_capacity: pricesCardForm.available_capacity,
-        total_rooms: pricesCardForm.total_rooms,
-        distance_to_university: pricesCardForm.distance_to_university,
+      const updateData = {
+        month_price: parseFloat(pricesCardForm.month_price) || 0,
+        year_price: parseFloat(pricesCardForm.year_price) || 0,
+        distance_to_university: parseFloat(pricesCardForm.distance_to_university) || 0,
         admin: settings.admin?.id,
         university: settings.university?.id,
-      });
-      setNotif({ type: 'success', message: 'Narx va sig‘im maʼlumotlari yangilandi!' });
+      };
+      await apiQueries.patchMyDormitory(updateData);
+      toast.success('Narx ma\'lumotlari yangilandi!');
       setEditPricesCard(false);
       queryClient.invalidateQueries({ queryKey: ['settings'] });
     } catch (err: any) {
-      setNotif({ type: 'error', message: err?.toString() || 'Xatolik yuz berdi!' });
+      toast.error(err?.toString() || 'Xatolik yuz berdi!');
     } finally {
       setDormLoading(false);
     }
@@ -369,23 +313,19 @@ const Settings: React.FC = () => {
             )}
           </div>
         </SectionCard>
-        {/* Prices & Capacity Card */}
+        {/* Prices Card */}
         <SectionCard
           icon={<DollarSign className="w-8 h-8 text-green-500" />}
-          title={((<span className="text-lg font-bold text-green-700 dark:text-green-300">Narx va sig‘im</span>) as React.ReactNode)}
-          description={editPricesCard ? undefined : "Oylik va yillik narxlar, umumiy va bo‘sh o‘rinlar, xonalar soni"}
+          title={((<span className="text-lg font-bold text-green-700 dark:text-green-300">Narx ma'lumotlari</span>) as React.ReactNode)}
+          description={editPricesCard ? undefined : "Oylik va yillik narxlar"}
           onEdit={() => setEditPricesCard(true)}
         >
           <div className="rounded-xl bg-gray-50 dark:bg-slate-700/50 p-4 flex flex-col gap-4 border border-gray-100 dark:border-slate-600">
             {editPricesCard ? (
               <>
-                <EditableInput label="Oylik narx" value={pricesCardForm.month_price} onChange={v => handlePricesCardChange('month_price', v)} disabled={dormLoading} fullWidth />
-                <EditableInput label="Yillik narx" value={pricesCardForm.year_price} onChange={v => handlePricesCardChange('year_price', v)} disabled={dormLoading} fullWidth />
-                <EditableInput label="Umumiy sig‘im" value={pricesCardForm.total_capacity} onChange={v => handlePricesCardChange('total_capacity', v)} disabled={dormLoading} fullWidth />
-                <EditableInput label="Bo‘sh o‘rinlar" value={pricesCardForm.available_capacity} onChange={v => handlePricesCardChange('available_capacity', v)} disabled={dormLoading} fullWidth />
-                <EditableInput label="Xonalar soni" value={pricesCardForm.total_rooms} onChange={v => handlePricesCardChange('total_rooms', v)} disabled={dormLoading} fullWidth />
-                <EditableInput label="Universitetgacha masofa (km)" value={pricesCardForm.distance_to_university} onChange={v => handlePricesCardChange('distance_to_university', v)} disabled={dormLoading} fullWidth />
-                <div className="flex gap-2 mt-2">
+                <EditableInput label="Oylik narx (so'm)" value={pricesCardForm.month_price} onChange={v => handlePricesCardChange('month_price', v)} disabled={dormLoading} fullWidth placeholder="500000" />
+                <EditableInput label="Yillik narx (so'm)" value={pricesCardForm.year_price} onChange={v => handlePricesCardChange('year_price', v)} disabled={dormLoading} fullWidth placeholder="5000000" />
+                <div className="flex gap-2 mt-4">
                   <button className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSavePricesCard} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
                   <button className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition" onClick={() => setEditPricesCard(false)} disabled={dormLoading}>Bekor qilish</button>
                 </div>
@@ -414,7 +354,7 @@ const Settings: React.FC = () => {
         <SectionCard
           icon={<ListChecks className="w-6 h-6" />}
           title="Qulayliklar"
-          description="Yotoqxonada mavjud bo‘lgan qulayliklarni belgilang. Tahrirlash uchun 'Tahrirlash' tugmasini bosing."
+          description="Yotoqxonada mavjud bo'lgan qulayliklarni belgilang. Tahrirlash uchun 'Tahrirlash' tugmasini bosing."
           onEdit={() => setEditSection(editSection === 'amenities' ? null : 'amenities')}
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -445,7 +385,7 @@ const Settings: React.FC = () => {
         <SectionCard
           icon={<ListChecks className="w-6 h-6" />}
           title="Qonun-qoidalar"
-          description="Yotoqxonada amal qilinishi shart bo‘lgan asosiy qoidalar. Ro‘yxatni tahrirlash va yangi qoida qo‘shish mumkin."
+          description="Yotoqxonada amal qilinishi shart bo'lgan asosiy qoidalar. Ro'yxatni tahrirlash va yangi qoida qo'shish mumkin."
           onEdit={() => setEditSection(editSection === 'rules' ? null : 'rules')}
         >
           <ul className="list-disc pl-6 space-y-2 text-gray-700 dark:text-gray-200">
@@ -457,13 +397,13 @@ const Settings: React.FC = () => {
                   onChange={v => handleRuleChange(i, v)}
                   disabled={editSection !== 'rules'}
                   placeholder="Qoida matni"
-                  helper={editSection === 'rules' && i === rules.length - 1 ? 'Yangi qoida qo‘shish uchun pastdagi tugmani bosing' : undefined}
+                  helper={editSection === 'rules' && i === rules.length - 1 ? 'Yangi qoida qo\'shish uchun pastdagi tugmani bosing' : undefined}
                   fullWidth
                 />
                 {editSection === 'rules' && rules.length > 1 && (
                   <button
                     className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900"
-                    title="O‘chirish"
+                    title="O'chirish"
                     onClick={() => handleRemoveRule(i)}
                   >
                     <span className="text-red-500 font-bold">×</span>
@@ -478,16 +418,59 @@ const Settings: React.FC = () => {
                 className="flex items-center gap-1 px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
                 onClick={handleAddRule}
               >
-                <Plus className="w-4 h-4" /> Yangi qoida qo‘shish
+                <Plus className="w-4 h-4" /> Yangi qoida qo'shish
               </button>
               <button
                 className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition"
                 onClick={handleSaveRules}
-                disabled={updateSettingsMutation.status === 'pending'}
+                disabled={createRuleMutation.status === 'pending'}
               >
-                {updateSettingsMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
+                {createRuleMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
               </button>
             </div>
+          )}
+        </SectionCard>
+        {/* Contact Section */}
+        <SectionCard
+          icon={<User className="w-6 h-6" />}
+          title="Aloqa ma'lumotlari"
+          description="Yotoqxona bilan bog'lanish uchun aloqa ma'lumotlari"
+          onEdit={() => setEditSection(editSection === 'contact' ? null : 'contact')}
+        >
+          <div className="space-y-4">
+            <EditableInput
+              label="Telefon raqami"
+              value={contact.phone}
+              onChange={v => handleContactChange('phone', v)}
+              disabled={editSection !== 'contact'}
+              placeholder="+998 90 123 45 67"
+              fullWidth
+            />
+            <EditableInput
+              label="Email manzil"
+              value={contact.email}
+              onChange={v => handleContactChange('email', v)}
+              disabled={editSection !== 'contact'}
+              placeholder="info@dormitory.uz"
+              fullWidth
+            />
+            <EditableInput
+              label="Manzil"
+              value={contact.address}
+              onChange={v => handleContactChange('address', v)}
+              disabled={editSection !== 'contact'}
+              placeholder="Yotoqxona manzili"
+              fullWidth
+            />
+          </div>
+          {editSection === 'contact' && (
+            <button
+              className="mt-4 px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition"
+              onClick={handleSaveContact}
+              disabled={updateSettingsMutation.status === 'pending'}
+            >
+              {updateSettingsMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
+            </button>
           )}
         </SectionCard>
       </div>
@@ -546,95 +529,30 @@ const Settings: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {settings.images && settings.images.length > 0 ? (
             settings.images.map((img: any, i: number) => (
-              <div key={img.id || i} className="relative group flex flex-col items-center">
+              <div key={i} className="relative group">
                 <img
                   src={img.image}
-                  alt={`Yotoqxona rasm ${i + 1}`}
-                  className="w-full h-40 object-cover rounded-lg shadow border border-gray-200 dark:border-slate-700"
+                  alt={`Yotoqxona rasmi ${i + 1}`}
+                  className="w-full h-48 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                 />
                 <button
-                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 shadow hover:bg-red-700 transition-opacity opacity-80 hover:opacity-100"
+                  onClick={() => handleDeleteImage(img.id)}
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
                   title="Rasmni o'chirish"
-                  onClick={() => setDeleteImageId(img.id)}
                 >
-                  <span className="text-lg">×</span>
+                  <span className="text-sm">×</span>
                 </button>
               </div>
             ))
           ) : (
-            <div className="text-gray-400 dark:text-gray-500 col-span-full">Rasmlar mavjud emas</div>
+            <div className="col-span-full text-center text-gray-500 dark:text-gray-400 py-8">
+              Hozircha rasmlar yuklanmagan
+            </div>
           )}
         </div>
-        {/* Delete confirmation modal */}
-        {deleteImageId !== null && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 max-w-xs w-full text-center">
-              <div className="text-lg font-bold mb-4 text-gray-900 dark:text-white">Rasmni o'chirish</div>
-              <div className="mb-6 text-gray-700 dark:text-gray-300">Rostdan ham ushbu rasmni o'chirmoqchimisiz?</div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setDeleteImageId(null)}
-                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Bekor qilish
-                </button>
-                <button
-                  onClick={async () => {
-                    await handleDeleteImage(deleteImageId);
-                    setDeleteImageId(null);
-                  }}
-                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors"
-                >
-                  O'chirish
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </SectionCard>
-      {/* DORMITORY EDIT MODAL */}
-      {editDorm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-2" onClick={() => setEditDorm(false)}>
-          <motion.div
-            initial={{ y: 40, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 40, opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-lg relative flex flex-col gap-6 max-h-[90vh] overflow-y-auto"
-            onClick={e => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setEditDorm(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-red-500 dark:hover:text-red-400 bg-transparent rounded-full p-1 transition-colors"
-            >
-              <span className="text-2xl">×</span>
-            </button>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-2">Yotoqxona maʼlumotlarini tahrirlash</h2>
-            <div className="flex flex-col gap-4">
-              <EditableInput label="Nomi" value={dormForm.name} onChange={v => handleDormFormChange('name', v)} disabled={dormLoading} fullWidth />
-              <EditableInput label="Manzil" value={dormForm.address} onChange={v => handleDormFormChange('address', v)} disabled={dormLoading} fullWidth />
-              <EditableInput label="Tavsif" value={dormForm.description} onChange={v => handleDormFormChange('description', v)} disabled={dormLoading} fullWidth />
-              <EditableInput label="Oylik narx" value={dormForm.month_price} onChange={v => handleDormFormChange('month_price', v)} disabled={dormLoading} fullWidth />
-              <EditableInput label="Yillik narx" value={dormForm.year_price} onChange={v => handleDormFormChange('year_price', v)} disabled={dormLoading} fullWidth />
-              <EditableInput label="Latitude" value={dormForm.latitude} onChange={v => handleDormFormChange('latitude', v)} disabled={dormLoading} fullWidth />
-              <EditableInput label="Longitude" value={dormForm.longitude} onChange={v => handleDormFormChange('longitude', v)} disabled={dormLoading} fullWidth />
-              <div>
-                <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1 block">Rasmlar</label>
-                <input type="file" multiple accept="image/*" onChange={handleDormImageChange} disabled={dormLoading} className="block w-full text-sm text-gray-700 dark:text-gray-200" />
-              </div>
-            </div>
-            <button
-              onClick={handleSaveDorm}
-              className="w-full py-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors text-lg mt-2 shadow disabled:opacity-60 flex items-center justify-center gap-2"
-              disabled={dormLoading}
-            >
-              {dormLoading ? (<><Loader2 className="animate-spin w-5 h-5" /> Saqlanmoqda...</>) : 'Saqlash'}
-            </button>
-          </motion.div>
-        </div>
-      )}
     </motion.div>
   );
 };
 
-export default Settings; 
+export default Settings;
