@@ -26,11 +26,16 @@ const Dashboard: React.FC = () => {
   // React Query bilan dashboard ma'lumotlarini olish
   const { 
     data: dashboardData, 
-    isLoading: dashboardLoading 
+    isLoading: dashboardLoading,
+    error: dashboardError
   } = useQuery({
     queryKey: ['dashboard'],
     queryFn: apiQueries.getDashboard,
     staleTime: 1000 * 60 * 5, // 5 daqiqa cache
+    retry: 1,
+    onError: (error) => {
+      console.error('Dashboard data fetch error:', error);
+    }
   });
 
   // React Query bilan monthly revenue ma'lumotlarini olish
@@ -41,6 +46,10 @@ const Dashboard: React.FC = () => {
     queryKey: ['monthlyRevenue'],
     queryFn: () => get(`${link}/monthly_revenue/`),
     staleTime: 1000 * 60 * 10, // 10 daqiqa cache
+    retry: 1,
+    onError: (error) => {
+      console.error('Monthly revenue fetch error:', error);
+    }
   });
 
   // React Query bilan recent activities ma'lumotlarini olish
@@ -50,10 +59,16 @@ const Dashboard: React.FC = () => {
   } = useQuery({
     queryKey: ['recentActivities'],
     queryFn: async () => {
-      const res = await get(`${link}/recent_activity/`);
-      return Array.isArray(res.activities) ? res.activities : [];
+      try {
+        const res = await get(`${link}/recent_activity/`);
+        return Array.isArray(res.activities) ? res.activities : [];
+      } catch (error) {
+        console.error('Recent activities fetch error:', error);
+        return [];
+      }
     },
     staleTime: 1000 * 60 * 5, // 5 daqiqa cache
+    retry: 1
   });
 
   // Fetch todos from backend
@@ -62,7 +77,8 @@ const Dashboard: React.FC = () => {
     try {
       const res = await get(`${link}/tasks/`);
       setTodos(Array.isArray(res) ? res.map((t: any) => ({ id: t.id, description: t.description, status: t.status })) : []);
-    } catch {
+    } catch (error: any) {
+      console.error('Tasks fetch error:', error);
       setTodos([]);
     } finally {
       setTodoLoading(false);
@@ -80,7 +96,11 @@ const Dashboard: React.FC = () => {
         setTodoModalOpen(false);
         fetchTodos();
       } catch (err) {
-        alert('Vazifa qo‘shishda xatolik: ' + (err?.toString() || 'Noto‘g‘ri so‘rov')); // show user-friendly error
+        console.error('Add todo error:', err);
+        // Don't show alert for 403 errors, just log them
+        if ((err as any)?.response?.status !== 403) {
+          alert('Vazifa qo\'shishda xatolik: ' + ((err as any)?.message || 'Noto\'g\'ri so\'rov'));
+        }
       } finally {
         setTodoLoading(false);
       }
@@ -138,6 +158,27 @@ const Dashboard: React.FC = () => {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+      </div>
+    );
+  }
+
+  // Show error state if dashboard data fails to load
+  if (dashboardError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <div className="text-red-500 mb-4">
+          <AlertTriangle className="w-16 h-16 mx-auto mb-2" />
+          <h2 className="text-xl font-semibold">Ma'lumotlarni yuklashda xatolik</h2>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">
+            Iltimos, internetga ulanishingizni tekshiring yoki sahifani yangilang
+          </p>
+        </div>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+        >
+          Sahifani yangilash
+        </button>
       </div>
     );
   }

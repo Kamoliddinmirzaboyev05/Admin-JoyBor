@@ -32,7 +32,14 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60 * 10, // 10 daqiqa cache - sahifalar o'rtasida o'tishda qayta yuklash bo'lmasligi uchun
       gcTime: 1000 * 60 * 30, // 30 daqiqa cache - ma'lumotlar xotirajada saqlanadi
-      retry: 1,
+      retry: (failureCount, error: any) => {
+        // Don't retry on 403 or 401 errors
+        if (error?.response?.status === 403 || error?.response?.status === 401) {
+          return false;
+        }
+        // Retry up to 2 times for other errors
+        return failureCount < 2;
+      },
       refetchOnWindowFocus: false,
       refetchOnMount: false, // Sahifa ochilganda qayta yuklash bo'lmasligi uchun
       refetchOnReconnect: true, // Internet qayta ulanganda yuklash
@@ -52,68 +59,68 @@ function App() {
       <Toaster position="top-center" />
       <Routes>
         <Route element={<RequireAuth />}>
-        <Route path="/" element={<Layout />}>
-          <Route index element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <Dashboard />
-            </Suspense>
-          } />
-          <Route path="students" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <Students />
-            </Suspense>
-          } />
-          <Route path="payments" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <Payments />
-            </Suspense>
-          } />
-          <Route path="rooms" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <Rooms />
-            </Suspense>
-          } />
-          <Route path="rooms/:floorId" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <FloorDetail />
-            </Suspense>
-          } />
-          <Route path="applications" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <Applications />
-            </Suspense>
-          } />
-          <Route path="application/:id" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <ApplicationDetail />
-            </Suspense>
-          } />
-          <Route path="settings" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <Settings />
-            </Suspense>
-          } />
-          <Route path="reports" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <Reports />
-            </Suspense>
-          } />
-          <Route path="profile" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <Profile />
-            </Suspense>
-          } />
-          <Route path="studentprofile/:studentId" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <StudentProfile />
-            </Suspense>
-          } />
-          {/* 404 Not Found route */}
-          <Route path="*" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <NotFound />
-            </Suspense>
-          } />
+          <Route path="/" element={<Layout />}>
+            <Route index element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <Dashboard />
+              </Suspense>
+            } />
+            <Route path="students" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <Students />
+              </Suspense>
+            } />
+            <Route path="payments" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <Payments />
+              </Suspense>
+            } />
+            <Route path="rooms" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <Rooms />
+              </Suspense>
+            } />
+            <Route path="rooms/:floorId" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <FloorDetail />
+              </Suspense>
+            } />
+            <Route path="applications" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <Applications />
+              </Suspense>
+            } />
+            <Route path="application/:id" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <ApplicationDetail />
+              </Suspense>
+            } />
+            <Route path="settings" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <Settings />
+              </Suspense>
+            } />
+            <Route path="reports" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <Reports />
+              </Suspense>
+            } />
+            <Route path="profile" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <Profile />
+              </Suspense>
+            } />
+            <Route path="studentprofile/:studentId" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <StudentProfile />
+              </Suspense>
+            } />
+            {/* 404 Not Found route */}
+            <Route path="*" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <NotFound />
+              </Suspense>
+            } />
           </Route>
         </Route>
       </Routes>

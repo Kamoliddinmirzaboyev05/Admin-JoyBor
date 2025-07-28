@@ -10,16 +10,45 @@ export async function apiFetch(url: string, options: RequestInit = {}) {
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
+  
   // Always use absolute URL
   const fullUrl = url.startsWith('http') ? url : BASE_URL + url;
-  const res = await fetch(fullUrl, { ...options, headers });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const error = new Error(data?.detail || data?.message || 'API xatolik');
-    (error as any).response = { data, status: res.status, statusText: res.statusText };
+  
+  try {
+    const res = await fetch(fullUrl, { ...options, headers });
+    
+    // Handle 403 Forbidden specifically
+    if (res.status === 403) {
+      console.warn(`403 Forbidden for ${fullUrl} - User may not have permission`);
+      // Return empty data instead of throwing error for 403
+      return {};
+    }
+    
+    // Handle 401 Unauthorized - redirect to login
+    if (res.status === 401) {
+      localStorage.removeItem('access');
+      localStorage.removeItem('isAuth');
+      window.location.href = '/login';
+      return {};
+    }
+    
+    const data = await res.json().catch(() => ({}));
+    
+    if (!res.ok) {
+      const error = new Error(data?.detail || data?.message || `HTTP ${res.status}: ${res.statusText}`);
+      (error as any).response = { data, status: res.status, statusText: res.statusText };
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    // Network errors or other fetch errors
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error('Network error:', error);
+      throw new Error('Tarmoq xatoligi. Internetga ulanishingizni tekshiring.');
+    }
     throw error;
   }
-  return data;
 }
 
 export function get(url: string) {
