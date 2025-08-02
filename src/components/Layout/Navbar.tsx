@@ -3,6 +3,8 @@ import { Bell, Moon, Sun, User, Settings, LogOut, PanelLeft } from 'lucide-react
 import { useAppStore } from '../../stores/useAppStore';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { apiQueries } from '../../data/api';
 
 interface NavbarProps {
   handleSidebarToggle?: () => void;
@@ -13,7 +15,14 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
   const [showNotifications, setShowNotifications] = React.useState(false);
   const [showProfile, setShowProfile] = React.useState(false);
   const navigate = useNavigate();
-  
+
+  // API dan yotoqxona ma'lumotlarini olish
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: apiQueries.getSettings,
+    staleTime: 1000 * 60 * 5,
+  });
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleNotificationClick = (id: string) => {
@@ -32,7 +41,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
               className="flex items-center space-x-2"
             >
               <div className="w-8 h-8 bg-gr rounded-lg flex items-center justify-center">
-             <img src="/logo.svg" alt="logo" className='w-full h-full object-cover' />
+                <img src="/logo.svg" alt="logo" className='w-full h-full object-cover' />
               </div>
               <div className="hidden sm:block">
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">JoyBor</h1>
@@ -104,11 +113,10 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                         key={notification.id}
                         whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
                         onClick={() => handleNotificationClick(notification.id)}
-                        className={`px-4 py-3 cursor-pointer border-l-4 ${
-                          notification.read
+                        className={`px-4 py-3 cursor-pointer border-l-4 ${notification.read
                             ? 'border-gray-300 dark:border-gray-600'
                             : 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                        }`}
+                          }`}
                       >
                         <h4 className="font-medium text-gray-900 dark:text-white text-sm">
                           {notification.title}
@@ -139,7 +147,12 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                 </div>
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-medium text-gray-900 dark:text-white">Admin</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Toshkent TTU</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {settings?.university?.province?.name ||
+                      settings?.province?.name ||
+                      (settings?.university?.address?.split(',').pop()?.trim()) ||
+                      'Yotoqxona viloyati'}
+                  </p>
                 </div>
               </motion.button>
 
