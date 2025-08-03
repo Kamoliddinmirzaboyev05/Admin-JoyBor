@@ -121,5 +121,11 @@ export const apiQueries = {
   getAdminProfile: () => get('https://joyboryangi.pythonanywhere.com/profile/'),
   
   // Rules
-  createRule: (data: { rule: string }) => post('/rules/create/', data),
+  getRules: () => get('/rules/'),
+  createRule: (data: { rule: string }) => post('/rules/', data),
+  updateRule: (id: number, data: { rule: string }) => put(`/rules/${id}/`, data),
+  deleteRule: (id: number) => del(`/rules/${id}/`),
+  
+  // Notifications
+  getNotifications: () => get('/notifications/'),
 }; 

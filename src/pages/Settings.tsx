@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
 import { toast } from 'sonner';
+import { useSEO } from '../hooks/useSEO';
 
 const allAmenities = [
   { key: 'Wifi', icon: <Wifi className="w-6 h-6" />, name: 'Wi-Fi', description: 'Tez va bepul internet' },
@@ -49,6 +50,9 @@ function EditableInput({ label, value, onChange, disabled, placeholder, helper, 
 }
 
 const Settings: React.FC = () => {
+  // SEO
+  useSEO('settings');
+
   // All hooks at the top!
   const queryClient = useQueryClient();
   const { data: settings, isLoading, error } = useQuery<any>({
@@ -56,9 +60,16 @@ const Settings: React.FC = () => {
     queryFn: apiQueries.getSettings,
     staleTime: 1000 * 60 * 5,
   });
+
+  // Rules uchun alohida query
+  const { data: rulesData } = useQuery<any[]>({
+    queryKey: ['rules'],
+    queryFn: apiQueries.getRules,
+    staleTime: 1000 * 60 * 5,
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editSection, setEditSection] = useState<string | null>(null);
-  const [rules, setRules] = useState<string[]>([]);
+  const [rules, setRules] = useState<{ id?: number, rule: string }[]>([]);
   const [amenities, setAmenities] = useState<string[]>([]);
   const [contact, setContact] = useState<{ phone: string; telegram: string }>({ phone: '', telegram: '' });
   const [dormLoading, setDormLoading] = useState(false);
@@ -88,11 +99,33 @@ const Settings: React.FC = () => {
   const createRuleMutation = useMutation({
     mutationFn: (data: { rule: string }) => apiQueries.createRule(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      queryClient.invalidateQueries({ queryKey: ['rules'] });
       toast.success('Qoida muvaffaqiyatli qo\'shildi!');
     },
     onError: (err: any) => {
       toast.error(err?.toString() || 'Qoida qo\'shishda xatolik yuz berdi!');
+    },
+  });
+
+  const updateRuleMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number, data: { rule: string } }) => apiQueries.updateRule(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rules'] });
+      toast.success('Qoida muvaffaqiyatli yangilandi!');
+    },
+    onError: (err: any) => {
+      toast.error(err?.toString() || 'Qoida yangilashda xatolik yuz berdi!');
+    },
+  });
+
+  const deleteRuleMutation = useMutation({
+    mutationFn: (id: number) => apiQueries.deleteRule(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rules'] });
+      toast.success('Qoida muvaffaqiyatli o\'chirildi!');
+    },
+    onError: (err: any) => {
+      toast.error(err?.toString() || 'Qoida o\'chirishda xatolik yuz berdi!');
     },
   });
 
@@ -110,17 +143,34 @@ const Settings: React.FC = () => {
         year_price: settings.year_price ? String(settings.year_price) : '',
         distance_to_university: settings.distance_to_university ? String(settings.distance_to_university) : '',
       });
-      // Handle rules data structure - convert from object format to string array
-      const rulesData = settings.rules || [];
-      if (rulesData.length > 0 && typeof rulesData[0] === 'object' && rulesData[0].rule) {
-        setRules(rulesData.map((r: any) => r.rule));
-      } else {
-        setRules(rulesData);
-      }
       setAmenities(settings.amenities || []);
       setContact(settings.contact || { phone: '', telegram: '' });
     }
   }, [settings]);
+
+  // Rules ma'lumotlarini alohida useEffect da handle qilish
+  React.useEffect(() => {
+    if (rulesData) {
+      // API dan kelgan rules ma'lumotlarini handle qilish
+      if (rulesData.length > 0 && typeof rulesData[0] === 'object' && rulesData[0].rule) {
+        setRules(rulesData.map((r: any) => ({ id: r.id, rule: r.rule })));
+      } else {
+        setRules(rulesData.map((r: any) => ({ rule: r })));
+      }
+    }
+  }, [rulesData]);
+
+  // Edit section o'zgarganida rules ni qayta yuklash
+  React.useEffect(() => {
+    if (editSection === 'rules' && rulesData) {
+      // Rules edit mode ga kirganda API dan kelgan ma'lumotlarni qayta yuklash
+      if (rulesData.length > 0 && typeof rulesData[0] === 'object' && rulesData[0].rule) {
+        setRules(rulesData.map((r: any) => ({ id: r.id, rule: r.rule })));
+      } else {
+        setRules(rulesData.map((r: any) => ({ rule: r })));
+      }
+    }
+  }, [editSection, rulesData]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div></div>;
@@ -132,27 +182,43 @@ const Settings: React.FC = () => {
 
   // --- RULES STATE ---
   const handleRuleChange = (idx: number, value: string) => {
-    setRules(rules => rules.map((r, i) => i === idx ? value : r));
+    setRules(rules => rules.map((r, i) => i === idx ? { ...r, rule: value } : r));
   };
   const handleAddRule = () => {
-    setRules(rules => [...rules, '']);
+    setRules(rules => [...rules, { rule: '' }]);
   };
 
-
-  const handleRemoveRule = (idx: number) => {
-    setRules(rules => rules.filter((_, i) => i !== idx));
+  const handleRemoveRule = async (idx: number) => {
+    const rule = rules[idx];
+    if (rule.id) {
+      // API dan o'chirish
+      try {
+        await deleteRuleMutation.mutateAsync(rule.id);
+      } catch (error) {
+        // Error handling is done in mutation
+      }
+    } else {
+      // Local state dan o'chirish (yangi qo'shilgan, hali saqlanmagan)
+      setRules(rules => rules.filter((_, i) => i !== idx));
+    }
   };
   const handleSaveRules = async () => {
     try {
-      // Save only new rules that are not empty and not already in the database
-      const existingRules = settings?.rules || [];
-      const existingRuleTexts = existingRules.map((r: any) => typeof r === 'object' ? r.rule : r);
-
       for (const rule of rules) {
-        if (rule.trim() && !existingRuleTexts.includes(rule.trim())) {
-          await createRuleMutation.mutateAsync({ rule: rule.trim() });
+        if (rule.rule.trim()) {
+          if (rule.id) {
+            // Mavjud qoidani yangilash
+            await updateRuleMutation.mutateAsync({
+              id: rule.id,
+              data: { rule: rule.rule.trim() }
+            });
+          } else {
+            // Yangi qoida qo'shish
+            await createRuleMutation.mutateAsync({ rule: rule.rule.trim() });
+          }
         }
       }
+
       setEditSection(null);
     } catch (err: any) {
       // Error handling is done in the mutation
@@ -168,7 +234,7 @@ const Settings: React.FC = () => {
     updateSettingsMutation.mutate({ ...settings, amenities });
   };
   // --- CONTACT STATE ---
-  const handleContactChange = (field: 'phone' | 'email' | 'address', value: string) => {
+  const handleContactChange = (field: 'phone' | 'email' | 'address' | 'telegram', value: string) => {
     setContact(contact => ({ ...contact, [field]: value }));
   };
   const handleSaveContact = () => {
@@ -393,7 +459,7 @@ const Settings: React.FC = () => {
               <li key={i} className="flex items-center gap-2">
                 <EditableInput
                   label=""
-                  value={rule}
+                  value={rule.rule}
                   onChange={v => handleRuleChange(i, v)}
                   disabled={editSection !== 'rules'}
                   placeholder="Qoida matni"

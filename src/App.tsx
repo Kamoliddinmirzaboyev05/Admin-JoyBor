@@ -17,6 +17,7 @@ const Applications = React.lazy(() => import("./pages/Applications"));
 const ApplicationDetail = React.lazy(() => import("./pages/ApplicationDetail"));
 const Settings = React.lazy(() => import("./pages/Settings"));
 const Reports = React.lazy(() => import("./pages/Reports"));
+const Notifications = React.lazy(() => import("./pages/Notifications"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
 
 // Loading komponenti
@@ -103,6 +104,11 @@ function App() {
             <Route path="reports" element={
               <Suspense fallback={<LoadingSpinner />}>
                 <Reports />
+              </Suspense>
+            } />
+            <Route path="notifications" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <Notifications />
               </Suspense>
             } />
             <Route path="profile" element={

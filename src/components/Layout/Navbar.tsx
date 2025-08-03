@@ -23,7 +23,16 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
     staleTime: 1000 * 60 * 5,
   });
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  // API dan bildirishnomalarni olish
+  const { data: apiNotifications = [] } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: apiQueries.getNotifications,
+    staleTime: 1000 * 60 * 2, // 2 daqiqa cache
+  });
+
+  // API dan kelgan notifications yoki store dan olingan notifications
+  const displayNotifications = apiNotifications.length > 0 ? apiNotifications : notifications;
+  const unreadCount = displayNotifications.filter((n: any) => !n.read).length;
 
   const handleNotificationClick = (id: string) => {
     markNotificationRead(id);
@@ -103,12 +112,12 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                   <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
                     <h3 className="font-semibold text-gray-900 dark:text-white">Bildirishnomalar</h3>
                   </div>
-                  {notifications.length === 0 ? (
+                  {displayNotifications.length === 0 ? (
                     <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                       Bildirishnomalar yo'q
                     </div>
                   ) : (
-                    notifications.map((notification) => (
+                    displayNotifications.slice(0, 5).map((notification: any) => (
                       <motion.div
                         key={notification.id}
                         whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
@@ -125,10 +134,23 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                           {notification.message}
                         </p>
                         <p className="text-gray-400 text-xs mt-1">
-                          {new Date(notification.createdAt).toLocaleString('uz-UZ')}
+                          {new Date(notification.created_at || notification.createdAt).toLocaleString('uz-UZ')}
                         </p>
                       </motion.div>
                     ))
+                  )}
+                  {displayNotifications.length > 0 && (
+                    <div className="border-t border-gray-200 dark:border-gray-700 mt-2">
+                      <button
+                        onClick={() => {
+                          setShowNotifications(false);
+                          navigate('/notifications');
+                        }}
+                        className="w-full px-4 py-3 text-center text-sm text-primary-600 dark:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        Barchasini ko'rish
+                      </button>
+                    </div>
                   )}
                 </motion.div>
               )}

@@ -34,6 +34,11 @@ export const seoData = {
     description: "Tizim sozlamalari, foydalanuvchi profili va yotoqxona konfiguratsiyasi.",
     keywords: "sozlamalar, settings, konfiguratsiya, tizim sozlash, profil sozlash"
   },
+  notifications: {
+    title: "Bildirishnomalar - JoyBor Admin",
+    description: "Tizim bildirishnomalari, muhim xabarlar va yangiliklar haqida ma'lumot.",
+    keywords: "bildirishnomalar, notifications, xabarlar, tizim xabarlari, yangiliklar"
+  },
   login: {
     title: "Kirish - JoyBor Admin",
     description: "JoyBor yotoqxona boshqaruv tizimiga xavfsiz kirish. Admin panel uchun autentifikatsiya.",
