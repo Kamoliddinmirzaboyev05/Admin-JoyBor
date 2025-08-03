@@ -2,7 +2,7 @@
 export const BASE_URL = 'https://joyboryangi.pythonanywhere.com';
 
 export async function apiFetch(url: string, options: RequestInit = {}) {
-  const token = localStorage.getItem('access');
+  const token = sessionStorage.getItem('access');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...((options.headers as Record<string, string>) || {}),
@@ -26,8 +26,8 @@ export async function apiFetch(url: string, options: RequestInit = {}) {
     
     // Handle 401 Unauthorized - redirect to login
     if (res.status === 401) {
-      localStorage.removeItem('access');
-      localStorage.removeItem('isAuth');
+      sessionStorage.removeItem('access');
+      sessionStorage.removeItem('isAuth');
       window.location.href = '/login';
       return {};
     }
@@ -95,7 +95,7 @@ export const apiQueries = {
   patchMyDormitory: (data: any) => {
     // Handle FormData differently from regular objects
     if (data instanceof FormData) {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       return fetch(`${BASE_URL}/my-dormitory-update/`, {
         method: 'PATCH',
         headers: {

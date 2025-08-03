@@ -97,7 +97,7 @@ const Profile: React.FC = () => {
       if (value) formData.append(key, value as any);
     });
     try {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       const res = await fetch(`${link}/profile/`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` },
@@ -139,7 +139,7 @@ const Profile: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.clear();
+    sessionStorage.clear();
     window.location.href = '/login';
   };
 

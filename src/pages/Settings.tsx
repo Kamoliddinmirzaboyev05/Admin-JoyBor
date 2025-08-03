@@ -228,7 +228,7 @@ const Settings: React.FC = () => {
 
   const handleDeleteImage = async (imageId: number) => {
     try {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       if (!token) {
         toast.error('Avtorizatsiya talab qilinadi!');
         return;
@@ -495,7 +495,7 @@ const Settings: React.FC = () => {
               const file = e.target.files?.[0];
               if (!file) return;
               setIsUploading(true);
-              const token = localStorage.getItem('access');
+              const token = sessionStorage.getItem('access');
               if (!token) {
                 toast.error('Avtorizatsiya talab qilinadi!');
                 setIsUploading(false);

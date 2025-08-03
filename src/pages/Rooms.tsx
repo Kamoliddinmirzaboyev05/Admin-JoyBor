@@ -198,7 +198,7 @@ const Rooms: React.FC = () => {
     if (!editFloor) return;
     setEditingFloor(true);
     try {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       await axios.patch(
         `${link}/floors/${editFloor.id}/`,
         { name: editFloorName, gender: editFloorGender },
@@ -224,7 +224,7 @@ const Rooms: React.FC = () => {
     if (!deleteFloorId) return;
     setDeletingFloor(true);
     try {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       await axios.delete(
         `${link}/floors/${deleteFloorId}/`,
         {
@@ -254,7 +254,7 @@ const Rooms: React.FC = () => {
     if (!editRoom) return;
     setEditingRoom(true);
     try {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       await axios.patch(
         `${link}/rooms/${editRoom.id}/`,
         { name: editRoomName, floor: editRoomFloor, capacity: Number(editRoomCapacity) },
@@ -274,7 +274,7 @@ const Rooms: React.FC = () => {
     if (!deleteRoom) return;
     setDeletingRoom(true);
     try {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       await axios.delete(
         `${link}/rooms/${deleteRoom.id}/`,
         { headers: { Authorization: `Bearer ${token}` } }

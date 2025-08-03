@@ -132,7 +132,7 @@ const Applications: React.FC = () => {
   } = useQuery<Application[], Error>({
     queryKey: ['applications'],
     queryFn: async () => {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       if (!token) {
         throw new Error('Avtorizatsiya talab qilinadi');
       }

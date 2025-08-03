@@ -88,7 +88,7 @@ const FloorDetail: React.FC = () => {
     setAdding(true);
     
     try {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       const myHeaders = new Headers();
       myHeaders.append("Authorization", `Bearer ${token}`);
       myHeaders.append("Content-Type", "application/json");
@@ -282,7 +282,7 @@ const FloorDetail: React.FC = () => {
                   if (!editRoomModal) return;
                   setEditingRoom(true);
                   try {
-                    const token = localStorage.getItem('access');
+                    const token = sessionStorage.getItem('access');
                     await axios.patch(
                       `${link}/rooms/${editRoomModal.id}/`,
                       { name: editRoomName, capacity: Number(editRoomCapacity) },
@@ -372,7 +372,7 @@ const FloorDetail: React.FC = () => {
                     if (!deleteRoomModal) return;
                     setDeletingRoom(true);
                     try {
-                      const token = localStorage.getItem('access');
+                      const token = sessionStorage.getItem('access');
                       await axios.delete(
                         `${link}/rooms/${deleteRoomModal.id}/`,
                         { headers: { Authorization: `Bearer ${token}` } }

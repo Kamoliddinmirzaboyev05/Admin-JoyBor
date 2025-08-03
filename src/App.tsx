@@ -48,7 +48,7 @@ const queryClient = new QueryClient({
 });
 
 function RequireAuth() {
-  const isAuth = localStorage.getItem('isAuth') === 'true';
+  const isAuth = sessionStorage.getItem('isAuth') === 'true';
   return isAuth ? <Outlet /> : <Navigate to="/login" replace />;
 }
 

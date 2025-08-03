@@ -256,7 +256,7 @@ const Students: React.FC = () => {
     if (editingStudent) {
       setLoading(true);
       try {
-        const token = localStorage.getItem('access');
+        const token = sessionStorage.getItem('access');
         // Prepare payload according to API documentation
         const payload: any = {
           name: formData.firstName,
@@ -409,7 +409,7 @@ const Students: React.FC = () => {
 
   // Fetch provinces
   useEffect(() => {
-    const token = localStorage.getItem("access");
+    const token = sessionStorage.getItem("access");
     const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
     fetch(`${link}/provinces/`, { headers })
       .then(res => {
@@ -426,7 +426,7 @@ const Students: React.FC = () => {
       setDistricts([]);
       return;
     }
-    const token = localStorage.getItem("access");
+    const token = sessionStorage.getItem("access");
     const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
     fetch(`${link}/districts/?province=${formData.region}`, { headers })
       .then(res => {
@@ -447,8 +447,8 @@ const Students: React.FC = () => {
       // URL dan parametrni olib tashlash
       window.history.replaceState({}, document.title, window.location.pathname);
       
-      // LocalStorage dan ma'lumotlarni olish
-      const pendingData = localStorage.getItem('pendingStudentData');
+      // SessionStorage dan ma'lumotlarni olish
+      const pendingData = sessionStorage.getItem('pendingStudentData');
       if (pendingData) {
         try {
           const studentData = JSON.parse(pendingData);
@@ -469,7 +469,7 @@ const Students: React.FC = () => {
             passportImage2: studentData.passportImage2Base64 || null,
           }));
           // Ma'lumotlarni tozalash
-          localStorage.removeItem('pendingStudentData');
+          sessionStorage.removeItem('pendingStudentData');
         } catch (error) {
           console.error('Pending student data parse error:', error);
         }
@@ -513,7 +513,7 @@ const Students: React.FC = () => {
     const myHeaders = new Headers();
     myHeaders.append(
       "Authorization",
-      `Bearer ${localStorage.getItem("access")}`
+      `Bearer ${sessionStorage.getItem("access")}`
     );
 
     const formdata = new FormData();
@@ -581,7 +581,7 @@ const Students: React.FC = () => {
   // Export handler for DataTable
   const handleExportStudents = async () => {
     try {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       if (!token) {
         toast.error('Avtorizatsiya talab qilinadi!');
         return;

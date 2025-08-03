@@ -24,9 +24,9 @@ const Login: React.FC = () => {
       if (res.ok && result.access) {
         // Role tekshiruvi qo'shish
         if (result.role && result.role === 'admin') {
-          localStorage.setItem('access', result.access);
-          localStorage.setItem('isAuth', 'true');
-          localStorage.setItem('userRole', result.role);
+          sessionStorage.setItem('access', result.access);
+          sessionStorage.setItem('isAuth', 'true');
+          sessionStorage.setItem('userRole', result.role);
           window.location.href = '/';
         } else {
           // Admin emas bo'lsa xatolik ko'rsatish

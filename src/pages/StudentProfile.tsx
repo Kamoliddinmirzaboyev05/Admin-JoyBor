@@ -162,7 +162,7 @@ const StudentProfile: React.FC = () => {
 
   // Fetch provinces
   useEffect(() => {
-    const token = localStorage.getItem("access");
+    const token = sessionStorage.getItem("access");
     const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
     fetch(`${link}/provinces/`, { headers })
       .then(res => {
@@ -175,7 +175,7 @@ const StudentProfile: React.FC = () => {
 
   // Fetch available floors (only floors with empty rooms)
   useEffect(() => {
-    const token = localStorage.getItem("access");
+    const token = sessionStorage.getItem("access");
     const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
     fetch(`${link}/available-floors/`, { headers })
       .then(res => {
@@ -196,7 +196,7 @@ const StudentProfile: React.FC = () => {
       return;
     }
 
-    const token = localStorage.getItem("access");
+    const token = sessionStorage.getItem("access");
     const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
     fetch(`${link}/districts/?province=${provinceId}`, { headers })
       .then(res => {
@@ -217,7 +217,7 @@ const StudentProfile: React.FC = () => {
       return;
     }
 
-    const token = localStorage.getItem("access");
+    const token = sessionStorage.getItem("access");
     const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
     fetch(`${link}/available-rooms/?floor=${floorId}`, { headers })
       .then(res => {
@@ -320,10 +320,10 @@ const StudentProfile: React.FC = () => {
     console.log('Sending payload:', JSON.stringify(payload, null, 2));
     console.log('Student ID:', studentId);
     console.log('Full URL:', `${link}/students/${studentId}/`);
-    console.log('Token exists:', !!localStorage.getItem('access'));
+    console.log('Token exists:', !!sessionStorage.getItem('access'));
 
     try {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       console.log('Making request...');
       const response = await axios.patch(
         `${link}/students/${studentId}/`,
@@ -373,7 +373,7 @@ const StudentProfile: React.FC = () => {
           delete retryPayload.floor;
 
           try {
-            const token = localStorage.getItem('access');
+            const token = sessionStorage.getItem('access');
             const retryResponse = await axios.patch(
               `${link}/students/${studentId}/`,
               retryPayload,
@@ -446,7 +446,7 @@ const StudentProfile: React.FC = () => {
 
     setDeleting(true);
     try {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       const response = await axios.delete(
         `${link}/students/${studentId}/`,
         {

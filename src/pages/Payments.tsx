@@ -148,7 +148,7 @@ const Payments: React.FC = () => {
   // Export handler for DataTable
   const handleExportPayments = async () => {
     try {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       if (!token) {
         toast.error('Avtorizatsiya talab qilinadi!');
         return;

@@ -77,7 +77,7 @@ const ApplicationDetail: React.FC = () => {
   } = useQuery({
     queryKey: ['application', id],
     queryFn: async () => {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       const response = await fetch(`${link}/applications/${id}/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -149,7 +149,7 @@ const ApplicationDetail: React.FC = () => {
   const handleApprove = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       
       // FormData bilan urinib ko'ramiz (Students.tsx kabi)
       const formData = new FormData();
@@ -202,7 +202,7 @@ const ApplicationDetail: React.FC = () => {
     
     setLoading(true);
     try {
-      const token = localStorage.getItem('access');
+      const token = sessionStorage.getItem('access');
       
       // FormData bilan urinib ko'ramiz (Students.tsx kabi)
       const formData = new FormData();
@@ -714,7 +714,7 @@ const ApplicationDetail: React.FC = () => {
                         // Students sahifasiga o'tish va modal ochish
                         const studentData = prepareStudentDataFromApplication();
                         if (studentData) {
-                          // Passport rasmlarini yuklab olish va localStorage ga saqlash
+                          // Passport rasmlarini yuklab olish va sessionStorage ga saqlash
                           const dataToSave = { ...studentData };
                           
                           // Passport rasmlarini base64 formatida saqlash
@@ -738,7 +738,7 @@ const ApplicationDetail: React.FC = () => {
                         }
                         
                         function saveAndNavigate(data: any) {
-                          localStorage.setItem('pendingStudentData', JSON.stringify(data));
+                          sessionStorage.setItem('pendingStudentData', JSON.stringify(data));
                           window.location.href = '/students?openModal=true';
                         }
                       }}
