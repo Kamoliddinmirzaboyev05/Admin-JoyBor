@@ -148,10 +148,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-medium text-gray-900 dark:text-white">Admin</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {settings?.university?.province?.name ||
-                      settings?.province?.name ||
-                      (settings?.university?.address?.split(',').pop()?.trim()) ||
-                      'Yotoqxona viloyati'}
+                    {settings?.name || 'Yotoqxona'}
                   </p>
                 </div>
               </motion.button>

@@ -60,7 +60,7 @@ const Settings: React.FC = () => {
   const [editSection, setEditSection] = useState<string | null>(null);
   const [rules, setRules] = useState<string[]>([]);
   const [amenities, setAmenities] = useState<string[]>([]);
-  const [contact, setContact] = useState<{ phone: string; email: string; address: string }>({ phone: '', email: '', address: '' });
+  const [contact, setContact] = useState<{ phone: string; telegram: string }>({ phone: '', telegram: '' });
   const [dormLoading, setDormLoading] = useState(false);
   const [editDormCard, setEditDormCard] = useState(false);
   const [editPricesCard, setEditPricesCard] = useState(false);
@@ -118,7 +118,7 @@ const Settings: React.FC = () => {
         setRules(rulesData);
       }
       setAmenities(settings.amenities || []);
-      setContact(settings.contact || { phone: '', email: '', address: '' });
+      setContact(settings.contact || { phone: '', telegram: '' });
     }
   }, [settings]);
 
@@ -447,19 +447,11 @@ const Settings: React.FC = () => {
               fullWidth
             />
             <EditableInput
-              label="Email manzil"
-              value={contact.email}
-              onChange={v => handleContactChange('email', v)}
+              label="Telegram manzili"
+              value={contact.telegram}
+              onChange={v => handleContactChange('telegram', v)}
               disabled={editSection !== 'contact'}
-              placeholder="info@dormitory.uz"
-              fullWidth
-            />
-            <EditableInput
-              label="Manzil"
-              value={contact.address}
-              onChange={v => handleContactChange('address', v)}
-              disabled={editSection !== 'contact'}
-              placeholder="Yotoqxona manzili"
+              placeholder="@yotoqxona_admin"
               fullWidth
             />
           </div>
