@@ -161,7 +161,7 @@ const Profile: React.FC = () => {
             {admin.image ? (
               <img src={admin.image} alt={admin.username} className="w-full h-full object-cover rounded-full" />
             ) : (
-              <img src="/logo.svg" alt="Profile Logo" className="w-full h-full object-contain" />
+              <img src="/logoicon.svg" alt="Profile Logo" className="w-full h-full object-contain" />
             )}
           </div>
           <h2 className="text-xl sm:text-3xl font-bold text-[#1E293B] dark:text-white mb-1 flex items-center gap-2">

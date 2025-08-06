@@ -13,7 +13,7 @@ const SEOHead: React.FC<SEOHeadProps> = ({
   title = "JoyBor Admin - Yotoqxona Boshqaruv Tizimi",
   description = "Zamonaviy yotoqxona boshqaruv tizimi - talabalar, to'lovlar, xonalar va arizalarni boshqarish uchun professional platforma",
   keywords = "yotoqxona boshqaruv, talaba boshqaruv, xona boshqaruv, to'lov tizimi, ariza boshqaruv, JoyBor, admin panel",
-  image = "/logo.svg",
+  image = "/logoicon.svg",
   url
 }) => {
   const location = useLocation();

@@ -326,7 +326,7 @@ const Settings: React.FC = () => {
         {/* University logo and name */}
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center border border-gray-200 dark:border-gray-700 shadow p-2">
-            <img src="/logo.svg" alt="University Logo" className="w-full h-full object-contain" />
+            <img src="/logoicon.svg" alt="University Logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <div className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2"><School className="w-5 h-5 text-blue-500" /> {settings.university?.name}</div>

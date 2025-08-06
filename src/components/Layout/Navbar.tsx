@@ -50,7 +50,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
               className="flex items-center space-x-2"
             >
               <div className="w-8 h-8 bg-gr rounded-lg flex items-center justify-center">
-                <img src="/logo.svg" alt="logo" className='w-full h-full object-cover' />
+                <img src="/logoicon.svg" alt="logo" className='w-full h-full object-cover' />
               </div>
               <div className="hidden sm:block">
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">JoyBor</h1>

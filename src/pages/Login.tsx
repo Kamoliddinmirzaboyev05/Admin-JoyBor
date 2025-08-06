@@ -53,7 +53,7 @@ const Login: React.FC = () => {
       >
         <div className="mb-8 text-center">
           <div className="w-16 h-16 mx-auto mb-2 bg-white rounded-full flex items-center justify-center shadow p-2">
-            <img src="/logo.svg" alt="JoyBor Logo" className="w-full h-full object-contain" />
+            <img src="/logoicon.svg" alt="JoyBor Logo" className="w-full h-full object-contain" />
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-[#1E293B] dark:text-white font-sans">Xush kelibsiz, Admin!</h2>
           <p className="text-gray-500 dark:text-gray-300 text-xs sm:text-sm mt-1 font-sans">Platformaga kirish uchun login va parolingizni kiriting</p>
