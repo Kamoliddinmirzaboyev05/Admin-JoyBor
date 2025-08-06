@@ -6,13 +6,40 @@ import { apiQueries } from '../data/api';
 import { toast } from 'sonner';
 import { useSEO } from '../hooks/useSEO';
 
-const allAmenities = [
-  { key: 'Wifi', icon: <Wifi className="w-6 h-6" />, name: 'Wi-Fi', description: 'Tez va bepul internet' },
-  { key: 'BookOpen', icon: <BookOpen className="w-6 h-6" />, name: 'Darsxona', description: '24/7 ochiq o\'quv xonasi' },
-  { key: 'WashingMachine', icon: <WashingMachine className="w-6 h-6" />, name: 'Kir yuvish mashinasi', description: 'Bepul kir yuvish xizmati' },
-  { key: 'Tv', icon: <Tv className="w-6 h-6" />, name: 'Dam olish xonasi', description: 'Televizor va o\'yinlar' },
-  { key: 'Coffee', icon: <Coffee className="w-6 h-6" />, name: 'Kichik oshxona', description: 'Choy va yengil taomlar uchun' },
-];
+// Icon mapping for amenities
+const getAmenityIcon = (name: string) => {
+  const iconMap: { [key: string]: React.ReactNode } = {
+    'Wi-Fi': <Wifi className="w-6 h-6" />,
+    'WiFi': <Wifi className="w-6 h-6" />,
+    'Wifi': <Wifi className="w-6 h-6" />,
+    'Darsxona': <BookOpen className="w-6 h-6" />,
+    'O\'quv xonasi': <BookOpen className="w-6 h-6" />,
+    'Study Room': <BookOpen className="w-6 h-6" />,
+    'Kir yuvish': <WashingMachine className="w-6 h-6" />,
+    'Washing Machine': <WashingMachine className="w-6 h-6" />,
+    'Laundry': <WashingMachine className="w-6 h-6" />,
+    'Dam olish xonasi': <Tv className="w-6 h-6" />,
+    'TV': <Tv className="w-6 h-6" />,
+    'Television': <Tv className="w-6 h-6" />,
+    'Oshxona': <Coffee className="w-6 h-6" />,
+    'Kitchen': <Coffee className="w-6 h-6" />,
+    'Kafe': <Coffee className="w-6 h-6" />,
+  };
+
+  // Try exact match first
+  if (iconMap[name]) return iconMap[name];
+
+  // Try partial matches
+  const lowerName = name.toLowerCase();
+  if (lowerName.includes('wifi') || lowerName.includes('internet')) return <Wifi className="w-6 h-6" />;
+  if (lowerName.includes('dars') || lowerName.includes('study') || lowerName.includes('o\'qu')) return <BookOpen className="w-6 h-6" />;
+  if (lowerName.includes('kir') || lowerName.includes('wash') || lowerName.includes('laundry')) return <WashingMachine className="w-6 h-6" />;
+  if (lowerName.includes('tv') || lowerName.includes('dam') || lowerName.includes('television')) return <Tv className="w-6 h-6" />;
+  if (lowerName.includes('oshxona') || lowerName.includes('kitchen') || lowerName.includes('kafe')) return <Coffee className="w-6 h-6" />;
+
+  // Default icon
+  return <ListChecks className="w-6 h-6" />;
+};
 
 function SectionCard({ icon, title, description, children, onEdit }: { icon: React.ReactNode; title: React.ReactNode; description?: string; children: React.ReactNode; onEdit?: () => void }) {
   return (
@@ -67,10 +94,17 @@ const Settings: React.FC = () => {
     queryFn: apiQueries.getRules,
     staleTime: 1000 * 60 * 5,
   });
+
+  // Amenities uchun alohida query
+  const { data: amenitiesData } = useQuery<any[]>({
+    queryKey: ['amenities'],
+    queryFn: apiQueries.getAmenities,
+    staleTime: 1000 * 60 * 5,
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editSection, setEditSection] = useState<string | null>(null);
   const [rules, setRules] = useState<{ id?: number, rule: string }[]>([]);
-  const [amenities, setAmenities] = useState<string[]>([]);
+
   const [contact, setContact] = useState<{ phone: string; telegram: string }>({ phone: '', telegram: '' });
   const [dormLoading, setDormLoading] = useState(false);
   const [editDormCard, setEditDormCard] = useState(false);
@@ -83,6 +117,7 @@ const Settings: React.FC = () => {
     month_price: '', year_price: '', distance_to_university: '',
   });
   const [isUploading, setIsUploading] = useState(false);
+  const [localAmenities, setLocalAmenities] = useState<any[]>([]);
 
   const updateSettingsMutation = useMutation({
     mutationFn: (data: any) => apiQueries.updateSettings(data),
@@ -129,6 +164,17 @@ const Settings: React.FC = () => {
     },
   });
 
+  const updateAmenityMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number, data: { name: string; is_active: boolean } }) => apiQueries.updateAmenity(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['amenities'] });
+      toast.success('Qulaylik muvaffaqiyatli yangilandi!');
+    },
+    onError: (err: any) => {
+      toast.error(err?.toString() || 'Qulaylik yangilashda xatolik yuz berdi!');
+    },
+  });
+
   // All useEffect at the top
   React.useEffect(() => {
     if (settings) {
@@ -143,7 +189,7 @@ const Settings: React.FC = () => {
         year_price: settings.year_price ? String(settings.year_price) : '',
         distance_to_university: settings.distance_to_university ? String(settings.distance_to_university) : '',
       });
-      setAmenities(settings.amenities || []);
+
       setContact(settings.contact || { phone: '', telegram: '' });
     }
   }, [settings]);
@@ -159,6 +205,13 @@ const Settings: React.FC = () => {
       }
     }
   }, [rulesData]);
+
+  // Amenities ma'lumotlarini local state ga yuklash
+  React.useEffect(() => {
+    if (amenitiesData) {
+      setLocalAmenities(amenitiesData);
+    }
+  }, [amenitiesData]);
 
   // Edit section o'zgarganida rules ni qayta yuklash
   React.useEffect(() => {
@@ -225,13 +278,41 @@ const Settings: React.FC = () => {
     }
   };
   // --- AMENITIES STATE ---
-  const handleAmenityChange = (key: string) => {
-    setAmenities(amenities => amenities.includes(key)
-      ? amenities.filter(k => k !== key)
-      : [...amenities, key]);
+
+  const handleAmenityChange = (amenity: any) => {
+    setLocalAmenities(prev =>
+      prev.map(item =>
+        item.id === amenity.id
+          ? { ...item, is_active: !item.is_active }
+          : item
+      )
+    );
   };
-  const handleSaveAmenities = () => {
-    updateSettingsMutation.mutate({ ...settings, amenities });
+
+  const handleSaveAmenities = async () => {
+    try {
+      // Faqat o'zgargan amenities larni saqlash
+      const originalAmenities = amenitiesData || [];
+      const changedAmenities = localAmenities.filter(local => {
+        const original = originalAmenities.find((orig: any) => orig.id === local.id);
+        return original && original.is_active !== local.is_active;
+      });
+
+      for (const amenity of changedAmenities) {
+        await updateAmenityMutation.mutateAsync({
+          id: amenity.id,
+          data: {
+            name: amenity.name,
+            is_active: amenity.is_active
+          }
+        });
+      }
+
+      setEditSection(null);
+      toast.success('Qulayliklar muvaffaqiyatli yangilandi!');
+    } catch (error) {
+      // Error handling is done in mutation
+    }
   };
   // --- CONTACT STATE ---
   const handleContactChange = (field: 'phone' | 'email' | 'address' | 'telegram', value: string) => {
@@ -416,7 +497,7 @@ const Settings: React.FC = () => {
             )}
           </div>
         </SectionCard>
-        {/* Amenities Section (edit-in-place) */}
+        {/* Amenities Section */}
         <SectionCard
           icon={<ListChecks className="w-6 h-6" />}
           title="Qulayliklar"
@@ -424,27 +505,115 @@ const Settings: React.FC = () => {
           onEdit={() => setEditSection(editSection === 'amenities' ? null : 'amenities')}
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {allAmenities.map((item) => (
-              <label key={item.key} className="flex items-center gap-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={amenities.includes(item.key)}
-                  onChange={() => handleAmenityChange(item.key)}
-                  className="h-5 w-5 text-blue-600 bg-white dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded focus:ring-blue-500 dark:focus:ring-blue-400 transition"
-                  disabled={editSection !== 'amenities'}
-                />
-                <span className="text-blue-600 dark:text-blue-200">{item.icon}</span>
-                <div>
-                  <div className="font-semibold text-gray-900 dark:text-white">{item.name}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-300">{item.description}</div>
+            {localAmenities && localAmenities.length > 0 ? (
+              localAmenities.map((item: any) => (
+                <div key={item.id} className={`relative rounded-xl p-5 transition-all duration-300 border-2 min-h-[120px] flex flex-col ${item.is_active
+                  ? 'bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/20 border-green-300 dark:border-green-600 shadow-lg'
+                  : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/30 border-gray-300 dark:border-gray-600 shadow-sm'
+                  } ${editSection === 'amenities' ? 'hover:shadow-xl hover:scale-[1.02]' : ''}`}>
+                  {/* Custom Checkbox */}
+                  <div className="flex items-start gap-4 mb-3">
+                    <label className={`relative flex items-center justify-center w-6 h-6 rounded-lg border-2 transition-all duration-200 ${editSection === 'amenities' ? 'cursor-pointer' : 'cursor-default'
+                      } ${item.is_active
+                        ? 'bg-green-500 border-green-500 shadow-lg shadow-green-500/30'
+                        : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500 hover:border-green-400'
+                      }`}>
+                      <input
+                        type="checkbox"
+                        checked={item.is_active}
+                        onChange={() => editSection === 'amenities' && handleAmenityChange(item)}
+                        className="sr-only"
+                        disabled={editSection !== 'amenities'}
+                      />
+                      {item.is_active && (
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </label>
+
+                    {/* Icon */}
+                    <div className={`flex-shrink-0 p-2 rounded-lg transition-colors ${item.is_active
+                      ? 'bg-green-200 dark:bg-green-800/50 text-green-700 dark:text-green-300'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                      }`}>
+                      {getAmenityIcon(item.name)}
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1">
+                    <h3 className={`font-semibold text-base mb-1 transition-colors ${item.is_active
+                      ? 'text-gray-900 dark:text-white'
+                      : 'text-gray-600 dark:text-gray-400'
+                      }`}>
+                      {item.name}
+                    </h3>
+
+                    {item.description && (
+                      <p className={`text-sm mb-2 transition-colors ${item.is_active
+                        ? 'text-gray-700 dark:text-gray-300'
+                        : 'text-gray-500 dark:text-gray-500'
+                        }`}>
+                        {item.description}
+                      </p>
+                    )}
+
+                    {/* Status Badge */}
+                    <div className="mt-auto">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${item.is_active
+                        ? 'bg-green-200 dark:bg-green-800/50 text-green-800 dark:text-green-200'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                        }`}>
+                        <div className={`w-2 h-2 rounded-full mr-1.5 ${item.is_active ? 'bg-green-500' : 'bg-gray-400'
+                          }`}></div>
+                        {item.is_active ? 'Faol' : 'Nofaol'}
+                      </span>
+                    </div>
+                  </div>
+
+
+
+                  {/* Edit Mode Indicator */}
+                  {editSection === 'amenities' && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                  )}
                 </div>
-              </label>
-            ))}
+              ))
+            ) : (
+              <div className="col-span-full text-center text-gray-500 dark:text-gray-400 py-12">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                  <ListChecks className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-lg font-medium">Qulayliklar yuklanmoqda...</p>
+              </div>
+            )}
           </div>
           {editSection === 'amenities' && (
-            <button className="mt-4 px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSaveAmenities} disabled={updateSettingsMutation.status === 'pending'}>
-              {updateSettingsMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
-            </button>
+            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+              <p className="text-sm text-blue-700 dark:text-blue-300 font-medium mb-3">
+                Tahrirlash rejimi faol. Qulayliklarni faollashtirish yoki o'chirish uchun checkbox larni bosing.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm disabled:opacity-50"
+                  onClick={handleSaveAmenities}
+                  disabled={updateAmenityMutation.status === 'pending'}
+                >
+                  {updateAmenityMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
+                </button>
+                <button
+                  className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm"
+                  onClick={() => {
+                    setEditSection(null);
+                    setLocalAmenities(amenitiesData || []);
+                  }}
+                  disabled={updateAmenityMutation.status === 'pending'}
+                >
+                  Bekor qilish
+                </button>
+              </div>
+            </div>
           )}
         </SectionCard>
         {/* Rules Section (edit-in-place) */}

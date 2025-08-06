@@ -128,4 +128,8 @@ export const apiQueries = {
   
   // Notifications
   getNotifications: () => get('/notifications/'),
+  
+  // Amenities
+  getAmenities: () => get('/amenities/'),
+  updateAmenity: (id: number, data: { name: string; is_active: boolean }) => patch(`/amenities/${id}/update/`, data),
 }; 

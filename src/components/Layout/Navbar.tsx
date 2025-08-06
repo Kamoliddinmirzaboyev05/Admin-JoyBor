@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Moon, Sun, User, Settings, LogOut, PanelLeft } from 'lucide-react';
+import { Bell, Moon, Sun, User, LogOut, PanelLeft } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -49,7 +49,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
               animate={{ opacity: 1, scale: 1 }}
               className="flex items-center space-x-2"
             >
-              <div className="w-8 h-8 bg-gr rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
                 <img src="/logoicon.svg" alt="logo" className='w-full h-full object-cover' />
               </div>
               <div className="hidden sm:block">
