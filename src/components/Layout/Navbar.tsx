@@ -112,49 +112,49 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                     className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 max-h-96 overflow-y-auto z-50"
                     onClick={e => e.stopPropagation()}
                   >
-                  <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">Bildirishnomalar</h3>
-                  </div>
-                  {displayNotifications.length === 0 ? (
-                    <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                      Bildirishnomalar yo'q
+                    <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Bildirishnomalar</h3>
                     </div>
-                  ) : (
-                    displayNotifications.slice(0, 5).map((notification: any) => (
-                      <motion.div
-                        key={notification.id}
-                        whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
-                        onClick={() => handleNotificationClick(notification.id)}
-                        className={`px-4 py-3 cursor-pointer border-l-4 ${notification.read
+                    {displayNotifications.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                        Bildirishnomalar yo'q
+                      </div>
+                    ) : (
+                      displayNotifications.slice(0, 5).map((notification: any) => (
+                        <motion.div
+                          key={notification.id}
+                          whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
+                          onClick={() => handleNotificationClick(notification.id)}
+                          className={`px-4 py-3 cursor-pointer border-l-4 ${notification.read
                             ? 'border-gray-300 dark:border-gray-600'
                             : 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                          }`}
-                      >
-                        <h4 className="font-medium text-gray-900 dark:text-white text-sm">
-                          {notification.title}
-                        </h4>
-                        <p className="text-gray-600 dark:text-gray-300 text-xs mt-1">
-                          {notification.message}
-                        </p>
-                        <p className="text-gray-400 text-xs mt-1">
-                          {new Date(notification.created_at || notification.createdAt).toLocaleString('uz-UZ')}
-                        </p>
-                      </motion.div>
-                    ))
-                  )}
-                  {displayNotifications.length > 0 && (
-                    <div className="border-t border-gray-200 dark:border-gray-700 mt-2">
-                      <button
-                        onClick={() => {
-                          setShowNotifications(false);
-                          navigate('/notifications');
-                        }}
-                        className="w-full px-4 py-3 text-center text-sm text-primary-600 dark:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                      >
-                        Barchasini ko'rish
-                      </button>
-                    </div>
-                  )}
+                            }`}
+                        >
+                          <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                            {notification.title}
+                          </h4>
+                          <p className="text-gray-600 dark:text-gray-300 text-xs mt-1">
+                            {notification.message}
+                          </p>
+                          <p className="text-gray-400 text-xs mt-1">
+                            {new Date(notification.created_at || notification.createdAt).toLocaleString('uz-UZ')}
+                          </p>
+                        </motion.div>
+                      ))
+                    )}
+                    {displayNotifications.length > 0 && (
+                      <div className="border-t border-gray-200 dark:border-gray-700 mt-2">
+                        <button
+                          onClick={() => {
+                            setShowNotifications(false);
+                            navigate('/notifications');
+                          }}
+                          className="w-full px-4 py-3 text-center text-sm text-primary-600 dark:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          Barchasini ko'rish
+                        </button>
+                      </div>
+                    )}
                   </motion.div>
                 </>
               )}

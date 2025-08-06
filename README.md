@@ -1,6 +1,6 @@
 # JoyBor Admin - Yotoqxona Boshqaruv Tizimi
 
-![JoyBor Admin Logo](public/logo.png)
+![JoyBor Admin Logo](public/logoicon.png)
 
 ## 📋 Loyiha haqida
 
