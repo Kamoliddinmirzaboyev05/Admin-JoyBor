@@ -21,7 +21,11 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["business", "education", "productivity"],
+  "categories": [
+    "business",
+    "education",
+    "productivity"
+  ],
   "lang": "uz",
   "dir": "ltr"
 }

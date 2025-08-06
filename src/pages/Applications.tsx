@@ -201,12 +201,6 @@ const Applications: React.FC = () => {
     return (
       <div className="text-center py-10 text-red-600 dark:text-red-400">
         Ma'lumotlarni yuklashda xatolik yuz berdi.
-        <button
-          onClick={() => refetch()}
-          className="ml-2 text-blue-600 hover:underline"
-        >
-          Qayta urinish
-        </button>
       </div>
     );
   }

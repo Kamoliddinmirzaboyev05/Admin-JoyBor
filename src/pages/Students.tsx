@@ -496,13 +496,7 @@ const Students: React.FC = () => {
   if (error) {
     return (
       <div className="text-center py-10 text-red-600 dark:text-red-400">
-        Ma'lumotlarni yuklashda xatolik yuz berdi. 
-        <button 
-          onClick={() => refetch()} 
-          className="ml-2 text-blue-600 hover:underline"
-        >
-          Qayta urinish
-        </button>
+        Ma'lumotlarni yuklashda xatolik yuz berdi.
       </div>
     );
   }
@@ -621,13 +615,7 @@ const Students: React.FC = () => {
             Yotoqxonada yashayotgan talabalar ro'yxati
           </p>
         </div>
-        <div className="flex items-center gap-2 sm:gap-3 mt-2 sm:mt-0">
-          <button
-            onClick={() => refetch()}
-            className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            Yangilash
-          </button>
+        <div className="mt-2 sm:mt-0">
           <button
             onClick={handleAdd}
             className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-base disabled:opacity-60"

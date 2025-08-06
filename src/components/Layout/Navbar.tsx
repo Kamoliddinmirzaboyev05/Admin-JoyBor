@@ -103,12 +103,15 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
 
               {/* Notifications Dropdown */}
               {showNotifications && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 max-h-96 overflow-y-auto"
-                >
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 max-h-96 overflow-y-auto z-50"
+                    onClick={e => e.stopPropagation()}
+                  >
                   <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
                     <h3 className="font-semibold text-gray-900 dark:text-white">Bildirishnomalar</h3>
                   </div>
@@ -152,7 +155,8 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                       </button>
                     </div>
                   )}
-                </motion.div>
+                  </motion.div>
+                </>
               )}
             </div>
 

@@ -170,15 +170,9 @@ const Dashboard: React.FC = () => {
           <AlertTriangle className="w-16 h-16 mx-auto mb-2" />
           <h2 className="text-xl font-semibold">Ma'lumotlarni yuklashda xatolik</h2>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Iltimos, internetga ulanishingizni tekshiring yoki sahifani yangilang
+            Iltimos, internetga ulanishingizni tekshiring
           </p>
         </div>
-        <button 
-          onClick={() => window.location.reload()} 
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          Sahifani yangilash
-        </button>
       </div>
     );
   }
