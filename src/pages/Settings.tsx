@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Edit, DollarSign, ListChecks, Wifi, BookOpen, WashingMachine, Tv, Coffee, Plus, Info, MapPin, User, School, FileImage } from 'lucide-react';
+import { Edit, DollarSign, ListChecks, Wifi, BookOpen, WashingMachine, Tv, Coffee, Plus, Info, MapPin, User, School, FileImage, Phone, MessageCircle, Send } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
@@ -101,11 +101,17 @@ const Settings: React.FC = () => {
     queryFn: apiQueries.getAmenities,
     staleTime: 1000 * 60 * 5,
   });
+
+  // Admin profil ma'lumotlarini olish
+  const { data: adminProfile } = useQuery({
+    queryKey: ['adminProfile'],
+    queryFn: apiQueries.getAdminProfile,
+    staleTime: 1000 * 60 * 5,
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editSection, setEditSection] = useState<string | null>(null);
   const [rules, setRules] = useState<{ id?: number, rule: string }[]>([]);
-
-  const [contact, setContact] = useState<{ phone: string; telegram: string }>({ phone: '', telegram: '' });
+  const [contactForm, setContactForm] = useState({ phone: '', telegram: '' });
   const [dormLoading, setDormLoading] = useState(false);
   const [editDormCard, setEditDormCard] = useState(false);
   const [editPricesCard, setEditPricesCard] = useState(false);
@@ -118,6 +124,41 @@ const Settings: React.FC = () => {
   });
   const [isUploading, setIsUploading] = useState(false);
   const [localAmenities, setLocalAmenities] = useState<any[]>([]);
+
+  // Telefon raqamini formatlash funksiyasi
+  const formatPhoneNumber = (value: string) => {
+    // Faqat raqamlarni qoldirish
+    const numbers = value.replace(/\D/g, '');
+    
+    // Agar 998 bilan boshlanmasa, qo'shish
+    let formattedNumbers = numbers;
+    if (numbers.length > 0 && !numbers.startsWith('998')) {
+      if (numbers.startsWith('9')) {
+        formattedNumbers = '998' + numbers;
+      }
+    }
+    
+    // Formatlash: +998 (XX) XXX-XX-XX
+    if (formattedNumbers.length >= 12) {
+      return `+${formattedNumbers.slice(0, 3)} (${formattedNumbers.slice(3, 5)}) ${formattedNumbers.slice(5, 8)}-${formattedNumbers.slice(8, 10)}-${formattedNumbers.slice(10, 12)}`;
+    } else if (formattedNumbers.length >= 10) {
+      return `+${formattedNumbers.slice(0, 3)} (${formattedNumbers.slice(3, 5)}) ${formattedNumbers.slice(5, 8)}-${formattedNumbers.slice(8, 10)}-${formattedNumbers.slice(10)}`;
+    } else if (formattedNumbers.length >= 8) {
+      return `+${formattedNumbers.slice(0, 3)} (${formattedNumbers.slice(3, 5)}) ${formattedNumbers.slice(5, 8)}-${formattedNumbers.slice(8)}`;
+    } else if (formattedNumbers.length >= 5) {
+      return `+${formattedNumbers.slice(0, 3)} (${formattedNumbers.slice(3, 5)}) ${formattedNumbers.slice(5)}`;
+    } else if (formattedNumbers.length >= 3) {
+      return `+${formattedNumbers.slice(0, 3)} (${formattedNumbers.slice(3)}`;
+    } else if (formattedNumbers.length > 0) {
+      return `+${formattedNumbers}`;
+    }
+    return value;
+  };
+
+  // Telefon raqamini tozalash (faqat raqamlar)
+  const cleanPhoneNumber = (value: string) => {
+    return value.replace(/\D/g, '');
+  };
 
   const updateSettingsMutation = useMutation({
     mutationFn: (data: any) => apiQueries.updateSettings(data),
@@ -175,6 +216,24 @@ const Settings: React.FC = () => {
     },
   });
 
+  const updateContactMutation = useMutation({
+    mutationFn: async (data: { phone: string; telegram: string }) => {
+      // FormData yaratish
+      const formData = new FormData();
+      formData.append('phone', data.phone);
+      formData.append('telegram', data.telegram);
+      return apiQueries.updateAdminProfile(formData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminProfile'] });
+      setEditSection(null);
+      toast.success('Aloqa ma\'lumotlari muvaffaqiyatli yangilandi!');
+    },
+    onError: (err: any) => {
+      toast.error(err?.toString() || err?.message || 'Aloqa ma\'lumotlarini yangilashda xatolik yuz berdi!');
+    },
+  });
+
   // All useEffect at the top
   React.useEffect(() => {
     if (settings) {
@@ -189,8 +248,6 @@ const Settings: React.FC = () => {
         year_price: settings.year_price ? String(settings.year_price) : '',
         distance_to_university: settings.distance_to_university ? String(settings.distance_to_university) : '',
       });
-
-      setContact(settings.contact || { phone: '', telegram: '' });
     }
   }, [settings]);
 
@@ -212,6 +269,16 @@ const Settings: React.FC = () => {
       setLocalAmenities(amenitiesData);
     }
   }, [amenitiesData]);
+
+  // Contact form ni admin profil ma'lumotlari bilan to'ldirish
+  React.useEffect(() => {
+    if (adminProfile && !editSection) {
+      setContactForm({
+        phone: adminProfile.phone ? formatPhoneNumber(adminProfile.phone) : '',
+        telegram: adminProfile.telegram || ''
+      });
+    }
+  }, [adminProfile, editSection]);
 
   // Edit section o'zgarganida rules ni qayta yuklash
   React.useEffect(() => {
@@ -315,14 +382,29 @@ const Settings: React.FC = () => {
     }
   };
   // --- CONTACT STATE ---
-  const handleContactChange = (field: 'phone' | 'email' | 'address' | 'telegram', value: string) => {
-    setContact(contact => ({ ...contact, [field]: value }));
-  };
-  const handleSaveContact = () => {
-    updateSettingsMutation.mutate({ ...settings, contact });
+  // Telefon input handler
+  const handlePhoneChange = (value: string) => {
+    const formatted = formatPhoneNumber(value);
+    setContactForm(f => ({ ...f, phone: formatted }));
   };
 
+  const handleSaveContact = async () => {
+    // Validation
+    if (!contactForm.phone.trim() && !contactForm.telegram.trim()) {
+      toast.error('Kamida bitta aloqa ma\'lumotini kiriting!');
+      return;
+    }
 
+    try {
+      await updateContactMutation.mutateAsync({
+        phone: cleanPhoneNumber(contactForm.phone), // Faqat raqamlarni yuborish
+        telegram: contactForm.telegram.trim()
+      });
+    } catch (error) {
+      // Error handling is done in mutation
+      console.error('Contact update error:', error);
+    }
+  };
 
   // --- DORMITORY INFO STATE ---
   const handleDormCardChange = (field: string, value: string) => {
@@ -665,40 +747,79 @@ const Settings: React.FC = () => {
             </div>
           )}
         </SectionCard>
-        {/* Contact Section */}
+        {/* Contact Section - Admin Profile dan */}
         <SectionCard
           icon={<User className="w-6 h-6" />}
           title="Aloqa ma'lumotlari"
-          description="Yotoqxona bilan bog'lanish uchun aloqa ma'lumotlari"
+          description="Admin profil ma'lumotlaridan olingan aloqa ma'lumotlari"
           onEdit={() => setEditSection(editSection === 'contact' ? null : 'contact')}
         >
           <div className="space-y-4">
-            <EditableInput
-              label="Telefon raqami"
-              value={contact.phone}
-              onChange={v => handleContactChange('phone', v)}
-              disabled={editSection !== 'contact'}
-              placeholder="+998 90 123 45 67"
-              fullWidth
-            />
-            <EditableInput
-              label="Telegram manzili"
-              value={contact.telegram}
-              onChange={v => handleContactChange('telegram', v)}
-              disabled={editSection !== 'contact'}
-              placeholder="@yotoqxona_admin"
-              fullWidth
-            />
+            {editSection === 'contact' ? (
+              <>
+                <EditableInput
+                  label="Telefon raqami"
+                  value={contactForm.phone}
+                  onChange={handlePhoneChange}
+                  disabled={false}
+                  placeholder="+998 (90) 123-45-67"
+                  fullWidth
+                />
+                <EditableInput
+                  label="Telegram"
+                  value={contactForm.telegram}
+                  onChange={v => setContactForm(f => ({ ...f, telegram: v }))}
+                  disabled={false}
+                  placeholder="@username"
+                  fullWidth
+                />
+                <div className="flex gap-2 mt-4">
+                  <button
+                    className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition disabled:opacity-50"
+                    onClick={handleSaveContact}
+                    disabled={updateContactMutation.status === 'pending'}
+                  >
+                    {updateContactMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
+                  </button>
+                  <button
+                    className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+                    onClick={() => {
+                      setEditSection(null);
+                      // Original ma'lumotlarni qaytarish
+                      setContactForm({
+                        phone: adminProfile?.phone ? formatPhoneNumber(adminProfile.phone) : '',
+                        telegram: adminProfile?.telegram || ''
+                      });
+                    }}
+                    disabled={updateContactMutation.status === 'pending'}
+                  >
+                    Bekor qilish
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                  <Phone className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <div>
+                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Telefon raqami</div>
+                    <div className="text-gray-900 dark:text-white font-semibold">
+                      {adminProfile?.phone ? formatPhoneNumber(adminProfile.phone) : 'Kiritilmagan'}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg">
+                  <Send className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <div>
+                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Telegram</div>
+                    <div className="text-gray-900 dark:text-white font-semibold">
+                      {adminProfile?.telegram || 'Kiritilmagan'}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
-          {editSection === 'contact' && (
-            <button
-              className="mt-4 px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition"
-              onClick={handleSaveContact}
-              disabled={updateSettingsMutation.status === 'pending'}
-            >
-              {updateSettingsMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
-            </button>
-          )}
         </SectionCard>
       </div>
       {/* Images */}

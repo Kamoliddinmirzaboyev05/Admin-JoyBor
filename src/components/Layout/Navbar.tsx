@@ -23,6 +23,13 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
     staleTime: 1000 * 60 * 5,
   });
 
+  // API dan admin profil ma'lumotlarini olish
+  const { data: adminProfile } = useQuery({
+    queryKey: ['adminProfile'],
+    queryFn: apiQueries.getAdminProfile,
+    staleTime: 1000 * 60 * 5,
+  });
+
   // API dan bildirishnomalarni olish
   const { data: apiNotifications = [] } = useQuery({
     queryKey: ['notifications'],
@@ -49,8 +56,8 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
               animate={{ opacity: 1, scale: 1 }}
               className="flex items-center space-x-2"
             >
-              <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
-                <img src="/logoicon.svg" alt="logo" className='w-full h-full object-cover' />
+              <div className="w-8 h-8 flex items-center justify-center">
+                <img src="/logoicon.svg" alt="logo" className='w-full h-full object-contain' />
               </div>
               <div className="hidden sm:block">
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">JoyBor</h1>
@@ -168,11 +175,57 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                 onClick={() => setShowProfile(!showProfile)}
                 className="flex items-center space-x-2 p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
-                <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4 text-white" />
+                <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-full flex items-center justify-center overflow-hidden">
+                  {adminProfile?.image ? (
+                    <img 
+                      src={adminProfile.image} 
+                      alt="Admin" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-white font-semibold text-sm">
+                      {(() => {
+                        // Avval first_name va last_name dan harflarni olishga harakat qilish
+                        if (adminProfile?.first_name && adminProfile?.last_name) {
+                          return adminProfile.first_name[0]?.toUpperCase() + adminProfile.last_name[0]?.toUpperCase();
+                        }
+                        // Agar faqat first_name bo'lsa
+                        if (adminProfile?.first_name) {
+                          return adminProfile.first_name[0]?.toUpperCase();
+                        }
+                        // Bio dan ism familiya bosh harflarini olish
+                        if (adminProfile?.bio) {
+                          const names = adminProfile.bio.trim().split(' ');
+                          if (names.length >= 2) {
+                            return names[0][0]?.toUpperCase() + names[1][0]?.toUpperCase();
+                          }
+                          return names[0][0]?.toUpperCase() || 'A';
+                        }
+                        // Agar bio yo'q bo'lsa, username dan
+                        return adminProfile?.username?.[0]?.toUpperCase() || 'A';
+                      })()}
+                    </span>
+                  )}
                 </div>
                 <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">Admin</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {(() => {
+                      // Avval first_name va last_name ni birlashtirish
+                      if (adminProfile?.first_name && adminProfile?.last_name) {
+                        return `${adminProfile.first_name} ${adminProfile.last_name}`;
+                      }
+                      // Agar faqat first_name bo'lsa
+                      if (adminProfile?.first_name) {
+                        return adminProfile.first_name;
+                      }
+                      // Bio dan to'liq ismni olish
+                      if (adminProfile?.bio) {
+                        return adminProfile.bio;
+                      }
+                      // Oxirgi variant - username
+                      return adminProfile?.username || 'Admin';
+                    })()}
+                  </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {settings?.name || 'Yotoqxona'}
                   </p>

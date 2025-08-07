@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, User, KeyRound, Mail, Phone, UserCog, ShieldCheck, CalendarCheck2, CheckCircle2, Activity } from 'lucide-react';
+import { LogOut, User, KeyRound, Mail, Phone, UserCog, ShieldCheck, CalendarCheck2, CheckCircle2, Activity, AtSign, MapPin, MessageCircle } from 'lucide-react';
 import BackButton from '../components/UI/BackButton';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
 import { useRef } from 'react';
 import { link } from '../data/config';
@@ -31,6 +31,7 @@ function ProfileField({ icon, label, value, actionLabel, onAction }: { icon: Rea
 }
 
 const Profile: React.FC = () => {
+  const queryClient = useQueryClient();
   const { data: admin, isLoading, error } = useQuery({
     queryKey: ['adminProfile'],
     queryFn: apiQueries.getAdminProfile,
@@ -47,6 +48,7 @@ const Profile: React.FC = () => {
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState('main');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Set login state when admin is loaded
@@ -57,6 +59,8 @@ const Profile: React.FC = () => {
   // Edit form state
   const [editForm, setEditForm] = useState({
     username: '',
+    first_name: '',
+    last_name: '',
     password: '',
     image: null as File | null,
     bio: '',
@@ -69,6 +73,8 @@ const Profile: React.FC = () => {
     if (admin) {
       setEditForm({
         username: admin.username || '',
+        first_name: admin.first_name || '',
+        last_name: admin.last_name || '',
         password: '',
         image: null,
         bio: admin.bio || '',
@@ -94,21 +100,22 @@ const Profile: React.FC = () => {
     Object.entries(editForm).forEach(([key, value]) => {
       if (key === 'image' && !value) return;
       if (key === 'password') return; // Parolni faqat alohida modal orqali o'zgartiramiz
+      if (key === 'username') return; // Username ni o'zgartirishga ruxsat bermaymiz
       if (value) formData.append(key, value as any);
     });
+    setIsUpdating(true);
+    
     try {
-      const token = sessionStorage.getItem('access');
-      const res = await fetch(`${link}/profile/`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      if (!res.ok) throw await res.json();
+      await apiQueries.updateAdminProfile(formData);
+
       setShowEditModal(false);
       toast.success('Profil muvaffaqiyatli yangilandi!');
-      setTimeout(() => window.location.reload(), 1200); // toast ko‘rinib ulgurishi uchun
+      // Query ni invalidate qilib, yangi ma'lumotlarni olish
+      queryClient.invalidateQueries({ queryKey: ['adminProfile'] }); // toast ko‘rinib ulgurishi uchun
     } catch (err: any) {
-      toast.error('Xatolik: ' + (err?.detail || 'Profilni yangilashda xatolik'));
+      toast.error('Xatolik: ' + (err?.detail || err?.message || 'Profilni yangilashda xatolik'));
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -150,39 +157,73 @@ const Profile: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 40 }}
         transition={{ duration: 0.4, ease: 'easeInOut' }}
-        className="w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] overflow-hidden flex flex-col"
+        className="w-full max-w-4xl rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] overflow-hidden flex flex-col"
       >
         {/* Header */}
         <div className="relative flex flex-col items-center justify-center pt-10 pb-6 px-8 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-[#1E293B] dark:to-gray-900">
           <div className="absolute top-4 left-4 z-10">
             <BackButton />
           </div>
-          <div className="w-32 h-32 rounded-full bg-white dark:bg-gray-700 flex items-center justify-center shadow border-4 border-white dark:border-[#1E293B] mb-3 p-4">
-            {admin.image ? (
-              <img src={admin.image} alt={admin.username} className="w-full h-full object-cover rounded-full" />
-            ) : (
-              <img src="/logoicon.svg" alt="Profile Logo" className="w-full h-full object-contain" />
-            )}
+          <div className="relative w-32 h-32 mb-4">
+            <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-2xl border-4 border-white dark:border-gray-800 overflow-hidden">
+              {admin.image ? (
+                <img src={admin.image} alt="Admin Profile" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-white font-bold text-4xl">
+                  {(() => {
+                    // Ism va familiya bosh harflarini olish
+                    if (admin.first_name && admin.last_name) {
+                      return admin.first_name[0]?.toUpperCase() + admin.last_name[0]?.toUpperCase();
+                    }
+                    if (admin.first_name) {
+                      return admin.first_name[0]?.toUpperCase();
+                    }
+                    if (admin.bio) {
+                      const names = admin.bio.trim().split(' ');
+                      if (names.length >= 2) {
+                        return names[0][0]?.toUpperCase() + names[1][0]?.toUpperCase();
+                      }
+                      return names[0][0]?.toUpperCase() || 'A';
+                    }
+                    return admin.username?.[0]?.toUpperCase() || 'A';
+                  })()}
+                </span>
+              )}
+            </div>
+            {/* Online indicator */}
+            <div className="absolute bottom-2 right-2 w-6 h-6 bg-green-500 rounded-full border-3 border-white dark:border-gray-800 shadow-lg flex items-center justify-center">
+              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+            </div>
           </div>
-          <h2 className="text-xl sm:text-3xl font-bold text-[#1E293B] dark:text-white mb-1 flex items-center gap-2">
-            {admin.username || '-'}
+          <h2 className="text-xl sm:text-3xl font-bold text-[#1E293B] dark:text-white mb-1 text-center">
+            {(() => {
+              // Ism va familiyani ko'rsatish
+              if (admin.first_name && admin.last_name) {
+                return `${admin.first_name} ${admin.last_name}`;
+              }
+              if (admin.first_name) {
+                return admin.first_name;
+              }
+              if (admin.bio) {
+                return admin.bio;
+              }
+              return admin.username || 'Admin';
+            })()}
           </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">@{admin.username}</p>
           <p className="text-sm sm:text-base text-gray-500 dark:text-gray-300 mb-2">{admin.bio || 'Bio kiritilmagan'}</p>
-          <div className="flex flex-wrap gap-2 justify-center mb-2">
-            <span className="px-2 py-1 rounded-full bg-[#1E293B] text-white text-xs font-semibold flex items-center gap-1">
-              <ShieldCheck className="w-4 h-4" /> Admin
-            </span>
-          </div>
+
         </div>
         {/* Main content */}
         <div className="px-2 sm:px-6 py-6 sm:py-8 flex flex-col gap-6">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-4 sm:p-6 flex flex-col gap-6 border border-gray-200 dark:border-gray-700 w-full max-w-xl mx-auto">
-            <div className="flex flex-col gap-3 sm:gap-4">
-              <ProfileField icon={<UserCog className="w-5 h-5" />} label="Login" value={username} />
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-4 sm:p-6 flex flex-col gap-6 border border-gray-200 dark:border-gray-700 w-full max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <ProfileField icon={<User className="w-5 h-5" />} label="Ism" value={admin.first_name} />
+              <ProfileField icon={<User className="w-5 h-5" />} label="Familiya" value={admin.last_name} />
               <ProfileField icon={<Phone className="w-5 h-5" />} label="Telefon" value={admin.phone} />
               <ProfileField icon={<CalendarCheck2 className="w-5 h-5" />} label="Tug‘ilgan sana" value={admin.birth_date} />
-              <ProfileField icon={<Mail className="w-5 h-5" />} label="Telegram" value={admin.telegram} />
-              <ProfileField icon={<Mail className="w-5 h-5" />} label="Manzil" value={admin.address} />
+              <ProfileField icon={<MessageCircle className="w-5 h-5" />} label="Telegram" value={admin.telegram} />
+              <ProfileField icon={<MapPin className="w-5 h-5" />} label="Manzil" value={admin.address} />
             </div>
             <button
               className="mt-4 sm:mt-6 px-4 sm:px-6 py-2 sm:py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow text-sm sm:text-base"
@@ -268,7 +309,7 @@ const Profile: React.FC = () => {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 40 }}
               transition={{ duration: 0.2 }}
-              className="bg-white dark:bg-[#1E293B] rounded-2xl shadow-2xl w-full max-w-xl p-0 overflow-hidden relative max-h-[90vh] flex flex-col"
+              className="bg-white dark:bg-[#1E293B] rounded-2xl shadow-2xl w-full max-w-4xl p-0 overflow-hidden relative max-h-[90vh] flex flex-col"
               onClick={e => e.stopPropagation()}
             >
               {/* Modal Header */}
@@ -280,7 +321,7 @@ const Profile: React.FC = () => {
                   </button>
                 </div>
               </div>
-              <form onSubmit={handleEditSubmit} className="flex-1 overflow-y-auto px-2 sm:px-8 py-6 sm:py-8 pb-32 space-y-6 sm:space-y-8">
+              <form id="editProfileForm" onSubmit={handleEditSubmit} className="flex-1 overflow-y-auto px-2 sm:px-8 py-6 sm:py-8 pb-6 space-y-6 sm:space-y-8">
                 {/* Profile Image Upload */}
                 <div className="flex flex-col items-center gap-3 mb-4">
                   <label className="block text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200 mb-2">Profil rasmi</label>
@@ -328,8 +369,20 @@ const Profile: React.FC = () => {
                   <div className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Shaxsiy ma'lumotlar</div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Login</label>
-                      <input name="username" value={editForm.username} onChange={handleEditChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Login" minLength={1} />
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ism</label>
+                      <input name="first_name" value={editForm.first_name} onChange={handleEditChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Ism" />
+                    </div>
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Familiya</label>
+                      <input name="last_name" value={editForm.last_name} onChange={handleEditChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Familiya" />
+                    </div>
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Telegram</label>
+                      <input name="telegram" value={editForm.telegram} onChange={handleEditChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Telegram" maxLength={64} />
+                    </div>
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Manzil</label>
+                      <input name="address" value={editForm.address} onChange={handleEditChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Manzil" maxLength={255} />
                     </div>
                     {/* Parolni o'zgartirish faqat alohida modal orqali */}
                     <div className="md:col-span-2">
@@ -355,18 +408,35 @@ const Profile: React.FC = () => {
                       <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Manzil</label>
                       <input name="address" value={editForm.address} onChange={handleEditChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Manzil" maxLength={255} />
                     </div>
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Telegram</label>
-                      <input name="telegram" value={editForm.telegram} onChange={handleEditChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Telegram" maxLength={64} />
-                    </div>
                   </div>
                 </div>
-                {/* Sticky Action Bar */}
-                <div className="fixed left-0 right-0 bottom-0 bg-white dark:bg-[#1E293B] border-t border-gray-100 dark:border-gray-800 flex justify-end pt-4 gap-2 px-2 sm:px-8 pb-6 z-20 max-w-xl mx-auto w-full" style={{borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem'}}>
-                  <button type="button" onClick={() => setShowEditModal(false)} className="px-3 sm:px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-sm sm:text-base">Bekor qilish</button>
-                  <button type="submit" className="px-3 sm:px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors text-sm sm:text-base">Saqlash</button>
-                </div>
               </form>
+              
+              {/* Action Bar - Modal pastida */}
+              <div className="border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#1E293B] px-6 py-4 flex justify-end gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setShowEditModal(false)} 
+                  disabled={isUpdating}
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Bekor qilish
+                </button>
+                <button 
+                  type="submit" 
+                  form="editProfileForm"
+                  disabled={isUpdating}
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-semibold transition-colors flex items-center gap-2"
+                >
+                  {isUpdating && (
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                    </svg>
+                  )}
+                  {isUpdating ? 'Saqlanmoqda...' : 'Saqlash'}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

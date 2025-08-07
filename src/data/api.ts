@@ -119,6 +119,39 @@ export const apiQueries = {
   getDashboard: () => get('/dashboard/'),
   // Admin Profile (updated to use absolute URL)
   getAdminProfile: () => get('https://joyboryangi.pythonanywhere.com/profile/'),
+  updateAdminProfile: (data: {
+    username?: string;
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    bio?: string;
+    phone?: string;
+    birth_date?: string;
+    address?: string;
+    telegram?: string;
+    password?: string;
+  } | FormData) => {
+    // Handle FormData differently from regular objects
+    if (data instanceof FormData) {
+      const token = sessionStorage.getItem('access');
+      return fetch(`https://joyboryangi.pythonanywhere.com/profile/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: data,
+      }).then(async (res) => {
+        const responseData = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const error = new Error(responseData?.detail || responseData?.message || 'API xatolik');
+          (error as any).response = { data: responseData, status: res.status, statusText: res.statusText };
+          throw error;
+        }
+        return responseData;
+      });
+    }
+    return patch('https://joyboryangi.pythonanywhere.com/profile/', data);
+  },
   
   // Rules
   getRules: () => get('/rules/'),
