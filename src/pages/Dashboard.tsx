@@ -22,6 +22,25 @@ const Dashboard: React.FC = () => {
   const [todoLoading, setTodoLoading] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Dark mode holatini kuzatish
+  useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
+    };
+    
+    checkDarkMode();
+    
+    // MutationObserver bilan dark mode o'zgarishlarini kuzatish
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
 
   // React Query bilan dashboard ma'lumotlarini olish
   const { 
@@ -193,6 +212,27 @@ const Dashboard: React.FC = () => {
     return `${uzMonths[m - 1]} ${year}`;
   }
 
+  // Chart tema ranglari
+  const chartTheme = {
+    tooltip: {
+      backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
+      border: isDarkMode ? '1px solid #4b5563' : '1px solid #e5e7eb',
+      color: isDarkMode ? '#f9fafb' : '#374151',
+      boxShadow: isDarkMode 
+        ? '0 10px 25px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(75, 85, 99, 0.1)' 
+        : '0 10px 25px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(229, 231, 235, 0.1)'
+    },
+    axis: {
+      stroke: isDarkMode ? '#9ca3af' : '#6b7280'
+    },
+    grid: {
+      stroke: isDarkMode ? '#4b5563' : '#e5e7eb'
+    },
+    text: {
+      fill: isDarkMode ? '#d1d5db' : '#374151'
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Page Header */}
@@ -300,26 +340,44 @@ const Dashboard: React.FC = () => {
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={monthlyRevenue}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" strokeOpacity={0.3} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid.stroke} strokeOpacity={0.3} />
                 <XAxis 
                   dataKey="month" 
-                  stroke="#6b7280"
+                  stroke={chartTheme.axis.stroke}
                   fontSize={12}
                   tickFormatter={formatMonth}
+                  tick={{ fill: chartTheme.text.fill }}
                 />
                 <YAxis 
-                  stroke="#6b7280"
+                  stroke={chartTheme.axis.stroke}
                   fontSize={12}
                   tickFormatter={value => `${(value / 1000000).toFixed(0)}M`}
+                  tick={{ fill: chartTheme.text.fill }}
                 />
                 <Tooltip 
                   formatter={(value: number) => [`${(value as number).toLocaleString('uz-UZ').replace(/,/g, ' ')} so'm`, 'Daromad']}
                   labelFormatter={formatMonth}
-                  labelStyle={{ color: '#374151' }}
+                  labelStyle={{ 
+                    color: chartTheme.tooltip.color,
+                    fontWeight: '600',
+                    marginBottom: '6px',
+                    fontSize: '13px'
+                  }}
                   contentStyle={{ 
-                    backgroundColor: '#f9fafb',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px'
+                    backgroundColor: chartTheme.tooltip.backgroundColor,
+                    border: chartTheme.tooltip.border,
+                    borderRadius: '12px',
+                    color: chartTheme.tooltip.color,
+                    boxShadow: chartTheme.tooltip.boxShadow,
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    padding: '12px 16px',
+                    minWidth: '160px'
+                  }}
+                  itemStyle={{
+                    color: chartTheme.tooltip.color,
+                    fontSize: '14px',
+                    fontWeight: '500'
                   }}
                 />
                 <Bar 
@@ -366,35 +424,54 @@ const Dashboard: React.FC = () => {
                   outerRadius={120}
                   paddingAngle={5}
                   dataKey="value"
-                  label={({ name, value }) => `${name}: ${value}`}
                 >
                   <Cell key="empty" fill="#3b82f6" />
                   <Cell key="male" fill="#10b981" />
-                  <Cell key="female" fill="#f472b6" />
+                  <Cell key="female" fill="#ec4899" />
                 </Pie>
                 <Tooltip 
-                  formatter={(value: number, name: string) => [`${value}`, name]}
+                  formatter={(value: number, name: string) => [
+                    `${value} ta xona`, 
+                    name
+                  ]}
                   contentStyle={{ 
-                    backgroundColor: '#f9fafb',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px'
+                    backgroundColor: chartTheme.tooltip.backgroundColor,
+                    border: chartTheme.tooltip.border,
+                    borderRadius: '12px',
+                    color: chartTheme.tooltip.color,
+                    boxShadow: chartTheme.tooltip.boxShadow,
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    padding: '12px 16px',
+                    minWidth: '120px'
+                  }}
+                  labelStyle={{ 
+                    color: chartTheme.tooltip.color,
+                    fontWeight: '600',
+                    marginBottom: '4px',
+                    fontSize: '13px'
+                  }}
+                  itemStyle={{
+                    color: chartTheme.tooltip.color,
+                    fontSize: '14px',
+                    fontWeight: '500'
                   }}
                 />
               </PieChart>
             </ResponsiveContainer>
           )}
-          <div className="flex flex-wrap justify-center gap-4 mt-4">
-            <div className="flex items-center space-x-2">
-              <span className="inline-block w-4 h-4 rounded-full" style={{ background: '#3b82f6' }}></span>
-              <span className="text-sm">Jami bo'sh</span>
+          <div className="flex flex-wrap justify-center gap-6 mt-6">
+            <div className="flex items-center space-x-3 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
+              <span className="inline-block w-3 h-3 rounded-full bg-blue-500"></span>
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Jami bo'sh ({rooms.total_available})</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <span className="inline-block w-4 h-4 rounded-full" style={{ background: '#10b981' }}></span>
-              <span className="text-sm">Yigitlar uchun</span>
+            <div className="flex items-center space-x-3 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg">
+              <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span>
+              <span className="text-sm font-medium text-green-700 dark:text-green-300">Yigitlar ({rooms.male_rooms})</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <span className="inline-block w-4 h-4 rounded-full" style={{ background: '#f472b6' }}></span>
-              <span className="text-sm">Qizlar uchun</span>
+            <div className="flex items-center space-x-3 bg-pink-50 dark:bg-pink-900/20 px-3 py-2 rounded-lg">
+              <span className="inline-block w-3 h-3 rounded-full bg-pink-500"></span>
+              <span className="text-sm font-medium text-pink-700 dark:text-pink-300">Qizlar ({rooms.female_rooms})</span>
             </div>
           </div>
         </motion.div>

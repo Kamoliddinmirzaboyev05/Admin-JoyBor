@@ -614,8 +614,8 @@ const StudentProfile: React.FC = () => {
               <EditableInput label="Pasport" value={(form as Record<string, any>).passport || ''} onChange={v => handleChange('passport', v)} />
               <EditableInput label="Tarif" value={(form as Record<string, any>).tarif || ''} onChange={v => handleChange('tarif', v)} />
               <EditableInput label="Imtiyoz" value={(form as Record<string, any>).imtiyoz || ''} onChange={v => handleChange('imtiyoz', v)} />
-              <EditableInput label="Qabul qilingan sana" value={(form as Record<string, any>).accepted_date || ''} onChange={v => handleChange('accepted_date', v)} type="date" />
-              <EditableInput label="Jami to'lov" value={(form as Record<string, any>).total_payment || ''} onChange={v => handleChange('total_payment', v)} type="number" />
+              <ReadOnlyInput label="Qabul qilingan sana" value={(form as Record<string, any>).accepted_date} type="date" />
+              <ReadOnlyInput label="Jami to'lov" value={(form as Record<string, any>).total_payment} type="currency" />
             </>
           ) : (
             <>

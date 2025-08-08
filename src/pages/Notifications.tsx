@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
-import { Bell, Clock, CheckCircle, AlertCircle, Info, Filter, Search } from 'lucide-react';
+import { Bell, Clock, CheckCircle, AlertCircle, Info, Filter, Search, Eye } from 'lucide-react';
 import BackButton from '../components/UI/BackButton';
 import { useSEO } from '../hooks/useSEO';
+import { toast } from 'sonner';
 
 interface Notification {
   id: number;
@@ -21,12 +22,29 @@ const Notifications: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'unread' | 'read'>('all');
+  const queryClient = useQueryClient();
 
   const { data: notifications = [], isLoading, error } = useQuery<Notification[]>({
     queryKey: ['notifications'],
     queryFn: apiQueries.getNotifications,
     staleTime: 1000 * 60 * 2, // 2 daqiqa cache
   });
+
+  // Bildirishnomani o'qilgan qilish mutation
+  const markAsReadMutation = useMutation({
+    mutationFn: (id: number) => apiQueries.markNotificationAsRead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      toast.success('Bildirishnoma o\'qilgan deb belgilandi!');
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Bildirishnomani o\'qilgan qilishda xatolik yuz berdi!');
+    },
+  });
+
+  const handleMarkAsRead = (id: number) => {
+    markAsReadMutation.mutate(id);
+  };
 
   // Filtrlash va qidiruv
   const filteredNotifications = notifications.filter(notification => {
@@ -152,6 +170,25 @@ const Notifications: React.FC = () => {
                 </p>
               </div>
             </div>
+
+            {/* Mark all as read button */}
+            {notifications.filter(n => !n.read).length > 0 && (
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => {
+                    const unreadNotifications = notifications.filter(n => !n.read);
+                    unreadNotifications.forEach(notification => {
+                      handleMarkAsRead(notification.id);
+                    });
+                  }}
+                  disabled={markAsReadMutation.status === 'pending'}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {markAsReadMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Barchasini o\'qilgan qilish'}
+                </button>
+              </div>
+            )}
           </div>
         </motion.div>
 
@@ -268,11 +305,25 @@ const Notifications: React.FC = () => {
                           </span>
                         </div>
 
-                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${notification.read
-                          ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                          : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                          }`}>
-                          {notification.read ? 'O\'qilgan' : 'Yangi'}
+                        <div className="flex items-center gap-2">
+                          {!notification.read && (
+                            <button
+                              onClick={() => handleMarkAsRead(notification.id)}
+                              disabled={markAsReadMutation.status === 'pending'}
+                              className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-full transition-colors disabled:opacity-50"
+                              title="O'qilgan qilish"
+                            >
+                              <Eye className="w-3 h-3" />
+                              {markAsReadMutation.status === 'pending' ? 'Saqlanmoqda...' : 'O\'qilgan qilish'}
+                            </button>
+                          )}
+                          
+                          <div className={`px-2 py-1 rounded-full text-xs font-medium ${notification.read
+                            ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                            : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                            }`}>
+                            {notification.read ? 'O\'qilgan' : 'Yangi'}
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -15,9 +15,18 @@ interface Application {
   id: string | number;
   fullName?: string;
   full_name?: string;
+  name?: string;
+  fio?: string;
   phone: string;
   date: string;
+  created_at?: string;
   status: keyof typeof statusColors;
+  city?: string;
+  village?: string;
+  university?: string;
+  direction?: string;
+  admin_comment?: string;
+  comment?: string;
 }
 
 interface FormData {
@@ -159,7 +168,13 @@ const Applications: React.FC = () => {
   // Filter API data with proper type safety
   const filteredApps = applications.filter((app) => {
     const searchLower = search.toLowerCase();
-    const nameMatch = (app.fullName || app.full_name || '').toLowerCase().includes(searchLower);
+    const nameMatch = (
+      (app.fullName || '').toLowerCase().includes(searchLower) ||
+      (app.full_name || '').toLowerCase().includes(searchLower) ||
+      (app.name || '').toLowerCase().includes(searchLower) ||
+      (app.fio || '').toLowerCase().includes(searchLower) ||
+      (app.phone || '').toString().includes(searchLower)
+    );
     const statusMatch = statusFilter ? app.status === statusFilter : true;
     return nameMatch && statusMatch;
   });
@@ -232,36 +247,181 @@ const Applications: React.FC = () => {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-6">
         {filteredApps.length === 0 ? (
-          <div className="text-center text-gray-400 py-10">Arizalar topilmadi</div>
+          <div className="text-center text-gray-400 py-16">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
+              <Filter className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Arizalar topilmadi</h3>
+            <p className="text-gray-500 dark:text-gray-400">Qidiruv shartlaringizga mos ariza mavjud emas</p>
+          </div>
         ) : (
           filteredApps.map((app: Application) => (
-            <div
+            <motion.div
               key={app.id}
-              className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 border border-gray-100 dark:border-slate-700 hover:shadow-lg transition"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-slate-700 hover:shadow-xl transition-all duration-300"
             >
-              <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                <div className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
-                  {app.fullName || app.full_name || 'Noma\'lum'}
+              <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+                {/* Talaba ma'lumotlari */}
+                <div className="flex-1">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                      {/* Avatar */}
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                        📋
+                      </div>
+                      
+                      {/* Status */}
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                          Ariza #{app.id}
+                        </h3>
+                        <div 
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                            statusColors[app.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                          }`}
+                        >
+                          <div className={`w-2 h-2 rounded-full mr-2 ${
+                            app.status === 'Qabul qilindi' ? 'bg-green-500' :
+                            app.status === 'Rad etilgan' ? 'bg-red-500' :
+                            app.status === 'Ko\'rib chiqilmoqda' ? 'bg-yellow-500' :
+                            'bg-blue-500'
+                          }`}></div>
+                          {app.status}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ma'lumotlar grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Ism */}
+                    {(app.name || app.fio) && (
+                      <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                          <span className="text-blue-600 dark:text-blue-400 text-sm">👤</span>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">F.I.O</p>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {app.fio || app.name || 'Kiritilmagan'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
+                      <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                        <span className="text-green-600 dark:text-green-400 text-sm">📱</span>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Telefon</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {app.phone || 'Kiritilmagan'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
+                      <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
+                        <span className="text-orange-600 dark:text-orange-400 text-sm">📅</span>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Ariza sanasi</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {(app.created_at || app.date) ? new Date(app.created_at || app.date).toLocaleDateString('uz-UZ') : 'Kiritilmagan'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
+                      <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                        <span className="text-purple-600 dark:text-purple-400 text-sm">🆔</span>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Ariza ID</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                          #{app.id}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Shahar */}
+                    {app.city && (
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
+                        <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center">
+                          <span className="text-indigo-600 dark:text-indigo-400 text-sm">🏙️</span>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Shahar</p>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {app.city}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Universitet */}
+                    {app.university && (
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
+                        <div className="w-8 h-8 bg-teal-100 dark:bg-teal-900/30 rounded-lg flex items-center justify-center">
+                          <span className="text-teal-600 dark:text-teal-400 text-sm">🎓</span>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Universitet</p>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {app.university}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Admin izohi */}
+                    {app.admin_comment && (
+                      <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg sm:col-span-2">
+                        <div className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                          <span className="text-red-600 dark:text-red-400 text-sm">💬</span>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Admin izohi</p>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {app.admin_comment}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="text-gray-500 dark:text-gray-300 text-sm sm:text-base">{app.phone || 'Telefon raqami kiritilmagan'}</div>
-                <div className="text-gray-400 text-xs sm:text-sm">{app.date || 'Sana kiritilmagan'}</div>
-                <div 
-                  className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
-                    statusColors[app.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  {app.status}
+
+                {/* Action button */}
+                <div className="flex flex-col gap-3">
+                  <Link
+                    to={`/application/${app.id}`}
+                    className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                  >
+                    <span>Batafsil</span>
+                    <ChevronRight className="w-5 h-5" />
+                  </Link>
+                  
+                  {/* Quick actions */}
+                  <div className="flex gap-2">
+                    {app.status === 'Yangi' && (
+                      <>
+                        <button className="flex-1 px-3 py-2 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition">
+                          Qabul
+                        </button>
+                        <button className="flex-1 px-3 py-2 text-xs font-medium text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition">
+                          Rad
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-              <Link
-                to={`/application/${app.id}`}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition text-sm sm:text-base"
-              >
-                Batafsil <ChevronRight className="w-4 h-4" />
-              </Link>
-            </div>
+            </motion.div>
           ))
         )}
       </div>

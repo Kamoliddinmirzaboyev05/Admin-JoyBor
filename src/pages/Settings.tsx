@@ -59,7 +59,7 @@ function SectionCard({ icon, title, description, children, onEdit }: { icon: Rea
   );
 }
 
-function EditableInput({ label, value, onChange, disabled, placeholder, helper, fullWidth, style }: { label: string; value: string; onChange: (v: string) => void; disabled: boolean; placeholder?: string; helper?: string; fullWidth?: boolean; style?: React.CSSProperties }) {
+function EditableInput({ label, value, onChange, disabled, placeholder, helper, fullWidth, style, maxLength }: { label: string; value: string; onChange: (v: string) => void; disabled: boolean; placeholder?: string; helper?: string; fullWidth?: boolean; style?: React.CSSProperties; maxLength?: number }) {
   return (
     <div className={`flex flex-col gap-1 ${fullWidth ? 'w-full' : ''}`}>
       <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">{label}</label>
@@ -70,6 +70,7 @@ function EditableInput({ label, value, onChange, disabled, placeholder, helper, 
         disabled={disabled}
         placeholder={placeholder}
         style={style}
+        maxLength={maxLength}
       />
       {helper && <span className="text-xs text-gray-400 mt-1">{helper}</span>}
     </div>
@@ -115,13 +116,15 @@ const Settings: React.FC = () => {
   const [dormLoading, setDormLoading] = useState(false);
   const [editDormCard, setEditDormCard] = useState(false);
   const [editPricesCard, setEditPricesCard] = useState(false);
+  const [editDescription, setEditDescription] = useState(false);
 
   const [dormCardForm, setDormCardForm] = useState({
-    name: '', address: '', description: '', distance_to_university: '',
+    name: '', address: '', distance_to_university: '',
   });
   const [pricesCardForm, setPricesCardForm] = useState({
-    month_price: '', year_price: '', distance_to_university: '',
+    month_price: '', year_price: '',
   });
+  const [descriptionForm, setDescriptionForm] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [localAmenities, setLocalAmenities] = useState<any[]>([]);
 
@@ -129,30 +132,34 @@ const Settings: React.FC = () => {
   const formatPhoneNumber = (value: string) => {
     // Faqat raqamlarni qoldirish
     const numbers = value.replace(/\D/g, '');
-    
+
+    // Agar bo'sh bo'lsa, bo'sh qaytarish
+    if (numbers.length === 0) {
+      return '';
+    }
+
     // Agar 998 bilan boshlanmasa, qo'shish
     let formattedNumbers = numbers;
-    if (numbers.length > 0 && !numbers.startsWith('998')) {
+    if (!numbers.startsWith('998')) {
       if (numbers.startsWith('9')) {
         formattedNumbers = '998' + numbers;
       }
     }
-    
-    // Formatlash: +998 (XX) XXX-XX-XX
+
+    // Formatlash: +998 (XX) XXX XX XX
     if (formattedNumbers.length >= 12) {
-      return `+${formattedNumbers.slice(0, 3)} (${formattedNumbers.slice(3, 5)}) ${formattedNumbers.slice(5, 8)}-${formattedNumbers.slice(8, 10)}-${formattedNumbers.slice(10, 12)}`;
+      return `+${formattedNumbers.slice(0, 3)} (${formattedNumbers.slice(3, 5)}) ${formattedNumbers.slice(5, 8)} ${formattedNumbers.slice(8, 10)} ${formattedNumbers.slice(10, 12)}`;
     } else if (formattedNumbers.length >= 10) {
-      return `+${formattedNumbers.slice(0, 3)} (${formattedNumbers.slice(3, 5)}) ${formattedNumbers.slice(5, 8)}-${formattedNumbers.slice(8, 10)}-${formattedNumbers.slice(10)}`;
+      return `+${formattedNumbers.slice(0, 3)} (${formattedNumbers.slice(3, 5)}) ${formattedNumbers.slice(5, 8)} ${formattedNumbers.slice(8, 10)} ${formattedNumbers.slice(10)}`;
     } else if (formattedNumbers.length >= 8) {
-      return `+${formattedNumbers.slice(0, 3)} (${formattedNumbers.slice(3, 5)}) ${formattedNumbers.slice(5, 8)}-${formattedNumbers.slice(8)}`;
+      return `+${formattedNumbers.slice(0, 3)} (${formattedNumbers.slice(3, 5)}) ${formattedNumbers.slice(5, 8)} ${formattedNumbers.slice(8)}`;
     } else if (formattedNumbers.length >= 5) {
       return `+${formattedNumbers.slice(0, 3)} (${formattedNumbers.slice(3, 5)}) ${formattedNumbers.slice(5)}`;
     } else if (formattedNumbers.length >= 3) {
       return `+${formattedNumbers.slice(0, 3)} (${formattedNumbers.slice(3)}`;
-    } else if (formattedNumbers.length > 0) {
+    } else {
       return `+${formattedNumbers}`;
     }
-    return value;
   };
 
   // Telefon raqamini tozalash (faqat raqamlar)
@@ -240,14 +247,13 @@ const Settings: React.FC = () => {
       setDormCardForm({
         name: settings.name || '',
         address: settings.address || '',
-        description: settings.description || '',
         distance_to_university: settings.distance_to_university ? String(settings.distance_to_university) : '',
       });
       setPricesCardForm({
         month_price: settings.month_price ? String(settings.month_price) : '',
         year_price: settings.year_price ? String(settings.year_price) : '',
-        distance_to_university: settings.distance_to_university ? String(settings.distance_to_university) : '',
       });
+      setDescriptionForm(settings.description || '');
     }
   }, [settings]);
 
@@ -384,22 +390,37 @@ const Settings: React.FC = () => {
   // --- CONTACT STATE ---
   // Telefon input handler
   const handlePhoneChange = (value: string) => {
-    const formatted = formatPhoneNumber(value);
-    setContactForm(f => ({ ...f, phone: formatted }));
+    // Foydalanuvchi yozgan matnni to'g'ridan-to'g'ri saqlash
+    // Formatlash faqat saqlashda amalga oshiriladi
+    setContactForm(f => ({ ...f, phone: value }));
   };
 
   const handleSaveContact = async () => {
+    // Telefon raqamini tozalash
+    const cleanedPhone = cleanPhoneNumber(contactForm.phone);
+
     // Validation
-    if (!contactForm.phone.trim() && !contactForm.telegram.trim()) {
+    if (!cleanedPhone && !contactForm.telegram.trim()) {
       toast.error('Kamida bitta aloqa ma\'lumotini kiriting!');
+      return;
+    }
+
+    // Telefon raqami validatsiyasi
+    if (cleanedPhone && cleanedPhone.length < 9) {
+      toast.error('Telefon raqami noto\'g\'ri formatda!');
       return;
     }
 
     try {
       await updateContactMutation.mutateAsync({
-        phone: cleanPhoneNumber(contactForm.phone), // Faqat raqamlarni yuborish
+        phone: cleanedPhone, // Faqat raqamlarni yuborish
         telegram: contactForm.telegram.trim()
       });
+
+      // Saqlashdan keyin telefon raqamini formatlash
+      if (cleanedPhone) {
+        setContactForm(f => ({ ...f, phone: formatPhoneNumber(cleanedPhone) }));
+      }
     } catch (error) {
       // Error handling is done in mutation
       console.error('Contact update error:', error);
@@ -419,7 +440,7 @@ const Settings: React.FC = () => {
       const updateData = {
         name: dormCardForm.name,
         address: dormCardForm.address,
-        description: dormCardForm.description,
+        description: settings.description,
         distance_to_university: parseFloat(dormCardForm.distance_to_university) || 0,
         admin: settings.admin?.id,
         university: settings.university?.id,
@@ -440,13 +461,35 @@ const Settings: React.FC = () => {
       const updateData = {
         month_price: parseFloat(pricesCardForm.month_price) || 0,
         year_price: parseFloat(pricesCardForm.year_price) || 0,
-        distance_to_university: parseFloat(pricesCardForm.distance_to_university) || 0,
+        distance_to_university: settings.distance_to_university || 0,
         admin: settings.admin?.id,
         university: settings.university?.id,
       };
       await apiQueries.patchMyDormitory(updateData);
       toast.success('Narx ma\'lumotlari yangilandi!');
       setEditPricesCard(false);
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+    } catch (err: any) {
+      toast.error(err?.toString() || 'Xatolik yuz berdi!');
+    } finally {
+      setDormLoading(false);
+    }
+  };
+
+  const handleSaveDescription = async () => {
+    setDormLoading(true);
+    try {
+      const updateData = {
+        name: settings.name,
+        address: settings.address,
+        description: descriptionForm,
+        distance_to_university: settings.distance_to_university || 0,
+        admin: settings.admin?.id,
+        university: settings.university?.id,
+      };
+      await apiQueries.patchMyDormitory(updateData);
+      toast.success('Tavsif muvaffaqiyatli yangilandi!');
+      setEditDescription(false);
       queryClient.invalidateQueries({ queryKey: ['settings'] });
     } catch (err: any) {
       toast.error(err?.toString() || 'Xatolik yuz berdi!');
@@ -509,7 +552,6 @@ const Settings: React.FC = () => {
         <SectionCard
           icon={<Info className="w-8 h-8 text-blue-500" />}
           title={((<span className="text-lg font-bold text-blue-700 dark:text-blue-300">Yotoqxona haqida</span>) as React.ReactNode)}
-          description={editDormCard ? undefined : settings.description}
           onEdit={() => setEditDormCard(true)}
         >
           <div className="rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-800/30 p-4 flex flex-col gap-4 shadow-inner">
@@ -517,7 +559,6 @@ const Settings: React.FC = () => {
               <>
                 <EditableInput label="Nomi" value={dormCardForm.name} onChange={v => handleDormCardChange('name', v)} disabled={dormLoading} fullWidth />
                 <EditableInput label="Manzil" value={dormCardForm.address} onChange={v => handleDormCardChange('address', v)} disabled={dormLoading} fullWidth />
-                <EditableInput label="Tavsif" value={dormCardForm.description} onChange={v => handleDormCardChange('description', v)} disabled={dormLoading} fullWidth />
                 <EditableInput label="Universitetgacha masofa (km)" value={dormCardForm.distance_to_university} onChange={v => handleDormCardChange('distance_to_university', v)} disabled={dormLoading} fullWidth />
                 <div className="flex gap-2 mt-2">
                   <button className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSaveDormCard} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
@@ -579,6 +620,42 @@ const Settings: React.FC = () => {
             )}
           </div>
         </SectionCard>
+        {/* Description Card */}
+        <SectionCard
+          icon={<BookOpen className="w-8 h-8 text-purple-500" />}
+          title={((<span className="text-lg font-bold text-purple-700 dark:text-purple-300">Tavsif</span>) as React.ReactNode)}
+          description={editDescription ? undefined : "Yotoqxona haqida batafsil ma'lumot"}
+          onEdit={() => setEditDescription(true)}
+        >
+          <div className="rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/40 dark:to-purple-800/30 p-4 flex flex-col gap-4 shadow-inner">
+            {editDescription ? (
+              <>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Tavsif</label>
+                  <textarea
+                    className="bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-base font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 min-h-[120px] resize-vertical"
+                    value={descriptionForm}
+                    onChange={e => setDescriptionForm(e.target.value)}
+                    disabled={dormLoading}
+                    placeholder="Yotoqxona haqida batafsil ma'lumot kiriting..."
+                  />
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <button className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSaveDescription} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
+                  <button className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition" onClick={() => { setEditDescription(false); setDescriptionForm(settings.description || ''); }} disabled={dormLoading}>Bekor qilish</button>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-start gap-3">
+                <BookOpen className="w-6 h-6 text-purple-500 mt-1 flex-shrink-0" />
+                <div className="text-gray-700 dark:text-gray-200 leading-relaxed">
+                  {settings.description || 'Tavsif kiritilmagan'}
+                </div>
+              </div>
+            )}
+          </div>
+        </SectionCard>
+
         {/* Amenities Section */}
         <SectionCard
           icon={<ListChecks className="w-6 h-6" />}
@@ -586,106 +663,89 @@ const Settings: React.FC = () => {
           description="Yotoqxonada mavjud bo'lgan qulayliklarni belgilang. Tahrirlash uchun 'Tahrirlash' tugmasini bosing."
           onEdit={() => setEditSection(editSection === 'amenities' ? null : 'amenities')}
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {localAmenities && localAmenities.length > 0 ? (
               localAmenities.map((item: any) => (
-                <div key={item.id} className={`relative rounded-xl p-5 transition-all duration-300 border-2 min-h-[120px] flex flex-col ${item.is_active
-                  ? 'bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/20 border-green-300 dark:border-green-600 shadow-lg'
-                  : 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/30 border-gray-300 dark:border-gray-600 shadow-sm'
-                  } ${editSection === 'amenities' ? 'hover:shadow-xl hover:scale-[1.02]' : ''}`}>
-                  {/* Custom Checkbox */}
-                  <div className="flex items-start gap-4 mb-3">
-                    <label className={`relative flex items-center justify-center w-6 h-6 rounded-lg border-2 transition-all duration-200 ${editSection === 'amenities' ? 'cursor-pointer' : 'cursor-default'
-                      } ${item.is_active
-                        ? 'bg-green-500 border-green-500 shadow-lg shadow-green-500/30'
-                        : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500 hover:border-green-400'
-                      }`}>
-                      <input
-                        type="checkbox"
-                        checked={item.is_active}
-                        onChange={() => editSection === 'amenities' && handleAmenityChange(item)}
-                        className="sr-only"
-                        disabled={editSection !== 'amenities'}
-                      />
-                      {item.is_active && (
-                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </label>
+                <div
+                  key={item.id}
+                  className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all duration-200 ${item.is_active
+                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 shadow-sm'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm'
+                    } ${editSection === 'amenities' ? 'cursor-pointer hover:shadow-md hover:scale-[1.01]' : ''}`}
+                  onClick={() => editSection === 'amenities' && handleAmenityChange(item)}
+                >
+                  {/* Checkbox */}
+                  <div className={`relative flex items-center justify-center w-5 h-5 rounded-md border-2 transition-all duration-200 ${editSection === 'amenities' ? 'cursor-pointer' : 'cursor-default'
+                    } ${item.is_active
+                      ? 'bg-green-500 border-green-500'
+                      : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500'
+                    }`}>
+                    <input
+                      type="checkbox"
+                      checked={item.is_active}
+                      onChange={() => editSection === 'amenities' && handleAmenityChange(item)}
+                      className="sr-only"
+                      disabled={editSection !== 'amenities'}
+                    />
+                    {item.is_active && (
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
 
-                    {/* Icon */}
-                    <div className={`flex-shrink-0 p-2 rounded-lg transition-colors ${item.is_active
-                      ? 'bg-green-200 dark:bg-green-800/50 text-green-700 dark:text-green-300'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                      }`}>
-                      {getAmenityIcon(item.name)}
-                    </div>
+                  {/* Icon */}
+                  <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${item.is_active
+                    ? 'bg-green-100 dark:bg-green-800/30 text-green-600 dark:text-green-400'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                    }`}>
+                    {React.cloneElement(getAmenityIcon(item.name) as React.ReactElement, { className: "w-5 h-5" })}
                   </div>
 
                   {/* Content */}
-                  <div className="flex-1">
-                    <h3 className={`font-semibold text-base mb-1 transition-colors ${item.is_active
+                  <div className="flex-1 min-w-0">
+                    <h3 className={`font-semibold text-sm mb-0.5 ${item.is_active
                       ? 'text-gray-900 dark:text-white'
                       : 'text-gray-600 dark:text-gray-400'
                       }`}>
                       {item.name}
                     </h3>
-
-                    {item.description && (
-                      <p className={`text-sm mb-2 transition-colors ${item.is_active
-                        ? 'text-gray-700 dark:text-gray-300'
-                        : 'text-gray-500 dark:text-gray-500'
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-2 h-2 rounded-full ${item.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                      <span className={`text-xs font-medium ${item.is_active
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-gray-500 dark:text-gray-400'
                         }`}>
-                        {item.description}
-                      </p>
-                    )}
-
-                    {/* Status Badge */}
-                    <div className="mt-auto">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${item.is_active
-                        ? 'bg-green-200 dark:bg-green-800/50 text-green-800 dark:text-green-200'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                        }`}>
-                        <div className={`w-2 h-2 rounded-full mr-1.5 ${item.is_active ? 'bg-green-500' : 'bg-gray-400'
-                          }`}></div>
                         {item.is_active ? 'Faol' : 'Nofaol'}
                       </span>
                     </div>
                   </div>
-
-
-
-                  {/* Edit Mode Indicator */}
-                  {editSection === 'amenities' && (
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-                  )}
                 </div>
               ))
             ) : (
-              <div className="col-span-full text-center text-gray-500 dark:text-gray-400 py-12">
-                <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                  <ListChecks className="w-8 h-8 text-gray-400" />
+              <div className="col-span-full text-center text-gray-500 dark:text-gray-400 py-8">
+                <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                  <ListChecks className="w-6 h-6 text-gray-400" />
                 </div>
-                <p className="text-lg font-medium">Qulayliklar yuklanmoqda...</p>
+                <p className="text-sm font-medium">Qulayliklar yuklanmoqda...</p>
               </div>
             )}
           </div>
           {editSection === 'amenities' && (
-            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
               <p className="text-sm text-blue-700 dark:text-blue-300 font-medium mb-3">
-                Tahrirlash rejimi faol. Qulayliklarni faollashtirish yoki o'chirish uchun checkbox larni bosing.
+                Qulayliklarni faollashtirish yoki o'chirish uchun ustiga bosing.
               </p>
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <button
-                  className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm disabled:opacity-50"
+                  className="px-5 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm disabled:opacity-50"
                   onClick={handleSaveAmenities}
                   disabled={updateAmenityMutation.status === 'pending'}
                 >
                   {updateAmenityMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
                 </button>
                 <button
-                  className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm"
+                  className="px-5 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm"
                   onClick={() => {
                     setEditSection(null);
                     setLocalAmenities(amenitiesData || []);
@@ -695,55 +755,6 @@ const Settings: React.FC = () => {
                   Bekor qilish
                 </button>
               </div>
-            </div>
-          )}
-        </SectionCard>
-        {/* Rules Section (edit-in-place) */}
-        <SectionCard
-          icon={<ListChecks className="w-6 h-6" />}
-          title="Qonun-qoidalar"
-          description="Yotoqxonada amal qilinishi shart bo'lgan asosiy qoidalar. Ro'yxatni tahrirlash va yangi qoida qo'shish mumkin."
-          onEdit={() => setEditSection(editSection === 'rules' ? null : 'rules')}
-        >
-          <ul className="list-disc pl-6 space-y-2 text-gray-700 dark:text-gray-200">
-            {rules.map((rule, i) => (
-              <li key={i} className="flex items-center gap-2">
-                <EditableInput
-                  label=""
-                  value={rule.rule}
-                  onChange={v => handleRuleChange(i, v)}
-                  disabled={editSection !== 'rules'}
-                  placeholder="Qoida matni"
-                  helper={editSection === 'rules' && i === rules.length - 1 ? 'Yangi qoida qo\'shish uchun pastdagi tugmani bosing' : undefined}
-                  fullWidth
-                />
-                {editSection === 'rules' && rules.length > 1 && (
-                  <button
-                    className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900"
-                    title="O'chirish"
-                    onClick={() => handleRemoveRule(i)}
-                  >
-                    <span className="text-red-500 font-bold">×</span>
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-          {editSection === 'rules' && (
-            <div className="flex gap-2 mt-4">
-              <button
-                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
-                onClick={handleAddRule}
-              >
-                <Plus className="w-4 h-4" /> Yangi qoida qo'shish
-              </button>
-              <button
-                className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition"
-                onClick={handleSaveRules}
-                disabled={createRuleMutation.status === 'pending'}
-              >
-                {createRuleMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
-              </button>
             </div>
           )}
         </SectionCard>
@@ -762,8 +773,9 @@ const Settings: React.FC = () => {
                   value={contactForm.phone}
                   onChange={handlePhoneChange}
                   disabled={false}
-                  placeholder="+998 (90) 123-45-67"
+                  placeholder="998901234567 yoki +998 90 123 45 67"
                   fullWidth
+                  maxLength={19}
                 />
                 <EditableInput
                   label="Telegram"
@@ -821,83 +833,153 @@ const Settings: React.FC = () => {
             )}
           </div>
         </SectionCard>
+
+        {/* Rules Section (edit-in-place) */}
+        <SectionCard
+          icon={<ListChecks className="w-6 h-6" />}
+          title="Qonun-qoidalar"
+          description="Yotoqxonada amal qilinishi shart bo'lgan asosiy qoidalar. Ro'yxatni tahrirlash va yangi qoida qo'shish mumkin."
+          onEdit={() => setEditSection(editSection === 'rules' ? null : 'rules')}
+        >
+          <ul className="list-disc pl-6 space-y-2 text-gray-700 dark:text-gray-200">
+            {rules.map((rule, i) => (
+              <li key={i} className="flex items-center gap-2">
+                <EditableInput
+                  label=""
+                  value={rule.rule}
+                  onChange={v => handleRuleChange(i, v)}
+                  disabled={editSection !== 'rules'}
+                  placeholder="Qoida matni"
+                  helper={editSection === 'rules' && i === rules.length - 1 ? 'Yangi qoida qo\'shish uchun pastdagi tugmani bosing' : undefined}
+                  fullWidth
+                />
+                {editSection === 'rules' && rules.length > 1 && (
+                  <button
+                    className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900"
+                    title="O'chirish"
+                    onClick={() => handleRemoveRule(i)}
+                  >
+                    <span className="text-red-500 font-bold">×</span>
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {editSection === 'rules' && (
+            <div className="flex gap-2 mt-4">
+              <button
+                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+                onClick={handleAddRule}
+              >
+                <Plus className="w-4 h-4" /> Yangi qoida qo'shish
+              </button>
+              <button
+                className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition"
+                onClick={handleSaveRules}
+                disabled={createRuleMutation.status === 'pending'}
+              >
+                {createRuleMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
+              </button>
+            </div>
+          )}
+        </SectionCard>
       </div>
       {/* Images */}
       <SectionCard
         icon={<FileImage className="w-6 h-6" />}
         title="Yotoqxona suratlari"
         description="Yotoqxona va xonalar haqidagi suratlar."
+        onEdit={() => setEditSection(editSection === 'images' ? null : 'images')}
       >
-        <div className="mb-4">
-          <button
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition mb-2 flex items-center gap-2"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-          >
-            {isUploading && (
-              <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-              </svg>
-            )}
-            {isUploading ? 'Yuklanmoqda...' : "+ Rasm qo'shish"}
-          </button>
-          <input
-            type="file"
-            accept="image/*"
-            ref={fileInputRef}
-            className="hidden"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              setIsUploading(true);
-              const token = sessionStorage.getItem('access');
-              if (!token) {
-                toast.error('Avtorizatsiya talab qilinadi!');
+        {/* Rasm yuklash tugmasi faqat tahrirlash rejimida */}
+        {editSection === 'images' && (
+          <div className="mb-4">
+            <button
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition mb-2 flex items-center gap-2"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+            >
+              {isUploading && (
+                <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+              )}
+              {isUploading ? 'Yuklanmoqda...' : "+ Rasm qo'shish"}
+            </button>
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setIsUploading(true);
+                const token = sessionStorage.getItem('access');
+                if (!token) {
+                  toast.error('Avtorizatsiya talab qilinadi!');
+                  setIsUploading(false);
+                  return;
+                }
+                const formData = new FormData();
+                formData.append('image', file);
+                const res = await fetch('https://joyboryangi.pythonanywhere.com/dormitory_image_create', {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${token}` },
+                  body: formData,
+                });
                 setIsUploading(false);
-                return;
-              }
-              const formData = new FormData();
-              formData.append('image', file);
-              const res = await fetch('https://joyboryangi.pythonanywhere.com/dormitory_image_create', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
-                body: formData,
-              });
-              setIsUploading(false);
-              if (!res.ok) {
-                toast.error('Rasm yuklashda xatolik!');
-                return;
-              }
-              toast.success('Rasm muvaffaqiyatli yuklandi!');
-              queryClient.invalidateQueries({ queryKey: ['settings'] });
-            }}
-          />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {settings.images && settings.images.length > 0 ? (
-            settings.images.map((img: any, i: number) => (
-              <div key={i} className="relative group">
-                <img
-                  src={img.image}
-                  alt={`Yotoqxona rasmi ${i + 1}`}
-                  className="w-full h-48 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
-                />
-                <button
-                  onClick={() => handleDeleteImage(img.id)}
-                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                  title="Rasmni o'chirish"
-                >
-                  <span className="text-sm">×</span>
-                </button>
-              </div>
-            ))
-          ) : (
-            <div className="col-span-full text-center text-gray-500 dark:text-gray-400 py-8">
-              Hozircha rasmlar yuklanmagan
+                if (!res.ok) {
+                  toast.error('Rasm yuklashda xatolik!');
+                  return;
+                }
+                toast.success('Rasm muvaffaqiyatli yuklandi!');
+                queryClient.invalidateQueries({ queryKey: ['settings'] });
+              }}
+            />
+          </div>
+        )}
+
+        {/* Rasmlar slider shaklida */}
+        {settings.images && settings.images.length > 0 ? (
+          <div className="relative">
+            <div className="flex gap-4 overflow-x-auto pb-4" style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#cbd5e1 #f1f5f9'
+            }}>
+              {settings.images.map((img: any, i: number) => (
+                <div key={i} className="relative flex-shrink-0 group">
+                  <img
+                    src={img.image}
+                    alt={`Yotoqxona rasmi ${i + 1}`}
+                    className="w-64 h-48 object-cover rounded-lg border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-shadow"
+                  />
+                  {/* O'chirish tugmasi har doim ko'rinadi */}
+                  <button
+                    onClick={() => handleDeleteImage(img.id)}
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg"
+                    title="Rasmni o'chirish"
+                  >
+                    <span className="text-lg font-bold">×</span>
+                  </button>
+                  {/* Rasm tartib raqami */}
+                  <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
+                    {i + 1} / {settings.images.length}
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="text-center text-gray-500 dark:text-gray-400 py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+            <FileImage className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p>Hozircha rasmlar yuklanmagan</p>
+            {editSection !== 'images' && (
+              <p className="text-sm mt-1">Rasm yuklash uchun "Tahrirlash" tugmasini bosing</p>
+            )}
+          </div>
+        )}
       </SectionCard>
     </motion.div>
   );
