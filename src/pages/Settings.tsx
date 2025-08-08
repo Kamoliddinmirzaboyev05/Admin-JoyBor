@@ -423,7 +423,6 @@ const Settings: React.FC = () => {
       }
     } catch (error) {
       // Error handling is done in mutation
-      console.error('Contact update error:', error);
     }
   };
 
@@ -773,7 +772,7 @@ const Settings: React.FC = () => {
                   value={contactForm.phone}
                   onChange={handlePhoneChange}
                   disabled={false}
-                  placeholder="998901234567 yoki +998 90 123 45 67"
+                  placeholder="+998 90 123 45 67"
                   fullWidth
                   maxLength={19}
                 />

@@ -130,6 +130,8 @@ const StudentProfile: React.FC = () => {
   const [form, setForm] = useState<Record<string, unknown> | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // States for dropdown data
   const [provinces, setProvinces] = useState<{ id: number; name: string }[]>([]);
@@ -233,6 +235,12 @@ const StudentProfile: React.FC = () => {
   const districtOptions = districts.map(d => ({ value: d.id, label: d.name }));
   const floorOptions = floors.map(f => ({ value: f.id, label: f.name }));
   const roomOptions = rooms.map(r => ({ value: r.id, label: r.name }));
+  
+  // Imtiyoz options
+  const privilegeOptions = [
+    { value: true, label: 'Imtiyozli' },
+    { value: false, label: 'Imtiyozsiz' }
+  ];
 
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div></div>;
@@ -249,9 +257,33 @@ const StudentProfile: React.FC = () => {
     setForm(f => f ? { ...f, [field]: value } : f);
   };
 
-  const handleSelectChange = (field: string, option: { value: number; label: string } | null) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    setForm(f => f ? { ...f, picture: null } : f);
+  };
+
+  const handleSelectChange = (field: string, option: { value: number | boolean; label: string } | null) => {
     if (!option) {
       setForm(f => f ? { ...f, [field]: null } : f);
+      return;
+    }
+
+    // Imtiyoz uchun boolean value
+    if (field === 'privilege') {
+      setForm(f => f ? { ...f, [field]: option.value } : f);
       return;
     }
 
@@ -263,31 +295,43 @@ const StudentProfile: React.FC = () => {
   const handleSave = async () => {
     if (!studentId || !form) return;
 
-    // Prepare minimal payload - only send fields that might have changed
-    const payload: any = {};
+    // FormData yaratish (rasm yuklash uchun)
+    const formData = new FormData();
 
     // Basic fields
-    if (form.name) payload.name = form.name;
-    if (form.last_name) payload.last_name = form.last_name;
-    if (form.middle_name) payload.middle_name = form.middle_name;
-    if (form.phone) payload.phone = form.phone;
-    if (form.faculty) payload.faculty = form.faculty;
-    if (form.direction) payload.direction = form.direction;
-    if (form.group) payload.group = form.group;
-    if (form.passport) payload.passport = form.passport;
+    if (form.name) formData.append('name', form.name as string);
+    if (form.last_name) formData.append('last_name', form.last_name as string);
+    if (form.middle_name) formData.append('middle_name', form.middle_name as string);
+    if (form.phone) formData.append('phone', form.phone as string);
+    if (form.faculty) formData.append('faculty', form.faculty as string);
+    if (form.direction) formData.append('direction', form.direction as string);
+    if (form.group) formData.append('group', form.group as string);
+    if (form.passport) formData.append('passport', form.passport as string);
+
+    // Imtiyoz va uning ulushi
+    if (form.privilege !== undefined) {
+      formData.append('privilege', form.privilege ? 'true' : 'false');
+    }
+    if (form.privilege_share) {
+      formData.append('privilege_share', form.privilege_share as string);
+    }
 
     // Boolean and enum fields with defaults
-    payload.privilege = form.imtiyoz ? true : false;
-    payload.course = (form as any).course || '1-kurs';
-    payload.gender = (form as any).gender || 'Erkak';
+    formData.append('course', (form as any).course || '1-kurs');
+    formData.append('gender', (form as any).gender || 'Erkak');
+
+    // Rasm yuklash
+    if (selectedImage) {
+      formData.append('picture', selectedImage);
+    }
 
     // Location fields - only if they have valid IDs
     if (form.province && typeof form.province === 'object' && (form.province as any).id) {
-      payload.province = Number((form.province as any).id);
+      formData.append('province', String((form.province as any).id));
     }
 
     if (form.district && typeof form.district === 'object' && (form.district as any).id) {
-      payload.district = Number((form.district as any).id);
+      formData.append('district', String((form.district as any).id));
     }
 
     // Include room and floor if they are selected (using available endpoints ensures no capacity errors)
@@ -298,8 +342,8 @@ const StudentProfile: React.FC = () => {
       const newFloorId = Number((form.floor as any).id);
       const originalFloorId = originalStudent?.floor?.id;
       if (newFloorId !== originalFloorId) {
-        payload.floor = newFloorId;
-        console.log('Floor changed from', originalFloorId, 'to', newFloorId);
+        formData.append('floor', String(newFloorId));
+
       }
     }
 
@@ -307,37 +351,28 @@ const StudentProfile: React.FC = () => {
       const newRoomId = Number((form.room as any).id);
       const originalRoomId = originalStudent?.room?.id;
       if (newRoomId !== originalRoomId) {
-        payload.room = newRoomId;
-        console.log('Room changed from', originalRoomId, 'to', newRoomId);
+        formData.append('room', String(newRoomId));
+
       }
     }
 
-    console.log('Room and floor handling completed');
-
-    console.log('=== STUDENT PROFILE UPDATE DEBUG ===');
-    console.log('Original student data:', JSON.stringify(student, null, 2));
-    console.log('Original form data:', JSON.stringify(form, null, 2));
-    console.log('Sending payload:', JSON.stringify(payload, null, 2));
-    console.log('Student ID:', studentId);
-    console.log('Full URL:', `${link}/students/${studentId}/`);
-    console.log('Token exists:', !!sessionStorage.getItem('access'));
-
     try {
       const token = sessionStorage.getItem('access');
-      console.log('Making request...');
       const response = await axios.patch(
         `${link}/students/${studentId}/`,
-        payload,
+        formData,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'multipart/form-data'
           }
         }
       );
-      console.log('Success! Response:', response.data);
+
       toast.success('Talaba maʼlumotlari saqlandi!');
       setEditMode(false);
+      setSelectedImage(null);
+      setImagePreview(null);
 
       // Cache ni yangilash - barcha bog'liq ma'lumotlarni yangilash
       queryClient.invalidateQueries({ queryKey: ['students'] });
@@ -348,17 +383,10 @@ const StudentProfile: React.FC = () => {
 
       refetch();
     } catch (error: any) {
-      console.error('Save error:', error);
-      console.error('Error response:', JSON.stringify(error.response?.data, null, 2));
-      console.error('Error status:', error.response?.status);
-      console.error('Error headers:', error.response?.headers);
-      console.error('Request payload was:', JSON.stringify(payload, null, 2));
-
       // Try to get more details from server response
       if (error.response?.data) {
-        console.error('Raw error data:', error.response.data);
         if (typeof error.response.data === 'string') {
-          console.error('Error data as string:', error.response.data.substring(0, 500));
+          // Handle string error response
         }
       }
 
@@ -366,31 +394,37 @@ const StudentProfile: React.FC = () => {
 
       if (error.response?.status === 500) {
         // If 500 error and we included room/floor, try again without them
-        if (payload.room || payload.floor) {
-          console.log('500 error with room/floor, retrying without them...');
-          const retryPayload = { ...payload };
-          delete retryPayload.room;
-          delete retryPayload.floor;
+        const hasRoomOrFloor = formData.has('room') || formData.has('floor');
+        if (hasRoomOrFloor) {
+          const retryFormData = new FormData();
+          
+          // Copy all fields except room and floor
+          for (const [key, value] of formData.entries()) {
+            if (key !== 'room' && key !== 'floor') {
+              retryFormData.append(key, value);
+            }
+          }
 
           try {
             const token = sessionStorage.getItem('access');
             const retryResponse = await axios.patch(
               `${link}/students/${studentId}/`,
-              retryPayload,
+              retryFormData,
               {
                 headers: {
                   'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
+                  'Content-Type': 'multipart/form-data'
                 }
               }
             );
-            console.log('Retry success! Response:', retryResponse.data);
+
             toast.success('Talaba maʼlumotlari saqlandi! (Xona o\'zgartirilmadi)');
             setEditMode(false);
+            setSelectedImage(null);
+            setImagePreview(null);
             refetch();
             return; // Exit early on success
           } catch (retryError) {
-            console.error('Retry also failed:', retryError);
             errorMessage = 'Server xatoligi. Xona o\'zgartirishda muammo bo\'lishi mumkin.';
           }
         } else {
@@ -466,7 +500,6 @@ const StudentProfile: React.FC = () => {
       // Students sahifasiga qaytish
       window.location.href = '/students';
     } catch (error: any) {
-      console.error('Delete error:', error);
       const errorMessage = error.response?.data?.detail ||
         error.response?.data?.message ||
         error.message ||
@@ -495,6 +528,8 @@ const StudentProfile: React.FC = () => {
                 onClick={() => {
                   setEditMode(false);
                   setForm(student); // Reset form to original data
+                  setSelectedImage(null);
+                  setImagePreview(null);
                 }}
               >
                 Bekor qilish
@@ -519,21 +554,44 @@ const StudentProfile: React.FC = () => {
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mb-6 sm:mb-8">
           {/* Profil rasmi yoki avatar */}
-          {(form as Record<string, any>)?.picture ? (
-            <img
-              src={((form as Record<string, any>).picture as string)?.startsWith('http')
-                ? (form as Record<string, any>).picture as string
-                : link + (form as Record<string, any>).picture}
-              alt={(form as Record<string, any>).name as string}
-              className="w-32 h-32 object-cover rounded-md border border-gray-200 dark:border-slate-600 shadow"
-            />
-          ) : (
-            <div className="w-32 h-32 flex items-center justify-center bg-gray-200 dark:bg-slate-700 text-5xl font-bold text-gray-500 dark:text-gray-400 rounded-md border border-gray-200 dark:border-slate-600 shadow">
-              {(form as Record<string, any>)?.name && (form as Record<string, any>)?.last_name
-                ? `${((form as Record<string, any>).name as string)[0] || ''}${((form as Record<string, any>).last_name as string)[0] || ''}`
-                : ''}
-            </div>
-          )}
+          <div className="relative">
+            {imagePreview || (form as Record<string, any>)?.picture ? (
+              <img
+                src={imagePreview || (((form as Record<string, any>).picture as string)?.startsWith('http')
+                  ? (form as Record<string, any>).picture as string
+                  : link + (form as Record<string, any>).picture)}
+                alt={(form as Record<string, any>).name as string}
+                className="w-32 h-32 object-cover rounded-md border border-gray-200 dark:border-slate-600 shadow"
+              />
+            ) : (
+              <div className="w-32 h-32 flex items-center justify-center bg-gray-200 dark:bg-slate-700 text-5xl font-bold text-gray-500 dark:text-gray-400 rounded-md border border-gray-200 dark:border-slate-600 shadow">
+                {(form as Record<string, any>)?.name && (form as Record<string, any>)?.last_name
+                  ? `${((form as Record<string, any>).name as string)[0] || ''}${((form as Record<string, any>).last_name as string)[0] || ''}`
+                  : ''}
+              </div>
+            )}
+            
+            {editMode && (
+              <div className="absolute inset-0 bg-black bg-opacity-50 rounded-md flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+                <span className="text-white text-sm font-medium">📷 Rasm yuklash</span>
+              </div>
+            )}
+            
+            {editMode && (imagePreview || (form as Record<string, any>)?.picture) && (
+              <button
+                onClick={removeImage}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-colors"
+              >
+                ×
+              </button>
+            )}
+          </div>
           <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {editMode ? (
               <>
@@ -582,9 +640,6 @@ const StudentProfile: React.FC = () => {
                   classNamePrefix="react-select"
                   isDisabled={!((form as Record<string, any>).floor?.id)}
                 />
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                  ⚠️ Xona o'zgartirishda server xatoligi bo'lishi mumkin
-                </p>
               </div>
               <div className="flex flex-col gap-1 w-full">
                 <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Viloyat</label>
@@ -612,8 +667,36 @@ const StudentProfile: React.FC = () => {
                 />
               </div>
               <EditableInput label="Pasport" value={(form as Record<string, any>).passport || ''} onChange={v => handleChange('passport', v)} />
-              <EditableInput label="Tarif" value={(form as Record<string, any>).tarif || ''} onChange={v => handleChange('tarif', v)} />
-              <EditableInput label="Imtiyoz" value={(form as Record<string, any>).imtiyoz || ''} onChange={v => handleChange('imtiyoz', v)} />
+              
+              {/* Imtiyoz Select */}
+              <div className="flex flex-col gap-1 w-full">
+                <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Imtiyoz</label>
+                <Select
+                  options={privilegeOptions}
+                  value={privilegeOptions.find(opt => opt.value === (form as Record<string, any>).privilege) || null}
+                  onChange={opt => handleSelectChange('privilege', opt)}
+                  isClearable
+                  placeholder="Imtiyoz tanlang..."
+                  styles={selectStyles}
+                  classNamePrefix="react-select"
+                />
+              </div>
+
+              {/* Imtiyoz ulushi - faqat imtiyoz belgilangan bo'lsa ko'rsatish */}
+              {(form as Record<string, any>).privilege && (
+                <div className="flex flex-col gap-1 w-full">
+                  <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Imtiyoz ulushi (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={(form as Record<string, any>).privilege_share || ''}
+                    onChange={e => handleChange('privilege_share', e.target.value)}
+                    className="bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-base font-medium focus:outline-none focus:ring-2 focus:ring-blue-300 w-full"
+                    placeholder="Imtiyoz ulushi"
+                  />
+                </div>
+              )}
               <ReadOnlyInput label="Qabul qilingan sana" value={(form as Record<string, any>).accepted_date} type="date" />
               <ReadOnlyInput label="Jami to'lov" value={(form as Record<string, any>).total_payment} type="currency" />
             </>
@@ -627,8 +710,16 @@ const StudentProfile: React.FC = () => {
               <ReadOnlyInput label="Viloyat" value={(form as Record<string, any>).province?.name} />
               <ReadOnlyInput label="Tuman" value={(form as Record<string, any>).district?.name} />
               <ReadOnlyInput label="Pasport" value={(form as Record<string, any>).passport} />
-              <ReadOnlyInput label="Tarif" value={(form as Record<string, any>).tarif} />
-              <ReadOnlyInput label="Imtiyoz" value={(form as Record<string, any>).imtiyoz} />
+              <ReadOnlyInput 
+                label="Imtiyoz" 
+                value={(form as Record<string, any>).privilege ? 'Imtiyozli' : 'Imtiyozsiz'} 
+              />
+              {(form as Record<string, any>).privilege && (form as Record<string, any>).privilege_share && (
+                <ReadOnlyInput 
+                  label="Imtiyoz ulushi" 
+                  value={`${(form as Record<string, any>).privilege_share}%`} 
+                />
+              )}
               <ReadOnlyInput label="Qabul qilingan sana" value={(form as Record<string, any>).accepted_date} type="date" />
               <ReadOnlyInput label="Jami to'lov" value={(form as Record<string, any>).total_payment} type="currency" />
             </>

@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, X, Filter } from 'lucide-react';
+import { ChevronRight, X, Filter, Search, ChevronDown, User, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select, { SingleValue } from 'react-select';
 import { useQuery } from '@tanstack/react-query';
-import { apiQueries } from '../data/api';
-import { link } from '../data/config';
+
 
 interface StatusColors {
   [key: string]: string;
@@ -20,7 +19,7 @@ interface Application {
   phone: string;
   date: string;
   created_at?: string;
-  status: keyof typeof statusColors;
+  status: string;
   city?: string;
   village?: string;
   university?: string;
@@ -56,11 +55,37 @@ interface SelectOption {
 }
 
 const statusColors: StatusColors = {
-  'Yangi': 'bg-blue-100 text-blue-700',
-  'Ko\'rib chiqilmoqda': 'bg-yellow-100 text-yellow-700',
-  'Rad etilgan': 'bg-red-100 text-red-700',
-  'Qabul qilindi': 'bg-green-100 text-green-700',
+  'PENDING': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  'APPROVED': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  'REJECTED': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+  'REVIEWING': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
+  // O'zbek tilidagi statuslar ham qo'llab-quvvatlash uchun
+  'Yangi': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  'Ko\'rib chiqilmoqda': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
+  'Rad etilgan': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+  'Qabul qilindi': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
 } as const;
+
+// Status tarjima funksiyasi
+const getStatusText = (status: string) => {
+  const statusMap: { [key: string]: string } = {
+    'PENDING': 'Yangi',
+    'APPROVED': 'Qabul qilindi',
+    'REJECTED': 'Rad etilgan',
+    'REVIEWING': 'Ko\'rib chiqilmoqda',
+    // O'zbek tilidagi statuslar
+    'Yangi': 'Yangi',
+    'Ko\'rib chiqilmoqda': 'Ko\'rib chiqilmoqda',
+    'Rad etilgan': 'Rad etilgan',
+    'Qabul qilindi': 'Qabul qilindi',
+  };
+  return statusMap[status] || status;
+};
+
+// Status rangini olish funksiyasi
+const getStatusColor = (status: string) => {
+  return statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+};
 
 const facultyOptions = [
   { value: 'Informatika', label: 'Informatika' },
@@ -108,9 +133,9 @@ const districtOptions: Record<string, { value: string; label: string }[]> = {
 
 const Applications: React.FC = () => {
   const [search, setSearch] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<keyof typeof statusColors | ''>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const [showModal, setShowModal] = useState<boolean>(false);
-  
+
   const [form, setForm] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -136,8 +161,7 @@ const Applications: React.FC = () => {
   const {
     data: applications = [],
     isLoading,
-    error,
-    refetch
+    error
   } = useQuery<Application[], Error>({
     queryKey: ['applications'],
     queryFn: async () => {
@@ -145,19 +169,19 @@ const Applications: React.FC = () => {
       if (!token) {
         throw new Error('Avtorizatsiya talab qilinadi');
       }
-      
+
       const response = await fetch('https://joyboryangi.pythonanywhere.com/applications/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.detail || 'Arizalarni yuklashda xatolik yuz berdi');
       }
-      
+
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     },
@@ -168,14 +192,22 @@ const Applications: React.FC = () => {
   // Filter API data with proper type safety
   const filteredApps = applications.filter((app) => {
     const searchLower = search.toLowerCase();
-    const nameMatch = (
-      (app.fullName || '').toLowerCase().includes(searchLower) ||
-      (app.full_name || '').toLowerCase().includes(searchLower) ||
+
+    // Qidiruv - faqat ism va telefon bo'yicha
+    const nameMatch = !search || (
       (app.name || '').toLowerCase().includes(searchLower) ||
       (app.fio || '').toLowerCase().includes(searchLower) ||
       (app.phone || '').toString().includes(searchLower)
     );
-    const statusMatch = statusFilter ? app.status === statusFilter : true;
+
+    // Status filter - ingliz va o'zbek tillarini qo'llab-quvvatlash
+    const statusMatch = !statusFilter ||
+      app.status === statusFilter ||
+      (statusFilter === 'PENDING' && (app.status === 'Yangi' || app.status === 'PENDING')) ||
+      (statusFilter === 'REVIEWING' && (app.status === 'Ko\'rib chiqilmoqda' || app.status === 'REVIEWING')) ||
+      (statusFilter === 'APPROVED' && (app.status === 'Qabul qilindi' || app.status === 'APPROVED')) ||
+      (statusFilter === 'REJECTED' && (app.status === 'Rad etilgan' || app.status === 'REJECTED'));
+
     return nameMatch && statusMatch;
   });
 
@@ -183,8 +215,8 @@ const Applications: React.FC = () => {
     const { name, value, type } = e.target;
     setForm(f => ({
       ...f,
-      [name]: type === 'checkbox' && 'checked' in e.target 
-        ? (e.target as HTMLInputElement).checked 
+      [name]: type === 'checkbox' && 'checked' in e.target
+        ? (e.target as HTMLInputElement).checked
         : value,
     }));
   };
@@ -200,7 +232,6 @@ const Applications: React.FC = () => {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     // Yangi arizani qo'shish logikasi (mock)
-    console.log('Form submitted:', form);
     setShowModal(false);
   };
 
@@ -222,31 +253,73 @@ const Applications: React.FC = () => {
 
   return (
     <div className="p-6 max-w-5xl mx-auto w-full">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Arizalar</h1>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <input
-            type="text"
-            placeholder="Qidiruv..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-48"
-          />
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value as keyof typeof statusColors | '')}
-            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white w-full sm:w-48"
-          >
-            <option value="">Barcha holatlar</option>
-            {Object.keys(statusColors).map(status => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Arizalar</h1>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Jami: {applications.length} ta ariza | Ko'rsatilmoqda: {filteredApps.length} ta
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 p-6">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Qidiruv */}
+            <div className="flex-1">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Ism yoki telefon raqami bo'yicha qidiruv..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Status filter */}
+            <div className="lg:w-64">
+              <div className="relative">
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                  className="w-full appearance-none px-4 py-3 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer"
+                >
+                  <option value="">Barcha holatlar</option>
+                  <option value="PENDING">🆕 Yangi arizalar ({applications.filter(app => app.status === 'PENDING' || app.status === 'Yangi').length})</option>
+                  <option value="REVIEWING">⏳ Ko'rib chiqilmoqda ({applications.filter(app => app.status === 'REVIEWING' || app.status === 'Ko\'rib chiqilmoqda').length})</option>
+                  <option value="APPROVED">✅ Qabul qilingan ({applications.filter(app => app.status === 'APPROVED' || app.status === 'Qabul qilindi').length})</option>
+                  <option value="REJECTED">❌ Rad etilgan ({applications.filter(app => app.status === 'REJECTED' || app.status === 'Rad etilgan').length})</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                  <ChevronDown className="h-5 w-5 text-gray-400" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Filter tags */}
+          {(search || statusFilter) && (
+            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-slate-600">
+              {search && (
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                  <Search className="w-4 h-4" />
+                  Qidiruv: "{search}"
+                </span>
+              )}
+              {statusFilter && (
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                  <Filter className="w-4 h-4" />
+                  Status: {getStatusText(statusFilter)}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 gap-6">
         {filteredApps.length === 0 ? (
           <div className="text-center text-gray-400 py-16">
@@ -270,93 +343,43 @@ const Applications: React.FC = () => {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-4">
                       {/* Avatar */}
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                        📋
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                        <User className="w-6 h-6" />
                       </div>
-                      
-                      {/* Status */}
+
+                      {/* Ariza yuboruvchi ismi */}
                       <div>
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                          Ariza #{app.id}
+                          {app.fio || app.name || `Ariza #${app.id}`}
                         </h3>
-                        <div 
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
-                            statusColors[app.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                          }`}
+                        <div
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(app.status)}`}
                         >
-                          <div className={`w-2 h-2 rounded-full mr-2 ${
-                            app.status === 'Qabul qilindi' ? 'bg-green-500' :
-                            app.status === 'Rad etilgan' ? 'bg-red-500' :
-                            app.status === 'Ko\'rib chiqilmoqda' ? 'bg-yellow-500' :
-                            'bg-blue-500'
-                          }`}></div>
-                          {app.status}
+                          {app.status === 'APPROVED' || app.status === 'Qabul qilindi' ? (
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                          ) : app.status === 'REJECTED' || app.status === 'Rad etilgan' ? (
+                            <XCircle className="w-4 h-4 mr-2" />
+                          ) : app.status === 'REVIEWING' || app.status === 'Ko\'rib chiqilmoqda' ? (
+                            <Clock className="w-4 h-4 mr-2" />
+                          ) : (
+                            <AlertCircle className="w-4 h-4 mr-2" />
+                          )}
+                          {getStatusText(app.status)}
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Ma'lumotlar grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* Ism */}
-                    {(app.name || app.fio) && (
-                      <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                          <span className="text-blue-600 dark:text-blue-400 text-sm">👤</span>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">F.I.O</p>
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {app.fio || app.name || 'Kiritilmagan'}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
-                      <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                        <span className="text-green-600 dark:text-green-400 text-sm">📱</span>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Telefon</p>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                          {app.phone || 'Kiritilmagan'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
-                      <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
-                        <span className="text-orange-600 dark:text-orange-400 text-sm">📅</span>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Ariza sanasi</p>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                          {(app.created_at || app.date) ? new Date(app.created_at || app.date).toLocaleDateString('uz-UZ') : 'Kiritilmagan'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
-                      <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                        <span className="text-purple-600 dark:text-purple-400 text-sm">🆔</span>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Ariza ID</p>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                          #{app.id}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Shahar */}
+                  {/* Ma'lumotlar grid - faqat muhim ma'lumotlar */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Viloyat */}
                     {app.city && (
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
-                        <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center">
-                          <span className="text-indigo-600 dark:text-indigo-400 text-sm">🏙️</span>
+                      <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                          <span className="text-green-600 dark:text-green-400 text-sm">🏙️</span>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Shahar</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Viloyat</p>
                           <p className="text-sm font-semibold text-gray-900 dark:text-white">
                             {app.city}
                           </p>
@@ -364,31 +387,16 @@ const Applications: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Universitet */}
-                    {app.university && (
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
-                        <div className="w-8 h-8 bg-teal-100 dark:bg-teal-900/30 rounded-lg flex items-center justify-center">
-                          <span className="text-teal-600 dark:text-teal-400 text-sm">🎓</span>
+                    {/* Talaba izohi */}
+                    {(app.comment || app.admin_comment) && (
+                      <div className="flex items-center gap-3 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                        <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                          <span className="text-purple-600 dark:text-purple-400 text-sm">💬</span>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Universitet</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Izoh</p>
                           <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {app.university}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Admin izohi */}
-                    {app.admin_comment && (
-                      <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg sm:col-span-2">
-                        <div className="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
-                          <span className="text-red-600 dark:text-red-400 text-sm">💬</span>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Admin izohi</p>
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {app.admin_comment}
+                            {app.comment || app.admin_comment}
                           </p>
                         </div>
                       </div>
@@ -405,10 +413,10 @@ const Applications: React.FC = () => {
                     <span>Batafsil</span>
                     <ChevronRight className="w-5 h-5" />
                   </Link>
-                  
+
                   {/* Quick actions */}
                   <div className="flex gap-2">
-                    {app.status === 'Yangi' && (
+                    {(app.status === 'PENDING' || app.status === 'Yangi') && (
                       <>
                         <button className="flex-1 px-3 py-2 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition">
                           Qabul
@@ -509,7 +517,7 @@ const Applications: React.FC = () => {
   );
 };
 
-export default Applications; 
+export default Applications;
 
 // Tailwind input style helper
 // Add this to your global CSS or index.css if not already present:
