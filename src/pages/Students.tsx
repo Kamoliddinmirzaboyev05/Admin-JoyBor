@@ -10,6 +10,9 @@ import { apiQueries } from '../data/api';
 import { useAppStore } from '../stores/useAppStore';
 import { link } from '../data/config';
 import axios from 'axios';
+import { formatCurrency } from '../utils/formatters';
+import { invalidateStudentCaches } from '../utils/cacheUtils';
+import { useGlobalEvents } from '../utils/globalEvents';
 
 // react-select custom styles for dark mode
 const selectStyles = {
@@ -49,13 +52,11 @@ const selectStyles = {
 
 const Students: React.FC = () => {
   const queryClient = useQueryClient();
+  const { emitStudentUpdate, subscribe } = useGlobalEvents();
   const updateStudentStore = useAppStore(state => state.updateStudent);
   const [showModal, setShowModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Record<string, unknown> | null>(null);
-  const [provinces, setProvinces] = useState<{ id: number; name: string }[]>([]);
-  const [districts, setDistricts] = useState<{ id: number; name: string; province: number }[]>([]);
-  const regionOptions = provinces.map(p => ({ value: String(p.id), label: p.name }));
-  const districtOptions = districts.map(d => ({ value: String(d.id), label: d.name }));
+  
   // formData'ga gender va course string maydonini qo'sh
   const [formData, setFormData] = useState<{
     firstName: string;
@@ -103,9 +104,23 @@ const Students: React.FC = () => {
     passportImage2: null,
   });
   const [loading, setLoading] = useState(false);
-  // 1. Add avatarPreview state
   const [avatarPreview, setAvatarPreview] = useState<string>("");
+  
+  // Fetch provinces using React Query
+  const { data: provincesData = [] } = useQuery({
+    queryKey: ['provinces'],
+    queryFn: apiQueries.getProvinces,
+    staleTime: 1000 * 60 * 10, // 10 daqiqa cache
+  });
 
+  // Fetch districts for selected province using React Query
+  const { data: districtsData = [] } = useQuery({
+    queryKey: ['districts', formData.region],
+    queryFn: () => formData.region ? apiQueries.getDistricts(Number(formData.region)) : Promise.resolve([]),
+    enabled: !!formData.region,
+    staleTime: 1000 * 60 * 10, // 10 daqiqa cache
+  });
+  
   const location = useLocation();
 
   // React Query bilan students ma'lumotlarini olish
@@ -120,26 +135,32 @@ const Students: React.FC = () => {
     staleTime: 1000 * 60 * 5, // 5 daqiqa cache
   });
 
-  // Fetch available floors (only floors with empty rooms)
-  const { data: floors = [] } = useQuery({
+  // Fetch available floors using React Query
+  const { data: floorsData = [] } = useQuery({
     queryKey: ['available-floors'],
     queryFn: apiQueries.getAvailableFloors,
     staleTime: 1000 * 60 * 5,
   });
 
-  // Fetch available rooms for selected floor (only empty rooms)
-  const { data: rooms = [] } = useQuery({
+  // Fetch available rooms for selected floor using React Query
+  const { data: roomsData = [] } = useQuery({
     queryKey: ['available-rooms', formData.floor],
     queryFn: () => formData.floor ? apiQueries.getAvailableRooms(Number(formData.floor)) : Promise.resolve([]),
     enabled: !!formData.floor,
     staleTime: 1000 * 60 * 5,
   });
 
-  const floorOptions = Array.isArray(floors)
-    ? floors.map((f: any) => ({ value: f.id, label: f.name }))
+  const regionOptions = Array.isArray(provincesData)
+    ? provincesData.map((p: any) => ({ value: String(p.id), label: p.name }))
     : [];
-  const roomOptions = Array.isArray(rooms)
-    ? rooms.map((r: any) => ({ value: r.id, label: r.name }))
+  const districtOptions = Array.isArray(districtsData)
+    ? districtsData.map((d: any) => ({ value: String(d.id), label: d.name }))
+    : [];
+  const floorOptions = Array.isArray(floorsData) 
+    ? floorsData.map((f: any) => ({ value: String(f.id), label: f.name }))
+    : [];
+  const roomOptions = Array.isArray(roomsData)
+    ? roomsData.map((r: any) => ({ value: String(r.id), label: r.name }))
     : [];
 
   const columns = [
@@ -171,7 +192,7 @@ const Students: React.FC = () => {
     {
       key: "total_payment",
       title: "Umumiy to'lov",
-      render: (value: unknown) => <span className="font-semibold text-green-600 dark:text-green-400">{typeof value === 'number' ? value.toLocaleString() : value} so'm</span>,
+      render: (value: unknown) => <span className="font-semibold text-green-600 dark:text-green-400">{typeof value === 'number' ? formatCurrency(value) : '-'}</span>,
     },
   ];
 
@@ -312,10 +333,24 @@ const Students: React.FC = () => {
   };
 
   const handleSelectChange = (name: string, option: { value: string; label: string } | null) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: option ? option.value : '',
-    }));
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        [name]: option ? option.value : '',
+      };
+      
+      // Agar qavat o'zgarsa, xonani tozalash
+      if (name === 'floor') {
+        newData.room = '';
+      }
+      
+      // Agar viloyat o'zgarsa, tumanni tozalash
+      if (name === 'region') {
+        newData.district = '';
+      }
+      
+      return newData;
+    });
   };
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -340,18 +375,14 @@ const Students: React.FC = () => {
   // Debug: API dan kelayotgan ma'lumotlarni ko'rish
   React.useEffect(() => {
     if (students.length > 0) {
-      console.log('First student data:', students[0]);
-      console.log('All gender values:', students.map(s => s.gender).filter(Boolean));
+      // Debug information removed for production
     }
   }, [students]);
 
   // Filtering and sorting logic
   const filteredStudents = students
     .filter((s: Record<string, any>) => {
-      // Debug: gender qiymatlarini tekshirish
-      if (genderFilter && !s.gender) {
-        console.log('Student without gender:', s);
-      }
+      // Gender filter validation
       
       // Gender filter - API dan kelayotgan qiymatlarni tekshirish
       let matchesGender = true;
@@ -368,10 +399,7 @@ const Students: React.FC = () => {
                        (studentGender === 'м' && filterGender === 'male') || // Rus tilida
                        (studentGender === 'ж' && filterGender === 'female'); // Rus tilida
         
-        // Debug
-        if (!matchesGender && genderFilter) {
-          console.log(`Gender mismatch: student="${studentGender}", filter="${filterGender}"`);
-        }
+        // Gender filter check
       }
       
       // Payment filter
@@ -387,14 +415,10 @@ const Students: React.FC = () => {
           
           matchesPayment = paymentStatusFilter === "haqdor" ? isHaqdor : isQarzdor;
           
-          // Debug
-          if (paymentStatusFilter && !matchesPayment) {
-            console.log(`Payment mismatch: total=${s.total_payment}, tarif=${tarifNum}, filter=${paymentStatusFilter}, isHaqdor=${isHaqdor}, isQarzdor=${isQarzdor}`);
-          }
+          // Payment filter check
         } else {
           // Agar payment ma'lumotlari yo'q bo'lsa, filter bo'yicha ko'rsatmaslik
           matchesPayment = false;
-          console.log(`No payment data for student:`, s.name, s.total_payment, s.tarif);
         }
       }
       
@@ -407,35 +431,17 @@ const Students: React.FC = () => {
       return nameA.localeCompare(nameB, 'uz-UZ');
     });
 
-  // Fetch provinces
-  useEffect(() => {
-    const token = sessionStorage.getItem("access");
-    const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
-    fetch(`${link}/provinces/`, { headers })
-      .then(res => {
-        if (!res.ok) throw new Error("Viloyatlarni yuklashda xatolik");
-        return res.json();
-      })
-      .then(data => setProvinces(data))
-      .catch(() => setProvinces([]));
-  }, []);
 
-  // Fetch districts when province (region) changes
+
+
+
+  // Listen for global student updates
   useEffect(() => {
-    if (!formData.region) {
-      setDistricts([]);
-      return;
-    }
-    const token = sessionStorage.getItem("access");
-    const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
-    fetch(`${link}/districts/?province=${formData.region}`, { headers })
-      .then(res => {
-        if (!res.ok) throw new Error("Tumanlarni yuklashda xatolik");
-        return res.json();
-      })
-      .then(data => setDistricts(data))
-      .catch(() => setDistricts([]));
-  }, [formData.region]);
+    const unsubscribe = subscribe('student-updated', () => {
+      refetch();
+    });
+    return unsubscribe;
+  }, [subscribe, refetch]);
 
   useEffect(() => {
     // URL parametrlarini tekshirish
@@ -464,14 +470,14 @@ const Students: React.FC = () => {
             course: studentData.course || '1-kurs',
             gender: studentData.gender || 'Erkak',
             isPrivileged: studentData.isPrivileged || false,
-            tarif: studentData.tarif || '500000',
+            tarif: studentData.tarif || '1200000',
             passportImage1: studentData.passportImage1Base64 || null,
             passportImage2: studentData.passportImage2Base64 || null,
           }));
           // Ma'lumotlarni tozalash
           sessionStorage.removeItem('pendingStudentData');
         } catch (error) {
-          console.error('Pending student data parse error:', error);
+          // Pending student data parse error logged
         }
       }
     }
@@ -550,21 +556,21 @@ const Students: React.FC = () => {
           result = {};
         }
         if (!response.ok) {
-          console.error('API error:', result);
+          // API error logged
           toast.error(result.detail || result.message || JSON.stringify(result) || "Xatolik yuz berdi");
           throw new Error(result.detail || result.message || JSON.stringify(result) || "Xatolik yuz berdi");
         }
-        // Cache ni yangilash
-        queryClient.invalidateQueries({ queryKey: ['students'] });
-        queryClient.invalidateQueries({ queryKey: ['floors'] });
-        queryClient.invalidateQueries({ queryKey: ['rooms'] });
-        
-        refetch();
+        // Barcha bog'liq cache larni yangilash
+        await invalidateStudentCaches(queryClient);
+        // Force immediate refetch
+        await refetch();
+        // Emit global event
+        emitStudentUpdate({ action: 'created' });
         setShowModal(false);
         toast.success("Talaba muvaffaqiyatli qo'shildi!");
       })
       .catch((error) => {
-        console.error('Catch error:', error);
+        // Catch error logged
         toast.error(error.message || "Xatolik yuz berdi");
       })
       .finally(() => {

@@ -2,20 +2,20 @@ import React from 'react';
 import { Users, Building2, CreditCard, FileText, AlertTriangle, CheckCircle2, Clock4, Plus, X, Edit2, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { useAppStore } from '../stores/useAppStore';
+// useAppStore import removed as it's not used
 import StatsCard from '../components/UI/StatsCard';
 import { useEffect, useState } from 'react';
 import { get, del, put, apiQueries, post } from '../data/api';
 import { useNavigate } from 'react-router-dom';
 import { link } from '../data/config';
-import { useQuery } from '@tanstack/react-query';
-
-function formatSum(sum: number) {
-  return sum.toLocaleString('uz-UZ').replace(/,/g, ' ') + " so'm";
-}
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { formatCurrency } from '../utils/formatters';
+import { useGlobalEvents } from '../utils/globalEvents';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { subscribe } = useGlobalEvents();
   const [todoModalOpen, setTodoModalOpen] = useState(false);
   const [newTodo, setNewTodo] = useState('');
   const [todos, setTodos] = useState<{ id: number; description: string; status: string }[]>([]);
@@ -29,52 +29,71 @@ const Dashboard: React.FC = () => {
     const checkDarkMode = () => {
       setIsDarkMode(document.documentElement.classList.contains('dark'));
     };
-    
+
     checkDarkMode();
-    
+
     // MutationObserver bilan dark mode o'zgarishlarini kuzatish
     const observer = new MutationObserver(checkDarkMode);
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ['class']
     });
-    
+
     return () => observer.disconnect();
   }, []);
 
+  // Listen for global updates to refresh dashboard
+  useEffect(() => {
+    const unsubscribeStudent = subscribe('student-updated', () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
+    });
+
+    const unsubscribePayment = subscribe('payment-updated', () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['monthlyRevenue'] });
+      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
+    });
+
+    const unsubscribeApplication = subscribe('application-updated', () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
+    });
+
+    return () => {
+      unsubscribeStudent();
+      unsubscribePayment();
+      unsubscribeApplication();
+    };
+  }, [subscribe, queryClient]);
+
   // React Query bilan dashboard ma'lumotlarini olish
-  const { 
-    data: dashboardData, 
+  const {
+    data: dashboardData,
     isLoading: dashboardLoading,
     error: dashboardError
   } = useQuery({
     queryKey: ['dashboard'],
     queryFn: apiQueries.getDashboard,
     staleTime: 1000 * 60 * 5, // 5 daqiqa cache
-    retry: 1,
-    onError: (error) => {
-      console.error('Dashboard data fetch error:', error);
-    }
+    retry: 1
   });
 
   // React Query bilan monthly revenue ma'lumotlarini olish
-  const { 
-    data: monthlyRevenue = [], 
-    isLoading: monthlyRevenueLoading 
-  } = useQuery({
+  const {
+    data: monthlyRevenue = [],
+    isLoading: monthlyRevenueLoading
+  } = useQuery<any[]>({
     queryKey: ['monthlyRevenue'],
     queryFn: () => get(`${link}/monthly_revenue/`),
     staleTime: 1000 * 60 * 10, // 10 daqiqa cache
-    retry: 1,
-    onError: (error) => {
-      console.error('Monthly revenue fetch error:', error);
-    }
+    retry: 1
   });
 
   // React Query bilan recent activities ma'lumotlarini olish
-  const { 
-    data: recentActivities = [], 
-    isLoading: recentActivitiesLoading 
+  const {
+    data: recentActivities = [],
+    isLoading: recentActivitiesLoading
   } = useQuery({
     queryKey: ['recentActivities'],
     queryFn: async () => {
@@ -82,7 +101,7 @@ const Dashboard: React.FC = () => {
         const res = await get(`${link}/recent_activity/`);
         return Array.isArray(res.activities) ? res.activities : [];
       } catch (error) {
-        console.error('Recent activities fetch error:', error);
+        // Recent activities fetch error logged
         return [];
       }
     },
@@ -97,7 +116,7 @@ const Dashboard: React.FC = () => {
       const res = await get(`${link}/tasks/`);
       setTodos(Array.isArray(res) ? res.map((t: any) => ({ id: t.id, description: t.description, status: t.status })) : []);
     } catch (error: any) {
-      console.error('Tasks fetch error:', error);
+      // Tasks fetch error logged
       setTodos([]);
     } finally {
       setTodoLoading(false);
@@ -114,11 +133,13 @@ const Dashboard: React.FC = () => {
         setNewTodo('');
         setTodoModalOpen(false);
         fetchTodos();
+        // Recent activities ni yangilash
+        queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
       } catch (err) {
-        console.error('Add todo error:', err);
+        // Add todo error logged
         // Don't show alert for 403 errors, just log them
         if ((err as any)?.response?.status !== 403) {
-          alert('Vazifa qo\'shishda xatolik: ' + ((err as any)?.message || 'Noto\'g\'ri so\'rov'));
+          // Vazifa qo'shishda xatolik
         }
       } finally {
         setTodoLoading(false);
@@ -131,6 +152,8 @@ const Dashboard: React.FC = () => {
     try {
       await del(`${link}/tasks/${id}/`);
       fetchTodos();
+      // Recent activities ni yangilash
+      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
     } finally {
       setTodoLoading(false);
     }
@@ -148,6 +171,8 @@ const Dashboard: React.FC = () => {
       setEditId(null);
       setEditValue('');
       fetchTodos();
+      // Recent activities ni yangilash
+      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
     } finally {
       setTodoLoading(false);
     }
@@ -167,6 +192,8 @@ const Dashboard: React.FC = () => {
         status: todo.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED',
       });
       fetchTodos();
+      // Recent activities ni yangilash
+      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
     } finally {
       setTodoLoading(false);
     }
@@ -196,12 +223,11 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // Use real dashboard data
-  const students = dashboardData?.students || { total: 0, male: 0, female: 0 };
-  const rooms = dashboardData?.rooms || { total_available: 0, male_rooms: 0, female_rooms: 0 };
-  const payments = dashboardData?.payments || { debtor_students_count: 0, non_debtor_students_count: 0, total_payment: 0 };
-  const applications = dashboardData?.applications || { total: 0, approved: 0, rejected: 0 };
-  const recentApplications = dashboardData?.recent_applications || [];
+  // Use real dashboard data with proper type checking
+  const students = (dashboardData as any)?.students || { total: 0, male: 0, female: 0 };
+  const rooms = (dashboardData as any)?.rooms || { total_available: 0, male_rooms: 0, female_rooms: 0 };
+  const payments = (dashboardData as any)?.payments || { debtor_students_count: 0, non_debtor_students_count: 0, total_payment: 0 };
+  const applications = (dashboardData as any)?.applications || { total: 0, approved: 0, rejected: 0 };
 
   // Add this helper for Uzbek month names:
   const uzMonths = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
@@ -218,8 +244,8 @@ const Dashboard: React.FC = () => {
       backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
       border: isDarkMode ? '1px solid #4b5563' : '1px solid #e5e7eb',
       color: isDarkMode ? '#f9fafb' : '#374151',
-      boxShadow: isDarkMode 
-        ? '0 10px 25px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(75, 85, 99, 0.1)' 
+      boxShadow: isDarkMode
+        ? '0 10px 25px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(75, 85, 99, 0.1)'
         : '0 10px 25px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(229, 231, 235, 0.1)'
     },
     axis: {
@@ -287,7 +313,7 @@ const Dashboard: React.FC = () => {
           />
           <StatsCard
             title="To'lovlar"
-            value={`${(payments.total_payment / 1000000).toFixed(1)}M so'm`}
+            value={formatCurrency(payments.total_payment)}
             change={`Qarzdor: ${payments.debtor_students_count}, To'lagan: ${payments.non_debtor_students_count}`}
             changeType="increase"
             icon={CreditCard}
@@ -296,7 +322,7 @@ const Dashboard: React.FC = () => {
             subStats={[
               { label: 'Qarzdor', value: payments.debtor_students_count },
               { label: 'To\'lagan', value: payments.non_debtor_students_count },
-              { label: 'Jami', value: formatSum(payments.total_payment) },
+              { label: 'Jami', value: formatCurrency(payments.total_payment) },
             ]}
           />
           <StatsCard
@@ -333,37 +359,48 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center justify-center h-[300px]">
               <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-blue-500 border-solid"></div>
             </div>
-          ) : monthlyRevenue.length === 0 ? (
+          ) : !monthlyRevenue || monthlyRevenue.length === 0 ? (
             <div className="flex items-center justify-center h-[300px] text-gray-400 dark:text-gray-500">
               Analitik ma'lumotlar mavjud emas
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthlyRevenue}>
+              <BarChart data={monthlyRevenue as any[]}>
                 <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid.stroke} strokeOpacity={0.3} />
-                <XAxis 
-                  dataKey="month" 
+                <XAxis
+                  dataKey="month"
                   stroke={chartTheme.axis.stroke}
                   fontSize={12}
                   tickFormatter={formatMonth}
                   tick={{ fill: chartTheme.text.fill }}
                 />
-                <YAxis 
+                <YAxis
                   stroke={chartTheme.axis.stroke}
                   fontSize={12}
-                  tickFormatter={value => `${(value / 1000000).toFixed(0)}M`}
+                  tickFormatter={value => {
+                    if (value >= 1000000000000) {
+                      return `${(value / 1000000000000).toFixed(0)} TRLN`;
+                    } else if (value >= 1000000000) {
+                      return `${(value / 1000000000).toFixed(0)} MLRD`;
+                    } else if (value >= 1000000) {
+                      return `${(value / 1000000).toFixed(0)} MLN`;
+                    } else if (value >= 1000) {
+                      return `${(value / 1000).toFixed(0)}K`;
+                    }
+                    return value.toString();
+                  }}
                   tick={{ fill: chartTheme.text.fill }}
                 />
-                <Tooltip 
-                  formatter={(value: number) => [`${(value as number).toLocaleString('uz-UZ').replace(/,/g, ' ')} so'm`, 'Daromad']}
+                <Tooltip
+                  formatter={(value: number) => [formatCurrency(value), 'Daromad']}
                   labelFormatter={formatMonth}
-                  labelStyle={{ 
+                  labelStyle={{
                     color: chartTheme.tooltip.color,
                     fontWeight: '600',
                     marginBottom: '6px',
                     fontSize: '13px'
                   }}
-                  contentStyle={{ 
+                  contentStyle={{
                     backgroundColor: chartTheme.tooltip.backgroundColor,
                     border: chartTheme.tooltip.border,
                     borderRadius: '12px',
@@ -380,8 +417,8 @@ const Dashboard: React.FC = () => {
                     fontWeight: '500'
                   }}
                 />
-                <Bar 
-                  dataKey="revenue" 
+                <Bar
+                  dataKey="revenue"
                   fill="url(#barGradient)"
                   radius={[4, 4, 0, 0]}
                 />
@@ -429,12 +466,12 @@ const Dashboard: React.FC = () => {
                   <Cell key="male" fill="#10b981" />
                   <Cell key="female" fill="#ec4899" />
                 </Pie>
-                <Tooltip 
+                <Tooltip
                   formatter={(value: number, name: string) => [
-                    `${value} ta xona`, 
+                    `${value} ta xona`,
                     name
                   ]}
-                  contentStyle={{ 
+                  contentStyle={{
                     backgroundColor: chartTheme.tooltip.backgroundColor,
                     border: chartTheme.tooltip.border,
                     borderRadius: '12px',
@@ -445,7 +482,7 @@ const Dashboard: React.FC = () => {
                     padding: '12px 16px',
                     minWidth: '120px'
                   }}
-                  labelStyle={{ 
+                  labelStyle={{
                     color: chartTheme.tooltip.color,
                     fontWeight: '600',
                     marginBottom: '4px',
@@ -532,16 +569,15 @@ const Dashboard: React.FC = () => {
               <div className="text-gray-400 dark:text-gray-500 text-center py-4">Ma'lumot yo'q</div>
             ) : (recentActivities.slice(0, 3)).map((activity: any, idx: number) => (
               <div key={idx} className="flex items-start space-x-3">
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
-                  activity.type === 'payment_approved' ? 'bg-green-100 dark:bg-green-900/20' :
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center ${activity.type === 'payment_approved' ? 'bg-green-100 dark:bg-green-900/20' :
                   activity.type === 'debt' ? 'bg-yellow-100 dark:bg-yellow-900/20' :
-                  activity.type === 'new_student' ? 'bg-blue-100 dark:bg-blue-900/20' :
-                  'bg-gray-100 dark:bg-gray-800/40'
-                }`}>
+                    activity.type === 'new_student' ? 'bg-blue-100 dark:bg-blue-900/20' :
+                      'bg-gray-100 dark:bg-gray-800/40'
+                  }`}>
                   {activity.type === 'payment_approved' && <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />}
                   {activity.type === 'debt' && <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />}
                   {activity.type === 'new_student' && <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
-                  {!['payment_approved','debt','new_student'].includes(activity.type) && <FileText className="w-5 h-5 text-gray-400" />}
+                  {!['payment_approved', 'debt', 'new_student'].includes(activity.type) && <FileText className="w-5 h-5 text-gray-400" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{activity.title}</div>

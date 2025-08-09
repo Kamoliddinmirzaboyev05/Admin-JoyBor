@@ -7,11 +7,16 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "../index.css";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiQueries } from "../data/api";
 import { useLocation } from "react-router-dom";
+import { formatCurrency, formatCurrencyDetailed } from "../utils/formatters";
+import { invalidatePaymentCaches } from "../utils/cacheUtils";
+import { useGlobalEvents } from "../utils/globalEvents";
 
 const Payments: React.FC = () => {
+  const queryClient = useQueryClient();
+  const { emitPaymentUpdate, subscribe } = useGlobalEvents();
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
@@ -55,6 +60,23 @@ const Payments: React.FC = () => {
     }
   }, [location.state]);
 
+  // Listen for global payment updates
+  useEffect(() => {
+    const unsubscribePayment = subscribe('payment-updated', () => {
+      refetch();
+    });
+    
+    // Listen for student updates to refresh student list
+    const unsubscribeStudent = subscribe('student-updated', () => {
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+    });
+    
+    return () => {
+      unsubscribePayment();
+      unsubscribeStudent();
+    };
+  }, [subscribe, refetch, queryClient]);
+
   const columns = [
     {
       key: "student",
@@ -65,7 +87,7 @@ const Payments: React.FC = () => {
     {
       key: "amount",
       title: "Miqdor",
-      render: (v: unknown) => typeof v === "number" ? v.toLocaleString() + " som" : "-",
+      render: (v: unknown) => typeof v === "number" ? formatCurrency(v) : "-",
       sortable: true,
     },
     {
@@ -133,13 +155,27 @@ const Payments: React.FC = () => {
     setSelectedPayment(payment);
     setIsEditMode(true);
 
-    // Form malumotlarini toldirish
+    // Form malumotlarini toldirish - to'liq ma'lumotlar bilan
     const student = payment.student as Record<string, unknown>;
+    
+    // Sanani to'g'ri formatda o'rnatish
+    let validUntilDate = "";
+    if (payment.valid_until) {
+      try {
+        const date = new Date(payment.valid_until as string);
+        if (!isNaN(date.getTime())) {
+          validUntilDate = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+        }
+      } catch (e) {
+        validUntilDate = String(payment.valid_until);
+      }
+    }
+
     setForm({
       studentId: student?.id ? String(student.id) : "",
       amount: payment.amount ? String(payment.amount) : "",
-      validUntil: payment.valid_until ? String(payment.valid_until) : "",
-      paymentType: payment.method === "Cash" ? "cash" : "card",
+      validUntil: validUntilDate,
+      paymentType: (payment.method as string)?.toLowerCase() === "cash" ? "cash" : "card",
       comment: payment.comment ? String(payment.comment) : "",
     });
 
@@ -189,16 +225,74 @@ const Payments: React.FC = () => {
     setLoading(true);
     try {
       if (isEditMode && selectedPayment) {
-        // Tahrirlash - updatePayment funksiyasi mavjud emas, shuning uchun createPayment ishlatamiz
-        await apiQueries.createPayment({
+        // Tahrirlash - haqiqiy update API endpoint ishlatish
+        const updateData = {
           student: Number(form.studentId),
           amount: Number(form.amount),
           valid_until: form.validUntil,
           method: form.paymentType === "cash" ? "Cash" : "Card",
-          status: "APPROVED",
-          comment: form.comment,
+          status: selectedPayment.status || "APPROVED", // Mavjud statusni saqlash
+          comment: form.comment || "",
+        };
+        
+        // PATCH request for updating existing payment
+        const token = sessionStorage.getItem("access");
+        if (!token) {
+          throw new Error("Avtorizatsiya talab qilinadi");
+        }
+
+        const response = await fetch(`https://joyboryangi.pythonanywhere.com/payments/${selectedPayment.id}/`, {
+          method: "PATCH",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updateData),
         });
-        toast.success("Tolov muvaffaqiyatli yangilandi!");
+        
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch {
+            errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
+          }
+          
+          // Xatolik turini aniqlash
+          if (response.status === 404) {
+            throw new Error("Tolov topilmadi yoki o'chirilgan");
+          } else if (response.status === 403) {
+            throw new Error("Tolovni tahrirlash uchun ruxsat yo'q");
+          } else if (response.status === 400) {
+            const fieldErrors = [];
+            if (errorData.student) fieldErrors.push(`Talaba: ${errorData.student}`);
+            if (errorData.amount) fieldErrors.push(`Miqdor: ${errorData.amount}`);
+            if (errorData.valid_until) fieldErrors.push(`Sana: ${errorData.valid_until}`);
+            if (errorData.method) fieldErrors.push(`Tolov turi: ${errorData.method}`);
+            
+            if (fieldErrors.length > 0) {
+              throw new Error(fieldErrors.join(', '));
+            }
+          }
+          
+          throw new Error(errorData.detail || errorData.message || "Tolovni yangilashda xatolik");
+        }
+        
+        // Muvaffaqiyatli yangilanganini tekshirish
+        await response.json(); // Response ni consume qilish
+        toast.success(`Tolov #${selectedPayment.id} muvaffaqiyatli yangilandi!`);
+        
+        // Form va modallarni yopish
+        setShowModal(false);
+        setIsEditMode(false);
+        setSelectedPayment(null);
+        
+        // Barcha bog'liq cache larni yangilash
+        await invalidatePaymentCaches(queryClient);
+        // Force immediate refetch
+        await refetch();
+        // Emit global event
+        emitPaymentUpdate({ action: 'updated', id: selectedPayment.id });
       } else {
         // Yangi qoshish
         await apiQueries.createPayment({
@@ -210,13 +304,34 @@ const Payments: React.FC = () => {
           comment: form.comment,
         });
         toast.success("Tolov muvaffaqiyatli qoshildi!");
+        
+        // Yangi tolov uchun ham form va modallarni yopish
+        setShowModal(false);
+        setIsEditMode(false);
+        setSelectedPayment(null);
+        
+        // Barcha bog'liq cache larni yangilash
+        await invalidatePaymentCaches(queryClient);
+        // Force immediate refetch
+        await refetch();
+        // Emit global event
+        emitPaymentUpdate({ action: 'created' });
       }
-      refetch();
-      setShowModal(false);
     } catch (err: unknown) {
       const errorMessage = isEditMode ? "Tolovni yangilashda xatolik: " : "Tolovni yaratishda xatolik: ";
-      setError(errorMessage + (err instanceof Error ? err.message : "Nomalum xatolik"));
-      toast.error(errorMessage + (err instanceof Error ? err.message : "Nomalum xatolik"));
+      const fullErrorMessage = errorMessage + (err instanceof Error ? err.message : "Noma'lum xatolik");
+      
+      setError(fullErrorMessage);
+      toast.error(fullErrorMessage);
+      
+      // Agar 404 yoki 403 xatolik bo'lsa, modallarni yopish
+      if (err instanceof Error && (err.message.includes("topilmadi") || err.message.includes("ruxsat yo'q"))) {
+        setTimeout(() => {
+          setShowModal(false);
+          setIsEditMode(false);
+          setSelectedPayment(null);
+        }, 2000);
+      }
     } finally {
       setLoading(false);
     }
@@ -390,9 +505,23 @@ const Payments: React.FC = () => {
               >
                 <X className="w-6 h-6" />
               </button>
-              <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white text-center mb-4 sm:mb-6">
-                {isEditMode ? "Tolovni tahrirlash" : "Yangi tolov qoshish"}
-              </h2>
+              <div className="text-center mb-4 sm:mb-6">
+                <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
+                  {isEditMode ? "Tolovni tahrirlash" : "Yangi tolov qoshish"}
+                </h2>
+                {isEditMode && selectedPayment && (
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-2 space-y-1">
+                    <div>ID: #{selectedPayment.id}</div>
+                    <div>Joriy summa: {formatCurrency(selectedPayment.amount)}</div>
+                    <div>Talaba: {selectedPayment.student && typeof selectedPayment.student === "object" 
+                      ? `${(selectedPayment.student as any).name} ${(selectedPayment.student as any).last_name}`
+                      : "Noma'lum"}</div>
+                    <div className="text-xs text-blue-600 dark:text-blue-400">
+                      Faqat summa, sana, tolov turi va izohni o'zgartirishingiz mumkin
+                    </div>
+                  </div>
+                )}
+              </div>
               <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:gap-6 pb-6 sm:pb-8">
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">Talaba</label>
@@ -404,10 +533,21 @@ const Payments: React.FC = () => {
                     placeholder="Talabani tanlang..."
                     styles={selectStyles}
                     classNamePrefix="react-select"
+                    isDisabled={isEditMode} // Tahrirlash rejimida talabani o'zgartirishga ruxsat bermaslik
                   />
+                  {isEditMode && (
+                    <div className="text-xs text-amber-600 dark:text-amber-400 mt-1 bg-amber-50 dark:bg-amber-900/20 p-2 rounded">
+                      ⚠️ Tahrirlash rejimida talabani o'zgartirib bo'lmaydi. Agar boshqa talabaga o'tkazish kerak bo'lsa, yangi tolov yarating va eskisini o'chiring.
+                    </div>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">Miqdor (som)</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">
+                    Miqdor (som)
+                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                      {form.amount && formatCurrency(Number(form.amount))}
+                    </span>
+                  </label>
                   <input
                     type="text"
                     name="amount"
@@ -415,11 +555,29 @@ const Payments: React.FC = () => {
                     onChange={handleAmountChange}
                     className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     required
-                    placeholder="0"
+                    placeholder="Miqdorni kiriting (masalan: 1,200,000)"
                   />
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 space-y-1">
+                    <div>Katta summalar uchun: 1M+ = MLN, 1B+ = MLRD, 1T+ = TRLN formatida ko'rsatiladi</div>
+                    {isEditMode && selectedPayment && (
+                      <div className="text-blue-600 dark:text-blue-400">
+                        Avvalgi summa: {formatCurrency(selectedPayment.amount)} → 
+                        {form.amount && Number(form.amount) !== selectedPayment.amount && (
+                          <span className="font-medium"> Yangi: {formatCurrency(Number(form.amount))}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">Tolov amal qilish sanasi</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">
+                    Tolov amal qilish sanasi
+                    {isEditMode && selectedPayment?.valid_until && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                        (Avvalgi: {new Date(selectedPayment.valid_until as string).toLocaleDateString("uz-UZ")})
+                      </span>
+                    )}
+                  </label>
                   <div className="flex w-full min-w-0">
                     <div className="relative w-full min-w-0 block">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-300 pointer-events-none">
@@ -444,7 +602,14 @@ const Payments: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">Tolov turi</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">
+                    Tolov turi
+                    {isEditMode && selectedPayment?.method && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                        (Avvalgi: {selectedPayment.method === "Cash" ? "Naqd" : "Karta orqali"})
+                      </span>
+                    )}
+                  </label>
                   <div className="flex gap-4 mt-2">
                     <label className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors cursor-pointer select-none shadow-sm focus-within:ring-2 focus-within:ring-primary-500 ${form.paymentType === "cash" ? "border-primary-600 bg-primary-50 dark:bg-primary-900/30" : "border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"}`}>
                       <Wallet className={`w-5 h-5 ${form.paymentType === "cash" ? "text-primary-600" : "text-gray-400 dark:text-gray-500"}`} />
@@ -484,20 +649,30 @@ const Payments: React.FC = () => {
                   />
                 </div>
                 {error && <div className="text-red-600 text-sm text-center">{error}</div>}
-                <button
-                  type="submit"
-                  className="w-full py-3 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors text-lg mt-2 shadow disabled:opacity-60"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-5 w-5 mr-1 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
-                      {isEditMode ? "Yangilanmoqda..." : "Qoshilmoqda..."}
-                    </span>
-                  ) : (
-                    isEditMode ? "Yangilash" : "Qoshish"
-                  )}
-                </button>
+                <div className="flex gap-3 mt-4">
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    className="flex-1 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                    disabled={loading}
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-2 py-3 px-6 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors shadow disabled:opacity-60"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                        {isEditMode ? "Yangilanmoqda..." : "Qoshilmoqda..."}
+                      </span>
+                    ) : (
+                      isEditMode ? "Yangilash" : "Qoshish"
+                    )}
+                  </button>
+                </div>
               </form>
             </motion.div>
           </motion.div>
@@ -545,7 +720,7 @@ const Payments: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Miqdor</label>
                   <p className="text-gray-900 dark:text-white font-medium">
-                    {typeof selectedPayment.amount === "number" ? selectedPayment.amount.toLocaleString() + " som" : "-"}
+                    {typeof selectedPayment.amount === "number" ? formatCurrencyDetailed(selectedPayment.amount) : "-"}
                   </p>
                 </div>
 

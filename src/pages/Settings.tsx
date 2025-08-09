@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
 import { toast } from 'sonner';
 import { useSEO } from '../hooks/useSEO';
+import { formatCurrency } from '../utils/formatters';
 
 // Icon mapping for amenities
 const getAmenityIcon = (name: string) => {
@@ -447,7 +448,11 @@ const Settings: React.FC = () => {
       await apiQueries.patchMyDormitory(updateData);
       toast.success('Yotoqxona maʼlumotlari yangilandi!');
       setEditDormCard(false);
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      // Barcha bog'liq cache larni yangilash
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['settings'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      ]);
     } catch (err: any) {
       toast.error(err?.toString() || 'Xatolik yuz berdi!');
     } finally {
@@ -467,7 +472,12 @@ const Settings: React.FC = () => {
       await apiQueries.patchMyDormitory(updateData);
       toast.success('Narx ma\'lumotlari yangilandi!');
       setEditPricesCard(false);
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      // Barcha bog'liq cache larni yangilash
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['settings'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['monthlyRevenue'] })
+      ]);
     } catch (err: any) {
       toast.error(err?.toString() || 'Xatolik yuz berdi!');
     } finally {
@@ -489,7 +499,11 @@ const Settings: React.FC = () => {
       await apiQueries.patchMyDormitory(updateData);
       toast.success('Tavsif muvaffaqiyatli yangilandi!');
       setEditDescription(false);
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      // Barcha bog'liq cache larni yangilash
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['settings'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      ]);
     } catch (err: any) {
       toast.error(err?.toString() || 'Xatolik yuz berdi!');
     } finally {
@@ -592,8 +606,8 @@ const Settings: React.FC = () => {
           <div className="rounded-xl bg-gray-50 dark:bg-slate-700/50 p-4 flex flex-col gap-4 border border-gray-100 dark:border-slate-600">
             {editPricesCard ? (
               <>
-                <EditableInput label="Oylik narx (so'm)" value={pricesCardForm.month_price} onChange={v => handlePricesCardChange('month_price', v)} disabled={dormLoading} fullWidth placeholder="500000" />
-                <EditableInput label="Yillik narx (so'm)" value={pricesCardForm.year_price} onChange={v => handlePricesCardChange('year_price', v)} disabled={dormLoading} fullWidth placeholder="5000000" />
+                <EditableInput label="Oylik narx (so'm)" value={pricesCardForm.month_price} onChange={v => handlePricesCardChange('month_price', v)} disabled={dormLoading} fullWidth placeholder="1200000" />
+                <EditableInput label="Yillik narx (so'm)" value={pricesCardForm.year_price} onChange={v => handlePricesCardChange('year_price', v)} disabled={dormLoading} fullWidth placeholder="12000000" />
                 <div className="flex gap-2 mt-4">
                   <button className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSavePricesCard} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
                   <button className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition" onClick={() => setEditPricesCard(false)} disabled={dormLoading}>Bekor qilish</button>
@@ -606,14 +620,14 @@ const Settings: React.FC = () => {
                     <DollarSign className="w-5 h-5 text-green-500" />
                     <span className="font-medium text-gray-700 dark:text-gray-300">Oylik narx</span>
                   </div>
-                  <span className="font-bold text-green-600 dark:text-green-400">{settings.month_price?.toLocaleString()} so'm</span>
+                  <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(settings.month_price)}</span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-600">
                   <div className="flex items-center gap-3">
                     <DollarSign className="w-5 h-5 text-green-500" />
                     <span className="font-medium text-gray-700 dark:text-gray-300">Yillik narx</span>
                   </div>
-                  <span className="font-bold text-green-600 dark:text-green-400">{settings.year_price?.toLocaleString()} so'm</span>
+                  <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(settings.year_price)}</span>
                 </div>
               </div>
             )}

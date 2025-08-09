@@ -4,6 +4,7 @@ import { FileText, Users, Building2, CreditCard, CheckCircle2, AlertTriangle } f
 import { useQuery } from '@tanstack/react-query';
 import { get, apiQueries } from '../data/api';
 import { link } from '../data/config';
+import { formatCurrency } from '../utils/formatters';
 
 // Mock data ni olib tashlaymiz, API dan foydalanamiz
 
@@ -80,7 +81,7 @@ const Reports: React.FC = () => {
             <CreditCard className="w-8 h-8 mb-2 opacity-90" />
             <div className="text-xs uppercase tracking-wider font-semibold opacity-80">Jami to‘lovlar</div>
             <div className="text-3xl font-extrabold mt-1">
-              {dashboardLoading ? '...' : `${(payments.total_payment / 1000000).toFixed(1)}M`}
+              {dashboardLoading ? '...' : formatCurrency(payments.total_payment)}
             </div>
             <div className="absolute right-2 bottom-2 opacity-10 text-7xl font-black select-none">💸</div>
           </div>

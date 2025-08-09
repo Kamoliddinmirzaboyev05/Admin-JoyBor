@@ -8,6 +8,9 @@ import { link } from '../data/config';
 import axios from 'axios';
 import { toast } from 'sonner';
 import Select from 'react-select';
+import { formatCurrency, formatDate } from '../utils/formatters';
+import { invalidateStudentCaches } from '../utils/cacheUtils';
+import { useGlobalEvents } from '../utils/globalEvents';
 
 // react-select custom styles for dark mode
 const selectStyles = {
@@ -45,32 +48,7 @@ const selectStyles = {
   }),
 };
 
-// Format date to a more readable format (DD.MM.YYYY)
-const formatDate = (dateString?: string) => {
-  if (!dateString) return '-';
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return dateString;
 
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-
-    return `${day}.${month}.${year}`;
-  } catch (e) {
-    return dateString;
-  }
-};
-
-// Format currency with thousand separators
-const formatCurrency = (amount?: string | number) => {
-  if (amount === undefined || amount === null || amount === '') return '-';
-
-  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-  if (isNaN(numAmount)) return amount;
-
-  return numAmount.toLocaleString('uz-UZ') + ' so\'m';
-};
 
 function ReadOnlyInput({ label, value, type }: { label: string; value?: string | number | boolean; type?: 'date' | 'currency' | 'default' }) {
   let displayValue = typeof value === 'boolean' ? (value ? 'Ha' : 'Yo\'q') : value || '-';
@@ -126,6 +104,7 @@ function EditableInput({ label, value, onChange, type = 'text' }: { label: strin
 const StudentProfile: React.FC = () => {
   const { studentId } = useParams();
   const queryClient = useQueryClient();
+  const { emitStudentUpdate, subscribe } = useGlobalEvents();
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState<Record<string, unknown> | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -161,6 +140,14 @@ const StudentProfile: React.FC = () => {
       });
     }
   }, [student]);
+
+  // Listen for global student updates
+  useEffect(() => {
+    const unsubscribe = subscribe('student-updated', () => {
+      refetch();
+    });
+    return unsubscribe;
+  }, [subscribe, refetch]);
 
   // Fetch provinces
   useEffect(() => {
@@ -235,7 +222,7 @@ const StudentProfile: React.FC = () => {
   const districtOptions = districts.map(d => ({ value: d.id, label: d.name }));
   const floorOptions = floors.map(f => ({ value: f.id, label: f.name }));
   const roomOptions = rooms.map(r => ({ value: r.id, label: r.name }));
-  
+
   // Imtiyoz options
   const privilegeOptions = [
     { value: true, label: 'Imtiyozli' },
@@ -374,14 +361,12 @@ const StudentProfile: React.FC = () => {
       setSelectedImage(null);
       setImagePreview(null);
 
-      // Cache ni yangilash - barcha bog'liq ma'lumotlarni yangilash
-      queryClient.invalidateQueries({ queryKey: ['students'] });
-      queryClient.invalidateQueries({ queryKey: ['student', studentId] });
-      queryClient.invalidateQueries({ queryKey: ['applications'] });
-      queryClient.invalidateQueries({ queryKey: ['floors'] });
-      queryClient.invalidateQueries({ queryKey: ['rooms'] });
-
-      refetch();
+      // Barcha bog'liq cache larni yangilash
+      await invalidateStudentCaches(queryClient);
+      // Force immediate refetch
+      await refetch();
+      // Emit global event
+      emitStudentUpdate({ action: 'updated', id: studentId });
     } catch (error: any) {
       // Try to get more details from server response
       if (error.response?.data) {
@@ -397,7 +382,7 @@ const StudentProfile: React.FC = () => {
         const hasRoomOrFloor = formData.has('room') || formData.has('floor');
         if (hasRoomOrFloor) {
           const retryFormData = new FormData();
-          
+
           // Copy all fields except room and floor
           for (const [key, value] of formData.entries()) {
             if (key !== 'room' && key !== 'floor') {
@@ -422,7 +407,12 @@ const StudentProfile: React.FC = () => {
             setEditMode(false);
             setSelectedImage(null);
             setImagePreview(null);
-            refetch();
+            // Barcha bog'liq cache larni yangilash
+            await invalidateStudentCaches(queryClient);
+            // Force immediate refetch
+            await refetch();
+            // Emit global event
+            emitStudentUpdate({ action: 'updated', id: studentId });
             return; // Exit early on success
           } catch (retryError) {
             errorMessage = 'Server xatoligi. Xona o\'zgartirishda muammo bo\'lishi mumkin.';
@@ -492,10 +482,10 @@ const StudentProfile: React.FC = () => {
 
       toast.success('Talaba muvaffaqiyatli o\'chirildi!');
 
-      // Cache ni yangilash
-      queryClient.invalidateQueries({ queryKey: ['students'] });
-      queryClient.invalidateQueries({ queryKey: ['floors'] });
-      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+      // Barcha bog'liq cache larni yangilash
+      await invalidateStudentCaches(queryClient);
+      // Emit global event
+      emitStudentUpdate({ action: 'deleted', id: studentId });
 
       // Students sahifasiga qaytish
       window.location.href = '/students';
@@ -570,7 +560,7 @@ const StudentProfile: React.FC = () => {
                   : ''}
               </div>
             )}
-            
+
             {editMode && (
               <div className="absolute inset-0 bg-black bg-opacity-50 rounded-md flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer">
                 <input
@@ -582,7 +572,7 @@ const StudentProfile: React.FC = () => {
                 <span className="text-white text-sm font-medium">📷 Rasm yuklash</span>
               </div>
             )}
-            
+
             {editMode && (imagePreview || (form as Record<string, any>)?.picture) && (
               <button
                 onClick={removeImage}
@@ -667,7 +657,7 @@ const StudentProfile: React.FC = () => {
                 />
               </div>
               <EditableInput label="Pasport" value={(form as Record<string, any>).passport || ''} onChange={v => handleChange('passport', v)} />
-              
+
               {/* Imtiyoz Select */}
               <div className="flex flex-col gap-1 w-full">
                 <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Imtiyoz</label>
@@ -710,14 +700,14 @@ const StudentProfile: React.FC = () => {
               <ReadOnlyInput label="Viloyat" value={(form as Record<string, any>).province?.name} />
               <ReadOnlyInput label="Tuman" value={(form as Record<string, any>).district?.name} />
               <ReadOnlyInput label="Pasport" value={(form as Record<string, any>).passport} />
-              <ReadOnlyInput 
-                label="Imtiyoz" 
-                value={(form as Record<string, any>).privilege ? 'Imtiyozli' : 'Imtiyozsiz'} 
+              <ReadOnlyInput
+                label="Imtiyoz"
+                value={(form as Record<string, any>).privilege ? 'Imtiyozli' : 'Imtiyozsiz'}
               />
               {(form as Record<string, any>).privilege && (form as Record<string, any>).privilege_share && (
-                <ReadOnlyInput 
-                  label="Imtiyoz ulushi" 
-                  value={`${(form as Record<string, any>).privilege_share}%`} 
+                <ReadOnlyInput
+                  label="Imtiyoz ulushi"
+                  value={`${(form as Record<string, any>).privilege_share}%`}
                 />
               )}
               <ReadOnlyInput label="Qabul qilingan sana" value={(form as Record<string, any>).accepted_date} type="date" />

@@ -19,7 +19,7 @@ export async function apiFetch(url: string, options: RequestInit = {}) {
     
     // Handle 403 Forbidden specifically
     if (res.status === 403) {
-      console.warn(`403 Forbidden for ${fullUrl} - User may not have permission`);
+      // 403 Forbidden - User may not have permission
       // Return empty data instead of throwing error for 403
       return {};
     }
@@ -44,7 +44,7 @@ export async function apiFetch(url: string, options: RequestInit = {}) {
   } catch (error) {
     // Network errors or other fetch errors
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      console.error('Network error:', error);
+      // Network error logged
       throw new Error('Tarmoq xatoligi. Internetga ulanishingizni tekshiring.');
     }
     throw error;
@@ -77,6 +77,10 @@ export const apiQueries = {
   getAvailableFloors: () => get('/available-floors/'),
   getRooms: (floorId?: number) => get(`/rooms/${floorId ? `?floor=${floorId}` : ''}`),
   getAvailableRooms: (floorId?: number) => get(`/available-rooms/${floorId ? `?floor=${floorId}` : ''}`),
+  
+  // Provinces and Districts
+  getProvinces: () => get('/provinces/'),
+  getDistricts: (provinceId?: number) => get(`/districts/${provinceId ? `?province=${provinceId}` : ''}`),
   
   // Payments
   getPayments: () => get('/payments/'),

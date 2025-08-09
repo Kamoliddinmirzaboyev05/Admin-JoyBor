@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { ChevronRight, X, Filter, Search, ChevronDown, User, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select, { SingleValue } from 'react-select';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useGlobalEvents } from '../utils/globalEvents';
 
 
 interface StatusColors {
@@ -132,6 +133,8 @@ const districtOptions: Record<string, { value: string; label: string }[]> = {
 };
 
 const Applications: React.FC = () => {
+  const queryClient = useQueryClient();
+  const { subscribe } = useGlobalEvents();
   const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [showModal, setShowModal] = useState<boolean>(false);
@@ -188,6 +191,14 @@ const Applications: React.FC = () => {
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,
   });
+
+  // Listen for global application updates
+  React.useEffect(() => {
+    const unsubscribe = subscribe('application-updated', () => {
+      refetch();
+    });
+    return unsubscribe;
+  }, [subscribe, refetch]);
 
   // Filter API data with proper type safety
   const filteredApps = applications.filter((app) => {

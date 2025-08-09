@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { link } from '../data/config';
 import { toast } from 'sonner';
+import { invalidateApplicationCaches, invalidateStudentCaches } from '../utils/cacheUtils';
+import { useGlobalEvents } from '../utils/globalEvents';
 
 const statusColors = {
   'PENDING': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700',
@@ -62,6 +64,7 @@ function ImageCard({ src, alt, label }: { src?: string | null; alt: string; labe
 const ApplicationDetail: React.FC = () => {
   const { id } = useParams();
   const queryClient = useQueryClient();
+  const { emitApplicationUpdate, emitStudentUpdate, subscribe } = useGlobalEvents();
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [comment, setComment] = useState('');
@@ -92,6 +95,14 @@ const ApplicationDetail: React.FC = () => {
     enabled: !!id,
     staleTime: 1000 * 60 * 5,
   });
+
+  // Listen for global application updates
+  React.useEffect(() => {
+    const unsubscribe = subscribe('application-updated', () => {
+      refetch();
+    });
+    return unsubscribe;
+  }, [subscribe, refetch]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
@@ -137,7 +148,7 @@ const ApplicationDetail: React.FC = () => {
       gender: 'Erkak',
       isPrivileged: false,
       group: '',
-      tarif: '500000',
+      tarif: '1200000',
       // Rasm URL (keyin yuklab olish uchun)
       imageUrl: application.user_image || null,
       // Pasport rasmlari
@@ -173,7 +184,7 @@ const ApplicationDetail: React.FC = () => {
         } catch {
           errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
         }
-        console.error('API Response:', response.status, errorData);
+        // API Response error logged
         throw new Error(errorData.message || errorData.detail || `Server xatoligi: ${response.status}`);
       }
       
@@ -181,13 +192,18 @@ const ApplicationDetail: React.FC = () => {
       setShowApproveModal(false);
       setComment('');
       
-      // Cache ni yangilash
-      queryClient.invalidateQueries({ queryKey: ['applications'] });
-      queryClient.invalidateQueries({ queryKey: ['application', id] });
-      queryClient.invalidateQueries({ queryKey: ['students'] });
-      refetch();
+      // Barcha bog'liq cache larni yangilash
+      await Promise.all([
+        invalidateApplicationCaches(queryClient),
+        invalidateStudentCaches(queryClient)
+      ]);
+      // Force immediate refetch
+      await refetch();
+      // Emit global events
+      emitApplicationUpdate({ action: 'approved', id });
+      emitStudentUpdate({ action: 'created' }); // Yangi talaba yaratildi
     } catch (error: any) {
-      console.error('Approve error:', error);
+      // Approve error logged
       toast.error(error.message || 'Arizani qabul qilishda xatolik yuz berdi!');
     } finally {
       setLoading(false);
@@ -224,7 +240,7 @@ const ApplicationDetail: React.FC = () => {
         } catch {
           errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
         }
-        console.error('API Response:', response.status, errorData);
+        // API Response error logged
         throw new Error(errorData.message || errorData.detail || `Server xatoligi: ${response.status}`);
       }
       
@@ -232,12 +248,14 @@ const ApplicationDetail: React.FC = () => {
       setShowRejectModal(false);
       setComment('');
       
-      // Cache ni yangilash
-      queryClient.invalidateQueries({ queryKey: ['applications'] });
-      queryClient.invalidateQueries({ queryKey: ['application', id] });
-      refetch();
+      // Barcha bog'liq cache larni yangilash
+      await invalidateApplicationCaches(queryClient);
+      // Force immediate refetch
+      await refetch();
+      // Emit global event
+      emitApplicationUpdate({ action: 'rejected', id });
     } catch (error: any) {
-      console.error('Reject error:', error);
+      // Reject error logged
       toast.error(error.message || 'Arizani rad etishda xatolik yuz berdi!');
     } finally {
       setLoading(false);
@@ -724,7 +742,7 @@ const ApplicationDetail: React.FC = () => {
                               reader.readAsDataURL(blob);
                               return; // Async operatsiya tugashini kutish
                             } catch (error) {
-                              console.error('Passport image 1 yuklab olishda xatolik:', error);
+                              // Passport image 1 yuklab olishda xatolik
                             }
                           }
                           

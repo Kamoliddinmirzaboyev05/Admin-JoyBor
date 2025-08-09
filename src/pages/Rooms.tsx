@@ -113,7 +113,7 @@ const Rooms: React.FC = () => {
   const handleAddFloor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (addingFloor) return; // Prevent double submit
-    console.log('handleAddFloor called', new Error().stack);
+
     let floorStr = newFloor.trim();
     // Remove all instances of 'qavat' (with or without dash or space)
     floorStr = floorStr.replace(/[- ]*qavat/gi, '');

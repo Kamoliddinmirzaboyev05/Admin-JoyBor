@@ -139,7 +139,7 @@ const FloorDetail: React.FC = () => {
         toast.error(errorData.detail || errorData.message || 'Xona qo\'shishda xatolik!');
       }
     } catch (error) {
-      console.error('Room creation error:', error);
+      // Room creation error logged
       toast.error('Xona qo\'shishda xatolik!');
     } finally {
       setAdding(false);
