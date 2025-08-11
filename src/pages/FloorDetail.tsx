@@ -166,7 +166,7 @@ const FloorDetail: React.FC = () => {
     <div className="p-4 sm:p-8 max-w-7xl mx-auto">
       <div className="mb-6 flex items-center gap-4">
         <BackButton className="w-max" />
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{floor.name}-qavat xonalari</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{floor.name.endsWith('-qavat') ? floor.name : `${floor.name}-qavat`} xonalari</h2>
         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${floor.gender === 'female' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-200' : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'}`}>{floor.gender === 'female' ? 'Qizlar' : 'Yigitlar'}</span>
         <button
           className="ml-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition-colors"

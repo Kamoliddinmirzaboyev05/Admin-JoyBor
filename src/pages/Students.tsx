@@ -157,7 +157,10 @@ const Students: React.FC = () => {
     ? districtsData.map((d: any) => ({ value: String(d.id), label: d.name }))
     : [];
   const floorOptions = Array.isArray(floorsData) 
-    ? floorsData.map((f: any) => ({ value: String(f.id), label: f.name }))
+    ? floorsData.map((f: any) => ({ 
+        value: String(f.id), 
+        label: `${f.name.endsWith('-qavat') ? f.name : `${f.name}-qavat`} (${f.gender === 'male' ? 'Yigitlar' : 'Qizlar'})` 
+      }))
     : [];
   const roomOptions = Array.isArray(roomsData)
     ? roomsData.map((r: any) => ({ value: String(r.id), label: r.name }))
@@ -173,10 +176,10 @@ const Students: React.FC = () => {
     },
     {
       key: "fullName",
-      title: "Ism Familiya",
+      title: "Familiya Ism",
       sortable: true,
       render: (_: any, row: Record<string, unknown>) => (
-        <Link to={`/studentprofile/${row.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">{String(row.name)} {String(row.last_name)}</Link>
+        <Link to={`/studentprofile/${row.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">{String(row.last_name)} {String(row.name)}</Link>
       ) as React.ReactNode,
     },
     {
@@ -425,10 +428,10 @@ const Students: React.FC = () => {
       return matchesGender && matchesPayment;
     })
     .sort((a: Record<string, any>, b: Record<string, any>) => {
-      // Alifbo tartibida saralash (ism bo'yicha)
-      const nameA = (a.name || '').toLowerCase();
-      const nameB = (b.name || '').toLowerCase();
-      return nameA.localeCompare(nameB, 'uz-UZ');
+      // Alifbo tartibida saralash (familiya bo'yicha)
+      const lastNameA = (a.last_name || '').toLowerCase();
+      const lastNameB = (b.last_name || '').toLowerCase();
+      return lastNameA.localeCompare(lastNameB, 'uz-UZ');
     });
 
 

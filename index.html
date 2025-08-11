@@ -59,6 +59,27 @@
   <!-- Preconnect -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  
+  <!-- Google Maps API -->
+  <script>
+    window.googleMapsReady = false;
+    
+    window.initGoogleMaps = function() {
+      console.log('🗺️ Google Maps API loaded!');
+      window.googleMapsReady = true;
+      window.dispatchEvent(new CustomEvent('google-maps-ready'));
+    };
+    
+    window.gm_authFailure = function() {
+      console.error('❌ Google Maps auth failed');
+      window.dispatchEvent(new CustomEvent('google-maps-error'));
+    };
+  </script>
+  <script 
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCLlkhV51LGjZlLqU_CSkC0-SdgxKDrF9o&libraries=places&loading=async&callback=initGoogleMaps"
+    async
+    defer
+  ></script>
 
   <!-- JSON-LD Structured Data -->
   <script type="application/ld+json">

@@ -59,9 +59,34 @@ const FloorRooms: React.FC<{
   handleEditFloor: (floor: Floor) => void;
   handleDeleteFloor: (floor: Floor) => void;
   navigate: (path: string) => void;
-}> = ({ floor, genderLabels, menuOpen, setMenuOpen, handleEditFloor, handleDeleteFloor, navigate }) => {
+  roomStatusFilter?: string;
+  genderFilter?: string;
+}> = ({ floor, genderLabels, menuOpen, setMenuOpen, handleEditFloor, handleDeleteFloor, navigate, roomStatusFilter, genderFilter }) => {
   const { data, isLoading: roomsLoading } = useRoomsByFloor(floor.id);
-  const rooms = Array.isArray(data) ? data : [];
+  const allRooms = Array.isArray(data) ? data : [];
+  
+  // Filter rooms based on status and gender
+  const rooms = allRooms.filter(room => {
+    // Gender filter
+    if (genderFilter && room.gender !== genderFilter) {
+      return false;
+    }
+    
+    // Status filter
+    if (roomStatusFilter) {
+      if (roomStatusFilter === 'empty' && room.status !== 'EMPTY') {
+        return false;
+      }
+      if (roomStatusFilter === 'occupied' && room.status !== 'PARTIALLY_OCCUPIED') {
+        return false;
+      }
+      if (roomStatusFilter === 'full' && room.status !== 'OCCUPIED') {
+        return false;
+      }
+    }
+    
+    return true;
+  });
 
   return (
     <div

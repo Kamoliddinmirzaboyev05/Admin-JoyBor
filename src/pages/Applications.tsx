@@ -164,7 +164,8 @@ const Applications: React.FC = () => {
   const {
     data: applications = [],
     isLoading,
-    error
+    error,
+    refetch
   } = useQuery<Application[], Error>({
     queryKey: ['applications'],
     queryFn: async () => {
