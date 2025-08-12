@@ -77,7 +77,7 @@ function EditableInput({ label, value, onChange, type = 'text' }: { label: strin
   let inputValue = value ?? '';
   let inputType = type;
 
-  if (type === 'date' && typeof value === 'string') {
+  if (type === "date" && typeof value === "string") {
     try {
       const date = new Date(value);
       if (!isNaN(date.getTime())) {
@@ -370,7 +370,7 @@ const StudentProfile: React.FC = () => {
     } catch (error: any) {
       // Try to get more details from server response
       if (error.response?.data) {
-        if (typeof error.response.data === 'string') {
+        if (typeof error.response.data === "string") {
           // Handle string error response
         }
       }
@@ -424,7 +424,7 @@ const StudentProfile: React.FC = () => {
         const errorData = error.response.data;
 
         // Check if response is HTML (server error page)
-        if (typeof errorData === 'string' && errorData.includes('<html>')) {
+        if (typeof errorData === "string" && errorData.includes("<html>")) {
           errorMessage = 'Server xatoligi yuz berdi. Iltimos, admin bilan bog\'laning.';
         } else if (errorData.non_field_errors && Array.isArray(errorData.non_field_errors)) {
           const roomError = errorData.non_field_errors.find((err: string) =>
@@ -435,7 +435,7 @@ const StudentProfile: React.FC = () => {
           } else {
             errorMessage = errorData.non_field_errors.join('; ');
           }
-        } else if (typeof errorData === 'string') {
+        } else if (typeof errorData === "string") {
           errorMessage = errorData;
         } else if (errorData.detail) {
           errorMessage = errorData.detail;
@@ -449,7 +449,7 @@ const StudentProfile: React.FC = () => {
           for (const [field, errors] of Object.entries(errorData)) {
             if (Array.isArray(errors)) {
               fieldErrors.push(`${field}: ${errors.join(', ')}`);
-            } else if (typeof errors === 'string') {
+            } else if (typeof errors === "string") {
               fieldErrors.push(`${field}: ${errors}`);
             }
           }

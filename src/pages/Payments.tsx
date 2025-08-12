@@ -9,7 +9,7 @@ import "../index.css";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiQueries } from "../data/api";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { formatCurrency, formatCurrencyDetailed } from "../utils/formatters";
 import { invalidatePaymentCaches } from "../utils/cacheUtils";
 import { useGlobalEvents } from "../utils/globalEvents";
@@ -65,12 +65,12 @@ const Payments: React.FC = () => {
     const unsubscribePayment = subscribe('payment-updated', () => {
       refetch();
     });
-    
+
     // Listen for student updates to refresh student list
     const unsubscribeStudent = subscribe('student-updated', () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
     });
-    
+
     return () => {
       unsubscribePayment();
       unsubscribeStudent();
@@ -81,7 +81,20 @@ const Payments: React.FC = () => {
     {
       key: "student",
       title: "Talaba",
-      render: (_: unknown, row: Record<string, unknown>) => row.student && typeof row.student === "object" ? `${(row.student as Record<string, unknown>).name as string} ${(row.student as Record<string, unknown>).last_name as string}` : "-",
+      render: (_: unknown, row: Record<string, unknown>) => {
+        if (row.student && typeof row.student === "object") {
+          const student = row.student as Record<string, unknown>;
+          return (
+            <Link
+              to={`/studentprofile/${student.id}`}
+              className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+            >
+              {`${student.last_name as string} ${student.name as string}`}
+            </Link>
+          );
+        }
+        return "-";
+      },
       sortable: true,
     },
     {
@@ -92,13 +105,13 @@ const Payments: React.FC = () => {
     },
     {
       key: "paid_date",
-      title: "Tolov sanasi",
+      title: "To'lov sanasi",
       render: (v: unknown) => typeof v === "string" ? (v ? new Date(v).toLocaleDateString("uz-UZ") : "-") : "-",
       sortable: true,
     },
     {
       key: "method",
-      title: "Tolov turi",
+      title: "To'lov turi",
       render: (v: unknown) => {
         if (typeof v === "string") {
           return v.toLowerCase() === "cash" ? "Naqd" : v.toLowerCase() === "card" ? "Karta orqali" : v;
@@ -157,7 +170,7 @@ const Payments: React.FC = () => {
 
     // Form malumotlarini toldirish - to'liq ma'lumotlar bilan
     const student = payment.student as Record<string, unknown>;
-    
+
     // Sanani to'g'ri formatda o'rnatish
     let validUntilDate = "";
     if (payment.valid_until) {
@@ -234,7 +247,7 @@ const Payments: React.FC = () => {
           status: selectedPayment.status || "APPROVED", // Mavjud statusni saqlash
           comment: form.comment || "",
         };
-        
+
         // PATCH request for updating existing payment
         const token = sessionStorage.getItem("access");
         if (!token) {
@@ -249,7 +262,7 @@ const Payments: React.FC = () => {
           },
           body: JSON.stringify(updateData),
         });
-        
+
         if (!response.ok) {
           let errorData;
           try {
@@ -257,36 +270,36 @@ const Payments: React.FC = () => {
           } catch {
             errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
           }
-          
+
           // Xatolik turini aniqlash
           if (response.status === 404) {
-            throw new Error("Tolov topilmadi yoki o'chirilgan");
+            throw new Error("To'lov topilmadi yoki o'chirilgan");
           } else if (response.status === 403) {
-            throw new Error("Tolovni tahrirlash uchun ruxsat yo'q");
+            throw new Error("To'lovni tahrirlash uchun ruxsat yo'q");
           } else if (response.status === 400) {
             const fieldErrors = [];
             if (errorData.student) fieldErrors.push(`Talaba: ${errorData.student}`);
             if (errorData.amount) fieldErrors.push(`Miqdor: ${errorData.amount}`);
             if (errorData.valid_until) fieldErrors.push(`Sana: ${errorData.valid_until}`);
-            if (errorData.method) fieldErrors.push(`Tolov turi: ${errorData.method}`);
-            
+            if (errorData.method) fieldErrors.push(`To'lov turi: ${errorData.method}`);
+
             if (fieldErrors.length > 0) {
               throw new Error(fieldErrors.join(', '));
             }
           }
-          
-          throw new Error(errorData.detail || errorData.message || "Tolovni yangilashda xatolik");
+
+          throw new Error(errorData.detail || errorData.message || "To'lovni yangilashda xatolik");
         }
-        
+
         // Muvaffaqiyatli yangilanganini tekshirish
         await response.json(); // Response ni consume qilish
-        toast.success(`Tolov #${selectedPayment.id} muvaffaqiyatli yangilandi!`);
-        
+        toast.success(`To'lov #${selectedPayment.id} muvaffaqiyatli yangilandi!`);
+
         // Form va modallarni yopish
         setShowModal(false);
         setIsEditMode(false);
         setSelectedPayment(null);
-        
+
         // Barcha bog'liq cache larni yangilash
         await invalidatePaymentCaches(queryClient);
         // Force immediate refetch
@@ -303,13 +316,13 @@ const Payments: React.FC = () => {
           status: "APPROVED",
           comment: form.comment,
         });
-        toast.success("Tolov muvaffaqiyatli qoshildi!");
-        
+        toast.success("To'lov muvaffaqiyatli qo'shildi!");
+
         // Yangi tolov uchun ham form va modallarni yopish
         setShowModal(false);
         setIsEditMode(false);
         setSelectedPayment(null);
-        
+
         // Barcha bog'liq cache larni yangilash
         await invalidatePaymentCaches(queryClient);
         // Force immediate refetch
@@ -318,12 +331,12 @@ const Payments: React.FC = () => {
         emitPaymentUpdate({ action: 'created' });
       }
     } catch (err: unknown) {
-      const errorMessage = isEditMode ? "Tolovni yangilashda xatolik: " : "Tolovni yaratishda xatolik: ";
+      const errorMessage = isEditMode ? "To'lovni yangilashda xatolik: " : "To'lovni yaratishda xatolik: ";
       const fullErrorMessage = errorMessage + (err instanceof Error ? err.message : "Noma'lum xatolik");
-      
+
       setError(fullErrorMessage);
       toast.error(fullErrorMessage);
-      
+
       // Agar 404 yoki 403 xatolik bo'lsa, modallarni yopish
       if (err instanceof Error && (err.message.includes("topilmadi") || err.message.includes("ruxsat yo'q"))) {
         setTimeout(() => {
@@ -362,12 +375,12 @@ const Payments: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `tolovlar_royxati_${new Date().toISOString().split("T")[0]}.xlsx`;
+      link.download = `tolovlar_ro'yxati_${new Date().toISOString().split("T")[0]}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      toast.success("Tolovlar royxati muvaffaqiyatli yuklandi!");
+      toast.success("To'lovlar ro'yxati muvaffaqiyatli yuklandi!");
     } catch (error) {
       toast.error("Export xatolik yuz berdi!");
     }
@@ -430,7 +443,7 @@ const Payments: React.FC = () => {
   if (fetchError) {
     return (
       <div className="text-center py-10 text-red-600 dark:text-red-400">
-        Malumotlarni yuklashda xatolik yuz berdi.
+        Ma'lumotlarni yuklashda xatolik yuz berdi.
         <button
           onClick={() => refetch()}
           className="ml-2 text-blue-600 hover:underline"
@@ -448,9 +461,9 @@ const Payments: React.FC = () => {
           <CreditCard className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-white">Tolovlar</h1>
+          <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-white">To'lovlar</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm sm:text-base">
-            Yotoqxona tolovlari boshqaruvi
+            Yotoqxona to'lovlari boshqaruvi
           </p>
         </div>
         <div className="sm:ml-auto flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 mt-3 sm:mt-0">
@@ -465,7 +478,7 @@ const Payments: React.FC = () => {
             className="flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
           >
             <Plus className="w-4 h-4" />
-            <span>Tolov qoshish</span>
+            <span>To'lov qo'shish</span>
           </button>
         </div>
       </div>
@@ -507,17 +520,12 @@ const Payments: React.FC = () => {
               </button>
               <div className="text-center mb-4 sm:mb-6">
                 <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
-                  {isEditMode ? "Tolovni tahrirlash" : "Yangi tolov qoshish"}
+                  {isEditMode ? "To'lovni tahrirlash" : "Yangi to'lov qo'shish"}
                 </h2>
                 {isEditMode && selectedPayment && (
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-2 space-y-1">
-                    <div>ID: #{selectedPayment.id}</div>
-                    <div>Joriy summa: {formatCurrency(selectedPayment.amount)}</div>
-                    <div>Talaba: {selectedPayment.student && typeof selectedPayment.student === "object" 
-                      ? `${(selectedPayment.student as any).name} ${(selectedPayment.student as any).last_name}`
-                      : "Noma'lum"}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
                     <div className="text-xs text-blue-600 dark:text-blue-400">
-                      Faqat summa, sana, tolov turi va izohni o'zgartirishingiz mumkin
+                      Faqat summa, sana, to'lov turi va izohni o'zgartirishingiz mumkin
                     </div>
                   </div>
                 )}
@@ -537,7 +545,7 @@ const Payments: React.FC = () => {
                   />
                   {isEditMode && (
                     <div className="text-xs text-amber-600 dark:text-amber-400 mt-1 bg-amber-50 dark:bg-amber-900/20 p-2 rounded">
-                      ⚠️ Tahrirlash rejimida talabani o'zgartirib bo'lmaydi. Agar boshqa talabaga o'tkazish kerak bo'lsa, yangi tolov yarating va eskisini o'chiring.
+                      ⚠️ Tahrirlash rejimida talabani o'zgartirib bo'lmaydi. Agar boshqa talabaga o'tkazish kerak bo'lsa, yangi to'lov yarating va eskisini o'chiring.
                     </div>
                   )}
                 </div>
@@ -557,21 +565,15 @@ const Payments: React.FC = () => {
                     required
                     placeholder="Miqdorni kiriting (masalan: 1,200,000)"
                   />
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 space-y-1">
-                    <div>Katta summalar uchun: 1M+ = MLN, 1B+ = MLRD, 1T+ = TRLN formatida ko'rsatiladi</div>
-                    {isEditMode && selectedPayment && (
-                      <div className="text-blue-600 dark:text-blue-400">
-                        Avvalgi summa: {formatCurrency(selectedPayment.amount)} → 
-                        {form.amount && Number(form.amount) !== selectedPayment.amount && (
-                          <span className="font-medium"> Yangi: {formatCurrency(Number(form.amount))}</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  {isEditMode && selectedPayment && form.amount && Number(form.amount) !== selectedPayment.amount && (
+                    <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                      Avvalgi summa: {formatCurrency(selectedPayment.amount)} → Yangi: {formatCurrency(Number(form.amount))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">
-                    Tolov amal qilish sanasi
+                    To'lov amal qilish sanasi
                     {isEditMode && selectedPayment?.valid_until && (
                       <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
                         (Avvalgi: {new Date(selectedPayment.valid_until as string).toLocaleDateString("uz-UZ")})
@@ -603,7 +605,7 @@ const Payments: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">
-                    Tolov turi
+                    To'lov turi
                     {isEditMode && selectedPayment?.method && (
                       <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
                         (Avvalgi: {selectedPayment.method === "Cash" ? "Naqd" : "Karta orqali"})
@@ -666,10 +668,10 @@ const Payments: React.FC = () => {
                     {loading ? (
                       <span className="flex items-center justify-center gap-2">
                         <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
-                        {isEditMode ? "Yangilanmoqda..." : "Qoshilmoqda..."}
+                        {isEditMode ? "Yangilanmoqda..." : "Qo'shilmoqda..."}
                       </span>
                     ) : (
-                      isEditMode ? "Yangilash" : "Qoshish"
+                      isEditMode ? "Yangilash" : "Qo'shish"
                     )}
                   </button>
                 </div>
@@ -683,67 +685,126 @@ const Payments: React.FC = () => {
       <AnimatePresence>
         {showViewModal && selectedPayment && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-2"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
             onClick={() => setShowViewModal(false)}
           >
             <motion.div
-              initial={{ y: 40, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 40, opacity: 0 }}
-              transition={{ duration: 0.25, ease: "easeInOut" }}
-              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-6 w-full max-w-md relative"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-8 w-full max-w-lg relative overflow-hidden"
               onClick={e => e.stopPropagation()}
             >
+              {/* Gradient background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-900/20 dark:to-purple-900/20"></div>
+
+              {/* Close button */}
               <button
                 onClick={() => setShowViewModal(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-red-500 dark:hover:text-red-400 bg-transparent rounded-full p-1 transition-colors"
+                className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full p-2 transition-all duration-200 hover:scale-110"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
 
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white text-center mb-6">Tolov malumotlari</h2>
+              {/* Header */}
+              <div className="relative text-center mb-8">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <CreditCard className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">To'lov ma'lumotlari</h2>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">ID: #{selectedPayment.id}</p>
+              </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Talaba</label>
-                  <p className="text-gray-900 dark:text-white font-medium">
-                    {selectedPayment.student && typeof selectedPayment.student === "object"
-                      ? `${(selectedPayment.student as any).name} ${(selectedPayment.student as any).last_name}`
-                      : "-"}
-                  </p>
+              {/* Content */}
+              <div className="relative space-y-6">
+                {/* Student info */}
+                <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-semibold text-sm">
+                        {selectedPayment.student && typeof selectedPayment.student === "object"
+                          ? `${((selectedPayment.student as any).name as string)[0]}${((selectedPayment.student as any).last_name as string)[0]}`
+                          : "?"}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Talaba</p>
+                      <Link
+                        to={`/studentprofile/${(selectedPayment.student as any)?.id}`}
+                        className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                      >
+                        {selectedPayment.student && typeof selectedPayment.student === "object"
+                          ? `${(selectedPayment.student as any).name} ${(selectedPayment.student as any).last_name}`
+                          : "-"}
+                      </Link>
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Miqdor</label>
-                  <p className="text-gray-900 dark:text-white font-medium">
+                {/* Amount */}
+                <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">To'lov miqdori</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {typeof selectedPayment.amount === "number" ? formatCurrencyDetailed(selectedPayment.amount) : "-"}
                   </p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Tolov sanasi</label>
-                  <p className="text-gray-900 dark:text-white font-medium">
-                    {selectedPayment.paid_date ? new Date(selectedPayment.paid_date as string).toLocaleDateString("uz-UZ") : "-"}
-                  </p>
+                {/* Details grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">To'lov sanasi</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {selectedPayment.paid_date ? new Date(selectedPayment.paid_date as string).toLocaleDateString("uz-UZ") : "-"}
+                    </p>
+                  </div>
+
+                  <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">To'lov turi</p>
+                    <div className="flex items-center gap-2">
+                      {selectedPayment.method === "Cash" ? (
+                        <Wallet className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <CreditCard className="w-4 h-4 text-blue-600" />
+                      )}
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {selectedPayment.method === "Cash" ? "Naqd" : selectedPayment.method === "Card" ? "Karta orqali" : selectedPayment.method}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Tolov turi</label>
-                  <p className="text-gray-900 dark:text-white font-medium">
-                    {selectedPayment.method === "Cash" ? "Naqd" : selectedPayment.method === "Card" ? "Karta orqali" : selectedPayment.method}
-                  </p>
-                </div>
-
+                {/* Comment */}
                 {selectedPayment.comment && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Izoh</label>
-                    <p className="text-gray-900 dark:text-white font-medium">{selectedPayment.comment as string}</p>
+                  <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Izoh</p>
+                    <p className="text-gray-900 dark:text-white">{selectedPayment.comment as string}</p>
                   </div>
                 )}
+
+                {/* Valid until */}
+                {selectedPayment.valid_until && (
+                  <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Amal qilish muddati</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {new Date(selectedPayment.valid_until as string).toLocaleDateString("uz-UZ")}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="relative mt-8 pt-6 border-t border-gray-200/50 dark:border-gray-700/50">
+                <button
+                  onClick={() => setShowViewModal(false)}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-200 transform hover:scale-[1.02] shadow-lg"
+                >
+                  Yopish
+                </button>
               </div>
             </motion.div>
           </motion.div>

@@ -540,7 +540,7 @@ const Students: React.FC = () => {
     if (formData.gender) formdata.append("gender", formData.gender);
     if (formData.course) formdata.append("course", formData.course);
     // Fix instanceof check for avatar
-    if (formData.avatar && typeof formData.avatar !== 'string' && formData.avatar instanceof File) {
+    if (formData.avatar && typeof formData.avatar !== "string" && formData.avatar instanceof File) {
       formdata.append("picture", formData.avatar);
     }
 
