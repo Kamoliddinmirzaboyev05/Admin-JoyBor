@@ -468,11 +468,12 @@ const FloorDetail: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona nomi yoki raqami</label>
                   <input
-                    type="text"
+                    type="number"
                     value={newRoom}
                     onChange={e => setNewRoom(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Masalan: 101, A-12, yoki Xona 1"
+                    placeholder="Masalan: 101, 102, 201..."
+                    min="1"
                     required
                   />
                 </div>
@@ -558,6 +559,7 @@ const FloorDetail: React.FC = () => {
                     value={editRoomName}
                     onChange={e => setEditRoomName(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Masalan: 101-xona"
                     required
                   />
                 </div>

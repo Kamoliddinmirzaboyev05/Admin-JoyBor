@@ -165,7 +165,7 @@ export const apiQueries = {
   
   // Notifications
   getNotifications: () => get('/notifications/'),
-  markNotificationAsRead: (id: number) => put(`/notification/${id}/read/`, { message: "string", is_read: true }),
+  markNotificationAsRead: (id: number) => patch(`/notification/${id}/read/`, { is_read: true }),
   
   // Amenities
   getAmenities: () => get('/amenities/'),

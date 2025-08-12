@@ -109,6 +109,7 @@ const StudentProfile: React.FC = () => {
   const [form, setForm] = useState<Record<string, unknown> | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
@@ -281,6 +282,8 @@ const StudentProfile: React.FC = () => {
 
   const handleSave = async () => {
     if (!studentId || !form) return;
+    
+    setSaving(true);
 
     // FormData yaratish (rasm yuklash uchun)
     const formData = new FormData();
@@ -462,6 +465,8 @@ const StudentProfile: React.FC = () => {
       }
 
       toast.error(`Xatolik: ${errorMessage}`);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -526,10 +531,11 @@ const StudentProfile: React.FC = () => {
               </button>
             )}
             <button
-              className="px-3 sm:px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition text-sm sm:text-base"
+              className="px-3 sm:px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition text-sm sm:text-base disabled:opacity-60 disabled:cursor-not-allowed"
               onClick={() => editMode ? handleSave() : setEditMode(true)}
+              disabled={saving}
             >
-              {editMode ? 'Saqlash' : 'Tahrirlash'}
+              {editMode ? (saving ? 'Saqlanmoqda...' : 'Saqlash') : 'Tahrirlash'}
             </button>
             {!editMode && (
               <button

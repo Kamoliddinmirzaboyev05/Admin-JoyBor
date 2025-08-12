@@ -11,21 +11,21 @@ import { formatCurrency } from '../utils/formatters';
 // Icon mapping for amenities
 const getAmenityIcon = (name: string) => {
   const iconMap: { [key: string]: React.ReactNode } = {
-    'Wi-Fi': <Wifi className="w-6 h-6" />,
-    'WiFi': <Wifi className="w-6 h-6" />,
-    'Wifi': <Wifi className="w-6 h-6" />,
-    'Darsxona': <BookOpen className="w-6 h-6" />,
-    'O\'quv xonasi': <BookOpen className="w-6 h-6" />,
-    'Study Room': <BookOpen className="w-6 h-6" />,
-    'Kir yuvish': <WashingMachine className="w-6 h-6" />,
-    'Washing Machine': <WashingMachine className="w-6 h-6" />,
-    'Laundry': <WashingMachine className="w-6 h-6" />,
-    'Dam olish xonasi': <Tv className="w-6 h-6" />,
-    'TV': <Tv className="w-6 h-6" />,
-    'Television': <Tv className="w-6 h-6" />,
-    'Oshxona': <Coffee className="w-6 h-6" />,
-    'Kitchen': <Coffee className="w-6 h-6" />,
-    'Kafe': <Coffee className="w-6 h-6" />,
+    'Wi-Fi': <Wifi className="w-5 h-5" />,
+    'WiFi': <Wifi className="w-5 h-5" />,
+    'Wifi': <Wifi className="w-5 h-5" />,
+    'Darsxona': <BookOpen className="w-5 h-5" />,
+    'O\'quv xonasi': <BookOpen className="w-5 h-5" />,
+    'Study Room': <BookOpen className="w-5 h-5" />,
+    'Kir yuvish': <WashingMachine className="w-5 h-5" />,
+    'Washing Machine': <WashingMachine className="w-5 h-5" />,
+    'Laundry': <WashingMachine className="w-5 h-5" />,
+    'Dam olish xonasi': <Tv className="w-5 h-5" />,
+    'TV': <Tv className="w-5 h-5" />,
+    'Television': <Tv className="w-5 h-5" />,
+    'Oshxona': <Coffee className="w-5 h-5" />,
+    'Kitchen': <Coffee className="w-5 h-5" />,
+    'Kafe': <Coffee className="w-5 h-5" />,
   };
 
   // Try exact match first
@@ -33,29 +33,29 @@ const getAmenityIcon = (name: string) => {
 
   // Try partial matches
   const lowerName = name.toLowerCase();
-  if (lowerName.includes('wifi') || lowerName.includes('internet')) return <Wifi className="w-6 h-6" />;
-  if (lowerName.includes('dars') || lowerName.includes('study') || lowerName.includes('o\'qu')) return <BookOpen className="w-6 h-6" />;
-  if (lowerName.includes('kir') || lowerName.includes('wash') || lowerName.includes('laundry')) return <WashingMachine className="w-6 h-6" />;
-  if (lowerName.includes('tv') || lowerName.includes('dam') || lowerName.includes('television')) return <Tv className="w-6 h-6" />;
-  if (lowerName.includes('oshxona') || lowerName.includes('kitchen') || lowerName.includes('kafe')) return <Coffee className="w-6 h-6" />;
+  if (lowerName.includes('wifi') || lowerName.includes('internet')) return <Wifi className="w-5 h-5" />;
+  if (lowerName.includes('dars') || lowerName.includes('study') || lowerName.includes('o\'qu')) return <BookOpen className="w-5 h-5" />;
+  if (lowerName.includes('kir') || lowerName.includes('wash') || lowerName.includes('laundry')) return <WashingMachine className="w-5 h-5" />;
+  if (lowerName.includes('tv') || lowerName.includes('dam') || lowerName.includes('television')) return <Tv className="w-5 h-5" />;
+  if (lowerName.includes('oshxona') || lowerName.includes('kitchen') || lowerName.includes('kafe')) return <Coffee className="w-5 h-5" />;
 
   // Default icon
-  return <ListChecks className="w-6 h-6" />;
+  return <ListChecks className="w-5 h-5" />;
 };
 
 function SectionCard({ icon, title, description, children, onEdit }: { icon: React.ReactNode; title: React.ReactNode; description?: string; children: React.ReactNode; onEdit?: () => void }) {
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 flex flex-col gap-4 border border-gray-100 dark:border-slate-700 relative group transition hover:shadow-2xl">
-      <div className="flex items-center gap-3 mb-1">
-        <span className="p-2 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-200">{icon}</span>
-        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">{title}</h2>
+    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 sm:p-6 flex flex-col gap-3 sm:gap-4 border border-gray-100 dark:border-slate-700 relative group transition hover:shadow-2xl">
+      <div className="flex items-center gap-2 sm:gap-3 mb-1">
+        <span className="p-1.5 sm:p-2 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-200 flex-shrink-0">{icon}</span>
+        <h2 className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-100 flex-1 min-w-0">{title}</h2>
         {onEdit && (
-          <button onClick={onEdit} className="ml-auto p-2 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900 transition" title="Tahrirlash">
-            <Edit className="w-5 h-5 text-blue-500" />
+          <button onClick={onEdit} className="p-1.5 sm:p-2 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900 transition flex-shrink-0" title="Tahrirlash">
+            <Edit className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
           </button>
         )}
       </div>
-      {description && <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">{description}</div>}
+      {description && <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 leading-relaxed">{description}</div>}
       {children}
     </div>
   );
@@ -66,7 +66,7 @@ function EditableInput({ label, value, onChange, disabled, placeholder, helper, 
     <div className={`flex flex-col gap-1 ${fullWidth ? 'w-full' : ''}`}>
       <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">{label}</label>
       <input
-        className={`bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-base font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${disabled ? 'cursor-default' : 'cursor-text'}`}
+        className={`bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-sm sm:text-base font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 ${disabled ? 'cursor-default' : 'cursor-text'}`}
         value={value}
         onChange={e => onChange(e.target.value)}
         disabled={disabled}
@@ -542,31 +542,34 @@ const Settings: React.FC = () => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 40 }}
       transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className="p-6 max-w-5xl mx-auto w-full"
+      className="p-4 sm:p-6 max-w-5xl mx-auto w-full"
     >
-      <div className="flex flex-col sm:flex-row items-center gap-6 mb-10">
+      <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mb-6 sm:mb-10">
         {/* University logo and name */}
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center border border-gray-200 dark:border-gray-700 shadow p-2">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center border border-gray-200 dark:border-gray-700 shadow p-2">
             <img src="/logoicon.svg" alt="University Logo" className="w-full h-full object-contain" />
           </div>
-          <div>
-            <div className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2"><School className="w-5 h-5 text-blue-500" /> {settings.university?.name}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{settings.university?.address}</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <School className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" /> 
+              <span className="truncate">{settings.university?.name}</span>
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">{settings.university?.address}</div>
           </div>
         </div>
         <div className="flex-1" />
         {/* Admin info */}
-        <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-lg">
-          <User className="w-5 h-5 text-blue-500" />
-          <span className="font-semibold text-gray-800 dark:text-gray-100">{settings.admin?.username}</span>
-          <span className="text-xs text-gray-500 ml-2">Admin</span>
+        <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 px-3 sm:px-4 py-2 rounded-lg">
+          <User className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" />
+          <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm sm:text-base truncate">{settings.admin?.username}</span>
+          <span className="text-xs text-gray-500 ml-1 sm:ml-2 flex-shrink-0">Admin</span>
         </div>
       </div>
 
 
       {/* Google Maps - Doim ko'rinadigan */}
-      <div className="mb-8">
+      <div className="mb-4 sm:mb-6 lg:mb-8">
         <SectionCard
           icon={<Map className="w-8 h-8 text-blue-500" />}
           title={((<span className="text-lg font-bold text-blue-700 dark:text-blue-300">Yotoqxona joylashuvi</span>) as React.ReactNode)}
@@ -610,11 +613,11 @@ const Settings: React.FC = () => {
         </SectionCard>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6 lg:mb-10">
         {/* Dormitory Info Card */}
         <SectionCard
           icon={<Info className="w-8 h-8 text-blue-500" />}
-          title={((<span className="text-lg font-bold text-blue-700 dark:text-blue-300">Yotoqxona haqida</span>) as React.ReactNode)}
+          title={((<span className="text-base sm:text-lg font-bold text-blue-700 dark:text-blue-300">Yotoqxona haqida</span>) as React.ReactNode)}
           onEdit={() => setEditDormCard(true)}
         >
           <div className="rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-800/30 p-4 flex flex-col gap-4 shadow-inner">
@@ -623,9 +626,9 @@ const Settings: React.FC = () => {
                 <EditableInput label="Nomi" value={dormCardForm.name} onChange={v => handleDormCardChange('name', v)} disabled={dormLoading} fullWidth />
                 <EditableInput label="Manzil" value={dormCardForm.address} onChange={v => handleDormCardChange('address', v)} disabled={dormLoading} fullWidth />
                 <EditableInput label="Universitetgacha masofa (km)" value={dormCardForm.distance_to_university} onChange={v => handleDormCardChange('distance_to_university', v)} disabled={dormLoading} fullWidth />
-                <div className="flex gap-2 mt-2">
-                  <button className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSaveDormCard} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
-                  <button className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition" onClick={() => setEditDormCard(false)} disabled={dormLoading}>Bekor qilish</button>
+                <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                  <button className="px-4 sm:px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm sm:text-base" onClick={handleSaveDormCard} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
+                  <button className="px-4 sm:px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm sm:text-base" onClick={() => setEditDormCard(false)} disabled={dormLoading}>Bekor qilish</button>
                 </div>
               </>
             ) : (
@@ -704,7 +707,7 @@ const Settings: React.FC = () => {
         {/* Prices Card */}
         <SectionCard
           icon={<DollarSign className="w-8 h-8 text-green-500" />}
-          title={((<span className="text-lg font-bold text-green-700 dark:text-green-300">Narx ma'lumotlari</span>) as React.ReactNode)}
+          title={((<span className="text-base sm:text-lg font-bold text-green-700 dark:text-green-300">Narx ma'lumotlari</span>) as React.ReactNode)}
           description={editPricesCard ? undefined : "Oylik va yillik narxlar"}
           onEdit={() => setEditPricesCard(true)}
         >
@@ -713,9 +716,9 @@ const Settings: React.FC = () => {
               <>
                 <EditableInput label="Oylik narx (so'm)" value={pricesCardForm.month_price} onChange={v => handlePricesCardChange('month_price', v)} disabled={dormLoading} fullWidth placeholder="1200000" />
                 <EditableInput label="Yillik narx (so'm)" value={pricesCardForm.year_price} onChange={v => handlePricesCardChange('year_price', v)} disabled={dormLoading} fullWidth placeholder="12000000" />
-                <div className="flex gap-2 mt-4">
-                  <button className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSavePricesCard} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
-                  <button className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition" onClick={() => setEditPricesCard(false)} disabled={dormLoading}>Bekor qilish</button>
+                <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                  <button className="px-4 sm:px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm sm:text-base" onClick={handleSavePricesCard} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
+                  <button className="px-4 sm:px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm sm:text-base" onClick={() => setEditPricesCard(false)} disabled={dormLoading}>Bekor qilish</button>
                 </div>
               </>
             ) : (
@@ -741,7 +744,7 @@ const Settings: React.FC = () => {
         {/* Description Card */}
         <SectionCard
           icon={<BookOpen className="w-8 h-8 text-purple-500" />}
-          title={((<span className="text-lg font-bold text-purple-700 dark:text-purple-300">Tavsif</span>) as React.ReactNode)}
+          title={((<span className="text-base sm:text-lg font-bold text-purple-700 dark:text-purple-300">Tavsif</span>) as React.ReactNode)}
           description={editDescription ? undefined : "Yotoqxona haqida batafsil ma'lumot"}
           onEdit={() => setEditDescription(true)}
         >
@@ -751,16 +754,16 @@ const Settings: React.FC = () => {
                 <div className="flex flex-col gap-1">
                   <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Tavsif</label>
                   <textarea
-                    className="bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-base font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 min-h-[120px] resize-vertical"
+                    className="bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-sm sm:text-base font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 min-h-[100px] sm:min-h-[120px] resize-vertical"
                     value={descriptionForm}
                     onChange={e => setDescriptionForm(e.target.value)}
                     disabled={dormLoading}
                     placeholder="Yotoqxona haqida batafsil ma'lumot kiriting..."
                   />
                 </div>
-                <div className="flex gap-2 mt-2">
-                  <button className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition" onClick={handleSaveDescription} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
-                  <button className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition" onClick={() => { setEditDescription(false); setDescriptionForm(settings.description || ''); }} disabled={dormLoading}>Bekor qilish</button>
+                <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                  <button className="px-4 sm:px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm sm:text-base" onClick={handleSaveDescription} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
+                  <button className="px-4 sm:px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm sm:text-base" onClick={() => { setEditDescription(false); setDescriptionForm(settings.description || ''); }} disabled={dormLoading}>Bekor qilish</button>
                 </div>
               </>
             ) : (
@@ -781,95 +784,150 @@ const Settings: React.FC = () => {
           description="Yotoqxonada mavjud bo'lgan qulayliklarni belgilang. Tahrirlash uchun 'Tahrirlash' tugmasini bosing."
           onEdit={() => setEditSection(editSection === 'amenities' ? null : 'amenities')}
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {localAmenities && localAmenities.length > 0 ? (
               localAmenities.map((item: any) => (
                 <div
                   key={item.id}
-                  className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all duration-200 ${item.is_active
-                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 shadow-sm'
-                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm'
-                    } ${editSection === 'amenities' ? 'cursor-pointer hover:shadow-md hover:scale-[1.01]' : ''}`}
+                  className={`group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 ${
+                    item.is_active
+                      ? 'bg-gradient-to-br from-green-50 via-green-50 to-green-100 dark:from-green-900/30 dark:via-green-900/20 dark:to-green-800/30 border-green-200 dark:border-green-700 shadow-lg shadow-green-100 dark:shadow-green-900/20'
+                      : 'bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-700 border-gray-200 dark:border-gray-600 shadow-sm'
+                  } ${
+                    editSection === 'amenities' 
+                      ? 'cursor-pointer hover:shadow-xl hover:scale-[1.02] hover:border-blue-300 dark:hover:border-blue-600' 
+                      : 'cursor-default'
+                  }`}
                   onClick={() => editSection === 'amenities' && handleAmenityChange(item)}
                 >
-                  {/* Checkbox */}
-                  <div className={`relative flex items-center justify-center w-5 h-5 rounded-md border-2 transition-all duration-200 ${editSection === 'amenities' ? 'cursor-pointer' : 'cursor-default'
-                    } ${item.is_active
-                      ? 'bg-green-500 border-green-500'
-                      : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500'
-                    }`}>
-                    <input
-                      type="checkbox"
-                      checked={item.is_active}
-                      onChange={() => editSection === 'amenities' && handleAmenityChange(item)}
-                      className="sr-only"
-                      disabled={editSection !== 'amenities'}
-                    />
-                    {item.is_active && (
-                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    )}
-                  </div>
-
-                  {/* Icon */}
-                  <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${item.is_active
-                    ? 'bg-green-100 dark:bg-green-800/30 text-green-600 dark:text-green-400'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                    }`}>
-                    {React.cloneElement(getAmenityIcon(item.name) as React.ReactElement, { className: "w-5 h-5" })}
-                  </div>
+                  {/* Status indicator - top right */}
+                  <div className={`absolute top-3 right-3 w-3 h-3 rounded-full ${
+                    item.is_active ? 'bg-green-500 shadow-lg shadow-green-500/50' : 'bg-gray-400'
+                  } ${item.is_active ? 'animate-pulse' : ''}`}></div>
 
                   {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className={`font-semibold text-sm mb-0.5 ${item.is_active
-                      ? 'text-gray-900 dark:text-white'
-                      : 'text-gray-600 dark:text-gray-400'
+                  <div className="p-6 flex flex-col items-center text-center space-y-4">
+                    {/* Icon with background */}
+                    <div className={`relative w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+                      item.is_active
+                        ? 'bg-gradient-to-br from-green-100 to-green-200 dark:from-green-800/50 dark:to-green-700/50 text-green-600 dark:text-green-400 shadow-lg'
+                        : 'bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 text-gray-500 dark:text-gray-400'
+                    } ${editSection === 'amenities' ? 'group-hover:scale-110' : ''}`}>
+                      <div className="transform transition-transform duration-300">
+                        {getAmenityIcon(item.name)}
+                      </div>
+                      
+                      {/* Glow effect for active items */}
+                      {item.is_active && (
+                        <div className="absolute inset-0 rounded-2xl bg-green-400/20 blur-xl"></div>
+                      )}
+                    </div>
+
+                    {/* Title */}
+                    <div className="space-y-2">
+                      <h3 className={`font-bold text-base leading-tight ${
+                        item.is_active
+                          ? 'text-gray-900 dark:text-white'
+                          : 'text-gray-600 dark:text-gray-300'
                       }`}>
-                      {item.name}
-                    </h3>
-                    <div className="flex items-center gap-1.5">
-                      <div className={`w-2 h-2 rounded-full ${item.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                      <span className={`text-xs font-medium ${item.is_active
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-gray-500 dark:text-gray-400'
-                        }`}>
+                        {item.name}
+                      </h3>
+                      
+                      {/* Status badge */}
+                      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${
+                        item.is_active
+                          ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
+                      }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${
+                          item.is_active ? 'bg-green-500' : 'bg-gray-400'
+                        }`}></div>
                         {item.is_active ? 'Faol' : 'Nofaol'}
-                      </span>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Edit mode overlay */}
+                  {editSection === 'amenities' && (
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl">
+                      <div className="absolute bottom-3 left-3 right-3">
+                        <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-lg px-3 py-2 text-center">
+                          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                            {item.is_active ? 'O\'chirish uchun bosing' : 'Yoqish uchun bosing'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             ) : (
-              <div className="col-span-full text-center text-gray-500 dark:text-gray-400 py-8">
-                <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                  <ListChecks className="w-6 h-6 text-gray-400" />
+              <div className="col-span-full text-center py-12">
+                <div className="max-w-sm mx-auto">
+                  <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-3xl flex items-center justify-center shadow-lg">
+                    <ListChecks className="w-10 h-10 text-gray-400 dark:text-gray-500" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    Qulayliklar yuklanmoqda
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                    Yotoqxona qulayliklari ma'lumotlari yuklanmoqda. Iltimos, biroz kuting.
+                  </p>
+                  <div className="mt-4 flex justify-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent"></div>
+                  </div>
                 </div>
-                <p className="text-sm font-medium">Qulayliklar yuklanmoqda...</p>
               </div>
             )}
           </div>
           {editSection === 'amenities' && (
-            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
-              <p className="text-sm text-blue-700 dark:text-blue-300 font-medium mb-3">
-                Qulayliklarni faollashtirish yoki o'chirish uchun ustiga bosing.
-              </p>
-              <div className="flex gap-3">
+            <div className="mt-6 p-6 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20 rounded-2xl border border-blue-200 dark:border-blue-700 shadow-lg">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-blue-100 dark:bg-blue-900/50 rounded-xl flex items-center justify-center">
+                  <ListChecks className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                    Qulayliklarni boshqarish
+                  </h4>
+                  <p className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
+                    Qulayliklarni faollashtirish yoki o'chirish uchun kartochka ustiga bosing. 
+                    O'zgarishlar avtomatik saqlanmaydi - "Saqlash" tugmasini bosishni unutmang.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
-                  className="px-5 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={handleSaveAmenities}
                   disabled={updateAmenityMutation.status === 'pending'}
                 >
-                  {updateAmenityMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
+                  {updateAmenityMutation.status === 'pending' ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Saqlanmoqda...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Saqlash
+                    </>
+                  )}
                 </button>
                 <button
-                  className="px-5 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm"
+                  className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 border border-gray-300 dark:border-gray-600 shadow-sm hover:shadow-md disabled:opacity-50"
                   onClick={() => {
                     setEditSection(null);
                     setLocalAmenities(amenitiesData || []);
                   }}
                   disabled={updateAmenityMutation.status === 'pending'}
                 >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                   Bekor qilish
                 </button>
               </div>
@@ -903,16 +961,16 @@ const Settings: React.FC = () => {
                   placeholder="@username"
                   fullWidth
                 />
-                <div className="flex gap-2 mt-4">
+                <div className="flex flex-col sm:flex-row gap-2 mt-4">
                   <button
-                    className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition disabled:opacity-50"
+                    className="px-4 sm:px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition disabled:opacity-50 text-sm sm:text-base"
                     onClick={handleSaveContact}
                     disabled={updateContactMutation.status === 'pending'}
                   >
                     {updateContactMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
                   </button>
                   <button
-                    className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+                    className="px-4 sm:px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm sm:text-base"
                     onClick={() => {
                       setEditSection(null);
                       // Original ma'lumotlarni qaytarish
@@ -959,7 +1017,7 @@ const Settings: React.FC = () => {
           description="Yotoqxonada amal qilinishi shart bo'lgan asosiy qoidalar. Ro'yxatni tahrirlash va yangi qoida qo'shish mumkin."
           onEdit={() => setEditSection(editSection === 'rules' ? null : 'rules')}
         >
-          <ul className="list-disc pl-6 space-y-2 text-gray-700 dark:text-gray-200">
+          <ul className="list-disc space-y-2 text-gray-700 dark:text-gray-200">
             {rules.map((rule, i) => (
               <li key={i} className="flex items-center gap-2">
                 <EditableInput
@@ -984,15 +1042,15 @@ const Settings: React.FC = () => {
             ))}
           </ul>
           {editSection === 'rules' && (
-            <div className="flex gap-2 mt-4">
+            <div className="flex flex-col sm:flex-row gap-2 mt-4">
               <button
-                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+                className="flex items-center gap-1 px-3 sm:px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition text-sm sm:text-base"
                 onClick={handleAddRule}
               >
                 <Plus className="w-4 h-4" /> Yangi qoida qo'shish
               </button>
               <button
-                className="px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition"
+                className="px-4 sm:px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm sm:text-base"
                 onClick={handleSaveRules}
                 disabled={createRuleMutation.status === 'pending'}
               >
@@ -1013,7 +1071,7 @@ const Settings: React.FC = () => {
         {editSection === 'images' && (
           <div className="mb-4">
             <button
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition mb-2 flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition mb-2 flex items-center gap-2 text-sm sm:text-base"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
             >
@@ -1071,16 +1129,18 @@ const Settings: React.FC = () => {
                   <img
                     src={img.image}
                     alt={`Yotoqxona rasmi ${i + 1}`}
-                    className="w-64 h-48 object-cover rounded-lg border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-shadow"
+                    className="w-full sm:w-64 h-40 sm:h-48 object-cover rounded-lg border border-gray-200 dark:border-gray-700 shadow-md hover:shadow-lg transition-shadow"
                   />
-                  {/* O'chirish tugmasi har doim ko'rinadi */}
-                  <button
-                    onClick={() => handleDeleteImage(img.id)}
-                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg"
-                    title="Rasmni o'chirish"
-                  >
-                    <span className="text-lg font-bold">×</span>
-                  </button>
+                  {/* O'chirish tugmasi faqat tahrirlash rejimida ko'rinadi */}
+                  {editSection === 'images' && (
+                    <button
+                      onClick={() => handleDeleteImage(img.id)}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg"
+                      title="Rasmni o'chirish"
+                    >
+                      <span className="text-lg font-bold">×</span>
+                    </button>
+                  )}
                   {/* Rasm tartib raqami */}
                   <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
                     {i + 1} / {settings.images.length}

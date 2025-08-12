@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import DataTable from "../components/UI/DataTable";
-import { CreditCard, Plus, X, Wallet, Eye, Edit } from "lucide-react";
+import { CreditCard, Plus, X, Wallet, Eye, Edit, Filter } from "lucide-react";
 import Select from "react-select";
 import { motion, AnimatePresence } from "framer-motion";
 import DatePicker from "react-datepicker";
@@ -31,6 +31,11 @@ const Payments: React.FC = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const location = useLocation();
+
+  // Filter states
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState("");
+  const [dateRangeFilter, setDateRangeFilter] = useState("");
+  const [amountRangeFilter, setAmountRangeFilter] = useState("");
 
   // React Query bilan payments ma'lumotlarini olish
   const {
@@ -117,6 +122,7 @@ const Payments: React.FC = () => {
           return v.toLowerCase() === "cash" ? "Naqd" : v.toLowerCase() === "card" ? "Karta orqali" : v;
         }
         return "-";
+        
       },
       sortable: true,
     },
@@ -352,6 +358,63 @@ const Payments: React.FC = () => {
 
   const studentOptions = students.map((s: any) => ({ value: String(s.id), label: `${s.name} ${s.last_name}` }));
 
+  // Filter payments based on selected filters
+  const filteredPayments = payments.filter((payment: any) => {
+    // Payment method filter
+    if (paymentMethodFilter) {
+      const method = payment.method?.toLowerCase();
+      if (paymentMethodFilter === "cash" && method !== "cash") return false;
+      if (paymentMethodFilter === "card" && method !== "card") return false;
+    }
+
+    // Date range filter
+    if (dateRangeFilter && payment.paid_date) {
+      const paymentDate = new Date(payment.paid_date);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      switch (dateRangeFilter) {
+        case "today":
+          const paymentToday = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), paymentDate.getDate());
+          if (paymentToday.getTime() !== today.getTime()) return false;
+          break;
+        case "week":
+          const weekAgo = new Date(today.getTime());
+          weekAgo.setDate(today.getDate() - 7);
+          if (paymentDate < weekAgo) return false;
+          break;
+        case "month":
+          const monthAgo = new Date(today.getTime());
+          monthAgo.setMonth(today.getMonth() - 1);
+          if (paymentDate < monthAgo) return false;
+          break;
+        case "year":
+          const yearAgo = new Date(today.getTime());
+          yearAgo.setFullYear(today.getFullYear() - 1);
+          if (paymentDate < yearAgo) return false;
+          break;
+      }
+    }
+
+    // Amount range filter
+    if (amountRangeFilter && payment.amount) {
+      const amount = Number(payment.amount);
+      switch (amountRangeFilter) {
+        case "low":
+          if (amount >= 1000000) return false;
+          break;
+        case "medium":
+          if (amount < 1000000 || amount >= 5000000) return false;
+          break;
+        case "high":
+          if (amount < 5000000) return false;
+          break;
+      }
+    }
+
+    return true;
+  });
+
   // Export handler for DataTable
   const handleExportPayments = async () => {
     try {
@@ -466,13 +529,7 @@ const Payments: React.FC = () => {
             Yotoqxona to'lovlari boshqaruvi
           </p>
         </div>
-        <div className="sm:ml-auto flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 mt-3 sm:mt-0">
-          <button
-            onClick={() => refetch()}
-            className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            Yangilash
-          </button>
+        <div className="sm:ml-auto">
           <button
             onClick={handleOpen}
             className="flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
@@ -483,8 +540,102 @@ const Payments: React.FC = () => {
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-gray-500" />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filterlar:</span>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          {/* Payment method filter */}
+          <div className="min-w-[150px]">
+            <Select
+              options={[
+                { value: "cash", label: "Naqd" },
+                { value: "card", label: "Karta orqali" },
+              ]}
+              value={paymentMethodFilter ? {
+                value: paymentMethodFilter, label:
+                  paymentMethodFilter === "cash" ? "Naqd" : "Karta orqali"
+              } : null}
+              onChange={(opt) => setPaymentMethodFilter(opt ? opt.value : "")}
+              isClearable
+              placeholder="To'lov turi"
+              styles={selectStyles}
+              classNamePrefix="react-select"
+            />
+          </div>
+
+          {/* Date range filter */}
+          <div className="min-w-[150px]">
+            <Select
+              options={[
+                { value: "today", label: "Bugun" },
+                { value: "week", label: "Bu hafta" },
+                { value: "month", label: "Bu oy" },
+                { value: "year", label: "Bu yil" },
+              ]}
+              value={dateRangeFilter ? {
+                value: dateRangeFilter, label:
+                  dateRangeFilter === "today" ? "Bugun" :
+                    dateRangeFilter === "week" ? "Bu hafta" :
+                      dateRangeFilter === "month" ? "Bu oy" : "Bu yil"
+              } : null}
+              onChange={(opt) => setDateRangeFilter(opt ? opt.value : "")}
+              isClearable
+              placeholder="Sana oralig'i"
+              styles={selectStyles}
+              classNamePrefix="react-select"
+            />
+          </div>
+
+          {/* Amount range filter */}
+          <div className="min-w-[150px]">
+            <Select
+              options={[
+                { value: "low", label: "1M gacha" },
+                { value: "medium", label: "1M - 5M" },
+                { value: "high", label: "5M dan yuqori" },
+              ]}
+              value={amountRangeFilter ? {
+                value: amountRangeFilter, label:
+                  amountRangeFilter === "low" ? "1M gacha" :
+                    amountRangeFilter === "medium" ? "1M - 5M" : "5M dan yuqori"
+              } : null}
+              onChange={(opt) => setAmountRangeFilter(opt ? opt.value : "")}
+              isClearable
+              placeholder="Summa oralig'i"
+              styles={selectStyles}
+              classNamePrefix="react-select"
+            />
+          </div>
+
+          {/* Clear all filters button */}
+          {(paymentMethodFilter || dateRangeFilter || amountRangeFilter) && (
+            <button
+              onClick={() => {
+                setPaymentMethodFilter("");
+                setDateRangeFilter("");
+                setAmountRangeFilter("");
+              }}
+              className="px-3 py-2 text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+            >
+              Filterlarni tozalash
+            </button>
+          )}
+        </div>
+
+        {/* Filter results info */}
+        {(paymentMethodFilter || dateRangeFilter || amountRangeFilter) && (
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            {filteredPayments.length} ta to'lov topildi ({payments.length} tadan)
+          </div>
+        )}
+      </div>
+
       <DataTable
-        data={payments}
+        data={filteredPayments}
         columns={columns}
         searchable={true}
         filterable={true}
