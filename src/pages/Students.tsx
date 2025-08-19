@@ -275,8 +275,90 @@ const Students: React.FC = () => {
     setShowModal(true);
   };
 
+  // Validation funksiyasi
+  const validateForm = () => {
+    const errors: string[] = [];
+
+    // Majburiy maydonlarni tekshirish
+    if (!formData.firstName.trim()) {
+      errors.push("Ism kiritilishi shart");
+    }
+    if (!formData.lastName.trim()) {
+      errors.push("Familiya kiritilishi shart");
+    }
+    if (!formData.fatherName.trim()) {
+      errors.push("Otasining ismi kiritilishi shart");
+    }
+    if (!formData.phone.trim()) {
+      errors.push("Telefon raqami kiritilishi shart");
+    }
+    if (!formData.passport.trim()) {
+      errors.push("Pasport seriyasi kiritilishi shart");
+    }
+    if (!formData.direction.trim()) {
+      errors.push("Yo'nalish kiritilishi shart");
+    }
+    if (!formData.faculty.trim()) {
+      errors.push("Fakultet kiritilishi shart");
+    }
+    if (!formData.group.trim()) {
+      errors.push("Guruh kiritilishi shart");
+    }
+    if (!formData.gender.trim()) {
+      errors.push("Jins tanlanishi shart");
+    }
+    if (!formData.course.trim()) {
+      errors.push("Kurs tanlanishi shart");
+    }
+    if (!formData.region.trim()) {
+      errors.push("Viloyat tanlanishi shart");
+    }
+    if (!formData.district.trim()) {
+      errors.push("Tuman tanlanishi shart");
+    }
+    if (!formData.floor.trim()) {
+      errors.push("Qavat tanlanishi shart");
+    }
+    if (!formData.room.trim()) {
+      errors.push("Xona tanlanishi shart");
+    }
+    if (!formData.tarif.trim()) {
+      errors.push("Tarif kiritilishi shart");
+    }
+
+    // Telefon raqami formatini tekshirish
+    if (formData.phone.trim()) {
+      const phoneRegex = /^(\+998|998|8)?[0-9]{9}$/;
+      const cleanPhone = formData.phone.replace(/[\s\-\(\)]/g, '');
+      if (!phoneRegex.test(cleanPhone)) {
+        errors.push("Telefon raqami noto'g'ri formatda");
+      }
+    }
+
+    // Pasport formatini tekshirish
+    if (formData.passport.trim()) {
+      const passportRegex = /^[A-Z]{2}[0-9]{7}$/;
+      if (!passportRegex.test(formData.passport.toUpperCase())) {
+        errors.push("Pasport seriyasi noto'g'ri formatda (masalan: AB1234567)");
+      }
+    }
+
+    return errors;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validation tekshirish (faqat yangi talaba qo'shishda)
+    if (!editingStudent) {
+      const validationErrors = validateForm();
+      if (validationErrors.length > 0) {
+        // Birinchi xatolikni ko'rsatish
+        toast.error(validationErrors[0]);
+        return;
+      }
+    }
+
     if (editingStudent) {
       setLoading(true);
       try {
@@ -378,7 +460,12 @@ const Students: React.FC = () => {
   // Debug: API dan kelayotgan ma'lumotlarni ko'rish
   React.useEffect(() => {
     if (students.length > 0) {
-      // Debug information removed for production
+      console.log('Students data sample:', students.slice(0, 2).map(s => ({
+        name: s.name,
+        total_payment: s.total_payment,
+        tarif: s.tarif,
+        gender: s.gender
+      })));
     }
   }, [students]);
 
@@ -402,30 +489,77 @@ const Students: React.FC = () => {
                        (studentGender === 'м' && filterGender === 'male') || // Rus tilida
                        (studentGender === 'ж' && filterGender === 'female'); // Rus tilida
         
-        // Gender filter check
-      }
-      
-      // Payment filter
-      let isHaqdor = false;
-      let isQarzdor = false;
-      let matchesPayment = true;
-      
-      if (paymentStatusFilter) {
-        if (typeof s.total_payment === "number" && s.tarif) {
-          const tarifNum = Number(String(s.tarif).replace(/[^\d]/g, ""));
-          isHaqdor = s.total_payment >= tarifNum;
-          isQarzdor = s.total_payment < tarifNum;
-          
-          matchesPayment = paymentStatusFilter === "haqdor" ? isHaqdor : isQarzdor;
-          
-          // Payment filter check
-        } else {
-          // Agar payment ma'lumotlari yo'q bo'lsa, filter bo'yicha ko'rsatmaslik
-          matchesPayment = false;
+        // Debug gender filter
+        if (genderFilter && students.indexOf(s) < 3) {
+          console.log(`Gender filter debug for ${s.name}:`, {
+            studentGender,
+            filterGender,
+            matchesGender
+          });
         }
       }
       
-      return matchesGender && matchesPayment;
+      // Payment filter
+      let matchesPayment = true;
+      
+      if (paymentStatusFilter) {
+        // Total payment ni olish
+        const totalPayment = Number(s.total_payment) || 0;
+        
+        // Tarif qiymatini olish
+        let tarif = 0;
+        if (s.tarif !== undefined && s.tarif !== null) {
+          if (typeof s.tarif === 'number') {
+            tarif = s.tarif;
+          } else if (typeof s.tarif === 'string') {
+            // String dan barcha raqamlarni olish
+            const numStr = s.tarif.replace(/[^\d]/g, '');
+            tarif = numStr ? Number(numStr) : 0;
+          }
+        }
+        
+        // Agar tarif hali ham 0 yoki yo'q bo'lsa, default qiymat
+        if (tarif <= 0) {
+          tarif = 1200000; // Default oylik tarif
+        }
+        
+        // Haqdor/qarzdor logikasi
+        const isHaqdor = totalPayment >= tarif;
+        const isQarzdor = totalPayment < tarif;
+        
+        // Filter bo'yicha tekshirish
+        if (paymentStatusFilter === "haqdor") {
+          matchesPayment = isHaqdor;
+        } else if (paymentStatusFilter === "qarzdor") {
+          matchesPayment = isQarzdor;
+        }
+        
+        // Debug payment filter (faqat birinchi 3 ta talaba uchun)
+        if (paymentStatusFilter && students.indexOf(s) < 3) {
+          console.log(`Payment filter debug for ${s.name || s.last_name}:`, {
+            originalTarif: s.tarif,
+            parsedTarif: tarif,
+            totalPayment,
+            isHaqdor,
+            isQarzdor,
+            filter: paymentStatusFilter,
+            matchesPayment
+          });
+        }
+      }
+      
+      const finalMatch = matchesGender && matchesPayment;
+      
+      // Debug final filter result
+      if ((genderFilter || paymentStatusFilter) && students.indexOf(s) < 3) {
+        console.log(`Final filter result for ${s.name}:`, {
+          matchesGender,
+          matchesPayment,
+          finalMatch
+        });
+      }
+      
+      return finalMatch;
     })
     .sort((a: Record<string, any>, b: Record<string, any>) => {
       // Alifbo tartibida saralash (familiya bo'yicha)
@@ -622,6 +756,11 @@ const Students: React.FC = () => {
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-white">Talabalar</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1 text-xs sm:text-base">
             Yotoqxonada yashayotgan talabalar ro'yxati
+            {(genderFilter || paymentStatusFilter) && (
+              <span className="ml-2 text-blue-600 dark:text-blue-400 font-medium">
+                ({filteredStudents.length} ta natija)
+              </span>
+            )}
           </p>
         </div>
         <div className="mt-2 sm:mt-0">
@@ -674,8 +813,43 @@ const Students: React.FC = () => {
             classNamePrefix="react-select"
             className="min-w-[140px]"
           />
-
+          
+          {/* Filter reset button */}
+          {(genderFilter || paymentStatusFilter) && (
+            <button
+              onClick={() => {
+                setGenderFilter("");
+                setPaymentStatusFilter("");
+              }}
+              className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              Filterlarni tozalash
+            </button>
+          )}
         </div>
+        
+        {/* Filter results info */}
+        {(genderFilter || paymentStatusFilter) && (
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            <span className="font-medium text-blue-600 dark:text-blue-400">
+              {filteredStudents.length}
+            </span> ta natija topildi
+            {genderFilter && (
+              <span className="ml-2 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs">
+                {genderFilter === "male" ? "Erkak" : "Ayol"}
+              </span>
+            )}
+            {paymentStatusFilter && (
+              <span className={`ml-2 px-2 py-1 rounded text-xs ${
+                paymentStatusFilter === "haqdor" 
+                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                  : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+              }`}>
+                {paymentStatusFilter === "haqdor" ? "Haqdor" : "Qarzdor"}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Data Table */}
@@ -766,20 +940,60 @@ const Students: React.FC = () => {
                 <div className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Shaxsiy ma'lumotlar</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ism</label>
-                    <input type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Ism <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      name="firstName" 
+                      value={formData.firstName} 
+                      onChange={handleInputChange} 
+                      required
+                      placeholder="Talabaning ismini kiriting"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Familiya</label>
-                    <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Familiya <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      name="lastName" 
+                      value={formData.lastName} 
+                      onChange={handleInputChange} 
+                      required
+                      placeholder="Talabaning familiyasini kiriting"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Otasining ismi</label>
-                    <input type="text" name="fatherName" value={formData.fatherName} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Otasining ismi <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      name="fatherName" 
+                      value={formData.fatherName} 
+                      onChange={handleInputChange} 
+                      required
+                      placeholder="Otasining ismini kiriting"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Telefon</label>
-                    <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} placeholder="+998901234567" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus-border-transparent" />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Telefon <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="tel" 
+                      name="phone" 
+                      value={formData.phone} 
+                      onChange={handleInputChange} 
+                      required
+                      placeholder="+998901234567" 
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                    />
                   </div>
                 </div>
               </div>
@@ -790,16 +1004,46 @@ const Students: React.FC = () => {
                 <div className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Universitet ma'lumotlari</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fakultet</label>
-                    <input type="text" name="faculty" value={formData.faculty} onChange={handleInputChange} placeholder="Fakultet nomi" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Fakultet <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      name="faculty" 
+                      value={formData.faculty} 
+                      onChange={handleInputChange} 
+                      required
+                      placeholder="Fakultet nomi" 
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Yo'nalish</label>
-                    <input type="text" name="direction" value={formData.direction} onChange={handleInputChange} placeholder="Yo'nalish nomi" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Yo'nalish <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      name="direction" 
+                      value={formData.direction} 
+                      onChange={handleInputChange} 
+                      required
+                      placeholder="Yo'nalish nomi" 
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Guruh</label>
-                    <input type="text" name="group" value={formData.group} onChange={handleInputChange} placeholder="IF-21-01" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Guruh <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      name="group" 
+                      value={formData.group} 
+                      onChange={handleInputChange} 
+                      required
+                      placeholder="IF-21-01" 
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Kurs</label>
@@ -878,8 +1122,18 @@ const Students: React.FC = () => {
                 <div className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Qo'shimcha</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Passport ma'lumoti</label>
-                    <input type="text" name="passport" value={formData.passport} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Passport ma'lumoti <span className="text-red-500">*</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      name="passport" 
+                      value={formData.passport} 
+                      onChange={handleInputChange} 
+                      required
+                      placeholder="AB1234567"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                    />
                   </div>
                   <div className="flex items-center gap-2 mt-4 sm:mt-8">
                     <input type="checkbox" name="isPrivileged" checked={formData.isPrivileged} onChange={handleCheckboxChange} className="form-checkbox h-5 w-5 text-primary-600" />

@@ -95,6 +95,27 @@ const FloorDetail: React.FC = () => {
   const [deleteRoomModal, setDeleteRoomModal] = useState<Room | null>(null);
   const [deletingRoom, setDeletingRoom] = useState(false);
 
+  // Close room menu on outside click or Esc
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (openRoomMenuId !== null) {
+        const target = e.target as HTMLElement;
+        if (!target.closest('.room-menu') && !target.closest('.room-menu-button')) {
+          setOpenRoomMenuId(null);
+        }
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && openRoomMenuId !== null) setOpenRoomMenuId(null);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [openRoomMenuId]);
+
   // Filter states
   const [roomStatusFilter, setRoomStatusFilter] = useState('');
 
@@ -196,6 +217,34 @@ const FloorDetail: React.FC = () => {
     staleTime: 1000 * 60 * 5,
   });
 
+  const roomStats = React.useMemo(() => {
+    const stats = { total: rooms.length, empty: 0, partial: 0, full: 0 } as { total: number; empty: number; partial: number; full: number };
+    rooms.forEach((room: Room) => {
+      const students = room.students || [];
+      const occupancy = students.length;
+      if (occupancy === 0) stats.empty += 1;
+      else if (occupancy >= room.capacity) stats.full += 1;
+      else stats.partial += 1;
+    });
+    return stats;
+  }, [rooms]);
+
+  const sortedRooms = React.useMemo(() => {
+    const roomsCopy = Array.isArray(rooms) ? [...rooms] : [];
+    const getRoomOrderKey = (name: string) => {
+      const digitsOnly = (name || '').replace(/[^\d]/g, '');
+      const numericPart = digitsOnly ? parseInt(digitsOnly, 10) : Number.POSITIVE_INFINITY;
+      return { numericPart, nameKey: (name || '').toLowerCase() };
+    };
+    roomsCopy.sort((a: Room, b: Room) => {
+      const ka = getRoomOrderKey(a.name);
+      const kb = getRoomOrderKey(b.name);
+      if (ka.numericPart !== kb.numericPart) return ka.numericPart - kb.numericPart;
+      return ka.nameKey.localeCompare(kb.nameKey);
+    });
+    return roomsCopy;
+  }, [rooms]);
+
   const handleAddRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRoom.trim() || !newRoomCapacity.trim() || !floor) return;
@@ -211,7 +260,7 @@ const FloorDetail: React.FC = () => {
         method: "POST",
         headers: myHeaders,
         body: JSON.stringify({
-          name: newRoom.trim(),
+          name: `${newRoom.trim()}-xona`,
           floor: floor.id,
           capacity: Number(newRoomCapacity),
           room_type: '',
@@ -413,14 +462,18 @@ const FloorDetail: React.FC = () => {
   if (!floor) return null;
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto">
-      <div className="mb-6 flex items-center gap-4">
-        <BackButton className="w-max" />
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{floor.name.endsWith('-qavat') ? floor.name : `${floor.name}-qavat`} xonalari</h2>
-        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${floor.gender === 'female' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-200' : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'}`}>{floor.gender === 'female' ? 'Qizlar' : 'Yigitlar'}</span>
-        <div className="ml-auto">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto pb-24">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-3">
+          <BackButton className="w-max" />
+          <div className="flex items-center flex-wrap gap-2 min-w-0">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white break-words">{floor.name.endsWith('-qavat') ? floor.name : `${floor.name}-qavat`} xonalari</h2>
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${floor.gender === 'female' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-200' : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'}`}>{floor.gender === 'female' ? 'Qizlar' : 'Yigitlar'}</span>
+          </div>
+        </div>
+        <div className="sm:ml-auto w-full sm:w-auto">
           <button
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition-colors"
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition-colors"
             onClick={() => {
               setShowRoomModal(true);
               setNewRoom('');
@@ -490,7 +543,7 @@ const FloorDetail: React.FC = () => {
                     required
                   />
                 </div>
-                <div className="flex justify-end gap-2 pt-2">
+                                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -498,14 +551,14 @@ const FloorDetail: React.FC = () => {
                       setNewRoom('');
                       setNewRoomCapacity('');
                     }}
-                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full sm:w-auto"
                   >
                     Bekor qilish
                   </button>
                   <button
                     type="submit"
                     disabled={adding}
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors disabled:opacity-60"
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors disabled:opacity-60 w-full sm:w-auto"
                   >
                     {adding ? 'Qo\'shilmoqda...' : 'Qo\'shish'}
                   </button>
@@ -575,11 +628,11 @@ const FloorDetail: React.FC = () => {
                     required
                   />
                 </div>
-                <div className="flex justify-end gap-2 pt-2">
+                                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
                   <button
                     type="button"
                     onClick={() => setEditRoomModal(null)}
-                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full sm:w-auto"
                     disabled={editingRoom}
                   >
                     Bekor qilish
@@ -587,7 +640,7 @@ const FloorDetail: React.FC = () => {
                   <button
                     type="submit"
                     disabled={editingRoom}
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors disabled:opacity-60"
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors disabled:opacity-60 w-full sm:w-auto"
                   >
                     {editingRoom ? "Saqlanmoqda..." : "Saqlash"}
                   </button>
@@ -611,11 +664,11 @@ const FloorDetail: React.FC = () => {
             >
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Xonani o'chirish</h2>
               <p className="mb-6 text-gray-700 dark:text-gray-300">Rostdan ham ushbu xonani o'chirmoqchimisiz?</p>
-              <div className="flex justify-end gap-2 pt-2">
+                            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setDeleteRoomModal(null)}
-                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full sm:w-auto"
                   disabled={deletingRoom}
                 >
                   Bekor qilish
@@ -641,7 +694,7 @@ const FloorDetail: React.FC = () => {
                     }
                   }}
                   disabled={deletingRoom}
-                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors disabled:opacity-60"
+                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors disabled:opacity-60 w-full sm:w-auto"
                 >
                   {deletingRoom ? "O'chirilmoqda..." : "O'chirish"}
                 </button>
@@ -651,40 +704,59 @@ const FloorDetail: React.FC = () => {
         )}
       </AnimatePresence>
       
-      {/* Filters */}
-      <div className="flex flex-wrap gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-500" />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filterlar:</span>
+      {/* Stats + Filters */}
+      <div className="space-y-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+            <div className="text-xs text-gray-500 dark:text-gray-400">Jami xona</div>
+            <div className="text-lg font-semibold text-gray-900 dark:text-white">{roomStats.total}</div>
+          </div>
+          <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+            <div className="text-xs text-gray-500 dark:text-gray-400">Bo'sh</div>
+            <div className="text-lg font-semibold text-emerald-600">{roomStats.empty}</div>
+          </div>
+          <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+            <div className="text-xs text-gray-500 dark:text-gray-400">To'lmagan</div>
+            <div className="text-lg font-semibold text-amber-600">{roomStats.partial}</div>
+          </div>
+          <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+            <div className="text-xs text-gray-500 dark:text-gray-400">To'lgan</div>
+            <div className="text-lg font-semibold text-blue-600">{roomStats.full}</div>
+          </div>
         </div>
-        
-        <div className="flex flex-wrap gap-3">
-          <div className="min-w-[150px]">
-            <Select
-              options={[
-                { value: "empty", label: "Bo'sh" },
-                { value: "occupied", label: "To'lmagan" },
-                { value: "full", label: "To'lgan" },
-              ]}
-              value={roomStatusFilter ? { value: roomStatusFilter, label: 
-                roomStatusFilter === "empty" ? "Bo'sh" : 
-                roomStatusFilter === "occupied" ? "To'lmagan" : "To'lgan" 
-              } : null}
-              onChange={(opt) => setRoomStatusFilter(opt ? opt.value : "")}
-              isClearable
-              placeholder="Xona holati"
-              styles={selectStyles}
-              classNamePrefix="react-select"
-            />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-500" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filterlar</span>
+          </div>
+          <div className="flex sm:ml-auto">
+            <div className="inline-flex w-full sm:w-auto rounded-lg overflow-hidden border border-gray-200 dark:border-slate-700">
+              <button
+                onClick={() => setRoomStatusFilter("")}
+                className={`px-3 py-2 text-sm ${roomStatusFilter === "" ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-200'}`}
+              >Barchasi</button>
+              <button
+                onClick={() => setRoomStatusFilter("empty")}
+                className={`px-3 py-2 text-sm ${roomStatusFilter === "empty" ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-200'}`}
+              >Bo'sh</button>
+              <button
+                onClick={() => setRoomStatusFilter("occupied")}
+                className={`px-3 py-2 text-sm ${roomStatusFilter === "occupied" ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-200'}`}
+              >To'lmagan</button>
+              <button
+                onClick={() => setRoomStatusFilter("full")}
+                className={`px-3 py-2 text-sm ${roomStatusFilter === "full" ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-200'}`}
+              >To'lgan</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 relative">
         {rooms.length === 0 ? (
           <span className="text-gray-400 dark:text-slate-500 col-span-full">Xona yo'q</span>
         ) : (
-          rooms
+          sortedRooms
             .filter((room: Room) => {
               const students = room.students || [];
               const occupancy = students.length;
@@ -701,14 +773,14 @@ const FloorDetail: React.FC = () => {
             .map((room: Room) => {
             const students = room.students || [];
             return (
-              <div
+                             <div
                 key={room.id}
-                className={`flex flex-col justify-between px-5 py-4 rounded-lg bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white font-medium border border-gray-200 dark:border-slate-600 hover:bg-blue-50 dark:hover:bg-blue-600 hover:border-blue-400 dark:hover:border-blue-600 focus:ring-2 focus:ring-blue-400 transition-colors shadow-sm cursor-pointer ${CARD_HEIGHT} relative`}
+                className={`flex flex-col justify-between px-5 py-4 rounded-lg bg-white dark:bg-slate-900 text-gray-900 dark:text-white font-medium border border-gray-200 dark:border-slate-700 hover:shadow-md focus:ring-2 focus:ring-blue-400 transition-colors shadow-sm cursor-pointer ${CARD_HEIGHT} relative overflow-hidden`}
               >
                 {/* Three dots button */}
                 <div className="absolute top-2 right-2 z-20">
                   <button
-                    className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-300"
+                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-300 room-menu-button"
                     onClick={e => { e.stopPropagation(); setOpenRoomMenuId(room.id === openRoomMenuId ? null : room.id); }}
                     title="Ko'proq"
                   >
@@ -722,11 +794,21 @@ const FloorDetail: React.FC = () => {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                         transition={{ duration: 0.18, ease: 'easeOut' }}
-                        className="absolute right-0 mt-2 w-40 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl shadow-lg z-30"
+                        className="absolute right-0 mt-2 w-44 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl shadow-lg z-30 room-menu"
                         onClick={e => e.stopPropagation()}
                       >
+                        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 dark:border-slate-800">
+                          <span className="text-xs font-medium text-gray-500">Amallar</span>
+                          <button
+                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-500"
+                            onClick={() => setOpenRoomMenuId(null)}
+                            aria-label="Yopish"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
                         <button
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-800 rounded-t-xl transition-colors"
+                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-800 transition-colors"
                           onClick={() => {
                             setEditRoomModal(room);
                             setEditRoomName(room.name);
@@ -737,7 +819,7 @@ const FloorDetail: React.FC = () => {
                           ✏️ Tahrirlash
                         </button>
                         <button
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded-b-xl transition-colors"
+                          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 transition-colors"
                           onClick={() => {
                             setDeleteRoomModal(room);
                             setOpenRoomMenuId(null);
@@ -750,10 +832,25 @@ const FloorDetail: React.FC = () => {
                   </AnimatePresence>
                 </div>
                 <div>
-                  <div className="font-bold text-lg mb-2">{room.name}</div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-start justify-between gap-3 mb-2 pr-8">
+                    <div className="font-bold text-lg truncate pr-2" title={room.name.endsWith('-xona') ? room.name : `${room.name}-xona`}>
+                      {room.name.endsWith('-xona') ? room.name : `${room.name}-xona`}
+                    </div>
+                    <div className="text-xs shrink-0 rounded-full px-2 py-0.5 border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800">
+                      {students.length}/{room.capacity}
+                    </div>
+                  </div>
+                  <div className="h-1.5 rounded bg-gray-100 dark:bg-slate-800 overflow-hidden">
+                    <div
+                      className={`${students.length === 0 ? 'bg-emerald-500' : students.length >= room.capacity ? 'bg-blue-600' : 'bg-amber-500'} h-full`}
+                      style={{ width: `${Math.min(100, (students.length / Math.max(1, room.capacity)) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="mt-3 grid grid-cols-1 xs:grid-cols-2 gap-2 overflow-y-auto pr-2"
+                    style={{ maxHeight: '5.5rem' }}
+                  >
                     {students.length === 0 ? (
-                      <span className="text-gray-400 dark:text-slate-400 col-span-2">Talaba yo'q</span>
+                      <span className="text-gray-400 dark:text-slate-400 col-span-full">Talaba yo'q</span>
                     ) : (
                       [0, 1].map(col => (
                         <div key={col} className="flex flex-col gap-1">
@@ -761,7 +858,7 @@ const FloorDetail: React.FC = () => {
                             <Link
                               key={student.id}
                               to={`/studentprofile/${student.id}`}
-                              className="text-sm whitespace-nowrap text-blue-600 hover:underline dark:text-blue-400"
+                              className="text-sm whitespace-normal sm:whitespace-nowrap break-words text-blue-600 hover:underline dark:text-blue-400"
                             >
                               {getShortName(student.name + ' ' + student.last_name)}
                             </Link>
@@ -771,15 +868,17 @@ const FloorDetail: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center justify-between mt-2">
-                  <div className="text-xs text-gray-400 dark:text-slate-400">{students.length} ta talaba</div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center justify-between mt-3">
+                  <div className="text-xs text-gray-500 dark:text-slate-400">
+                    {students.length === 0 ? "Bo'sh" : students.length >= room.capacity ? "To'lgan" : "To'lmagan"}
+                  </div>
                   {students.length < room.capacity && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleAddStudent(room);
                       }}
-                      className="text-xs bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded transition-colors"
+                      className="text-xs bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded transition-colors w-full sm:w-auto"
                     >
                       + Qo'shish
                     </button>
@@ -789,6 +888,21 @@ const FloorDetail: React.FC = () => {
             );
           })
         )}
+      </div>
+
+      {/* Floating Add Button (mobile) */}
+      <div className="fixed right-4 bottom-20 sm:hidden z-40">
+        <button
+          onClick={() => {
+            setShowRoomModal(true);
+            setNewRoom('');
+            setNewRoomCapacity('');
+          }}
+          className="inline-flex items-center gap-2 px-4 py-3 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 active:scale-[0.98] transition"
+        >
+          <span className="text-lg">+</span>
+          <span className="font-semibold">Xona qo'shish</span>
+        </button>
       </div>
 
       {/* Talaba qo'shish modali */}

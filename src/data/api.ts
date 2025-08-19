@@ -164,8 +164,21 @@ export const apiQueries = {
   deleteRule: (id: number) => del(`/rules/${id}/`),
   
   // Notifications
-  getNotifications: () => get('/notifications/'),
-  markNotificationAsRead: (id: number) => patch(`/notification/${id}/read/`, { is_read: true }),
+  getNotifications: async () => {
+    const res: any = await get('/notifications/');
+    if (Array.isArray(res)) return res;
+    if (Array.isArray(res?.results)) return res.results;
+    if (Array.isArray(res?.notifications)) return res.notifications;
+    return [];
+  },
+  markNotificationAsRead: async (id: number) => {
+    try {
+      return await patch(`/notification/${id}/read/`, { is_read: true });
+    } catch (e: any) {
+      // Try plural fallback
+      return await patch(`/notifications/${id}/read/`, { is_read: true });
+    }
+  },
   
   // Amenities
   getAmenities: () => get('/amenities/'),

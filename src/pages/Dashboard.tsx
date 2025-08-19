@@ -451,9 +451,9 @@ const Dashboard: React.FC = () => {
               <PieChart>
                 <Pie
                   data={[
-                    { name: "Jami bo'sh", value: rooms.total_available },
-                    { name: 'Yigitlar uchun', value: rooms.male_rooms },
-                    { name: 'Qizlar uchun', value: rooms.female_rooms },
+                    { name: 'Band joylar', value: students.total },
+                    { name: "Yigitlar uchun bo'sh joylar", value: rooms.male_rooms },
+                    { name: "Qizlar uchun bo'sh joylar", value: rooms.female_rooms },
                   ]}
                   cx="50%"
                   cy="50%"
@@ -462,13 +462,13 @@ const Dashboard: React.FC = () => {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  <Cell key="empty" fill="#3b82f6" />
+                  <Cell key="occupied" fill="#3b82f6" />
                   <Cell key="male" fill="#10b981" />
                   <Cell key="female" fill="#ec4899" />
                 </Pie>
                 <Tooltip
                   formatter={(value: number, name: string) => [
-                    `${value} ta xona`,
+                    `${value} ta joy`,
                     name
                   ]}
                   contentStyle={{
@@ -500,15 +500,15 @@ const Dashboard: React.FC = () => {
           <div className="flex flex-wrap justify-center gap-6 mt-6">
             <div className="flex items-center space-x-3 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
               <span className="inline-block w-3 h-3 rounded-full bg-blue-500"></span>
-              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Jami bo'sh ({rooms.total_available})</span>
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Band joylar ({students.total})</span>
             </div>
             <div className="flex items-center space-x-3 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg">
               <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span>
-              <span className="text-sm font-medium text-green-700 dark:text-green-300">Yigitlar ({rooms.male_rooms})</span>
+              <span className="text-sm font-medium text-green-700 dark:text-green-300">Yigitlar uchun bo'sh joylar ({rooms.male_rooms})</span>
             </div>
             <div className="flex items-center space-x-3 bg-pink-50 dark:bg-pink-900/20 px-3 py-2 rounded-lg">
               <span className="inline-block w-3 h-3 rounded-full bg-pink-500"></span>
-              <span className="text-sm font-medium text-pink-700 dark:text-pink-300">Qizlar ({rooms.female_rooms})</span>
+              <span className="text-sm font-medium text-pink-700 dark:text-pink-300">Qizlar uchun bo'sh joylar ({rooms.female_rooms})</span>
             </div>
           </div>
         </motion.div>

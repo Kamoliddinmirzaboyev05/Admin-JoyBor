@@ -227,6 +227,19 @@ const Settings: React.FC = () => {
     },
   });
 
+  // Bulk amenities update (optimize API: send only active amenity IDs)
+  const bulkUpdateAmenitiesMutation = useMutation({
+    mutationFn: (data: { amenities: number[] }) => apiQueries.patchMyDormitory(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      queryClient.invalidateQueries({ queryKey: ['amenities'] });
+      toast.success('Qulayliklar muvaffaqiyatli yangilandi!');
+    },
+    onError: (err: any) => {
+      toast.error(err?.toString() || 'Qulayliklarni saqlashda xatolik yuz berdi!');
+    },
+  });
+
   const updateContactMutation = useMutation({
     mutationFn: async (data: { phone: string; telegram: string }) => {
       // FormData yaratish
@@ -368,7 +381,7 @@ const Settings: React.FC = () => {
 
   const handleSaveAmenities = async () => {
     try {
-      // Faqat o'zgargan amenities larni saqlash
+      // Faqat o'zgargan amenities larni saqlash (ADMIN uchun granular patch)
       const originalAmenities = amenitiesData || [];
       const changedAmenities = localAmenities.filter(local => {
         const original = originalAmenities.find((orig: any) => orig.id === local.id);
@@ -389,6 +402,28 @@ const Settings: React.FC = () => {
       toast.success('Qulayliklar muvaffaqiyatli yangilandi!');
     } catch (error) {
       // Error handling is done in mutation
+    }
+  };
+
+  // Talaba sayti uchun: faol amenities ID larini array ko'rinishida yuborish
+  const handleSyncAmenities = async () => {
+    try {
+      const extractAmenityId = (item: any) => {
+        const raw = item?.id ?? item?.amenity ?? item?.amenity_id ?? item?.pk;
+        const num = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
+        return Number.isFinite(num) ? num : null;
+      };
+
+      const activeAmenityIds = Array.from(new Set(
+        (localAmenities || [])
+          .filter((a: any) => a && (a.is_active === true || a.is_active === 1 || a.is_active === 'true'))
+          .map(extractAmenityId)
+          .filter((id: number | null): id is number => id !== null)
+      ));
+
+      await bulkUpdateAmenitiesMutation.mutateAsync({ amenities: activeAmenityIds });
+    } catch (error) {
+      // Error handled in mutation
     }
   };
   // --- CONTACT STATE ---
@@ -863,12 +898,19 @@ const Settings: React.FC = () => {
                   {updateAmenityMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
                 </button>
                 <button
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                  onClick={handleSyncAmenities}
+                  disabled={bulkUpdateAmenitiesMutation.status === 'pending'}
+                >
+                  {bulkUpdateAmenitiesMutation.status === 'pending' ? 'Yuborilmoqda...' : 'Talaba sayti'}
+                </button>
+                <button
                   className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition"
                   onClick={() => {
                     setEditSection(null);
                     setLocalAmenities(amenitiesData || []);
                   }}
-                  disabled={updateAmenityMutation.status === 'pending'}
+                  disabled={updateAmenityMutation.status === 'pending' || bulkUpdateAmenitiesMutation.status === 'pending'}
                 >
                   Bekor qilish
                 </button>
