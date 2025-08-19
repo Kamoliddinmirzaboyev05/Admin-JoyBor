@@ -398,10 +398,13 @@ const Settings: React.FC = () => {
         });
       }
 
+      // Bulk sync: talaba sayti uchun faol ID larni yuborish
+      await handleSyncAmenities();
+
       setEditSection(null);
-      toast.success('Qulayliklar muvaffaqiyatli yangilandi!');
+      // Bulk mutation already shows success toast
     } catch (error) {
-      // Error handling is done in mutation
+      // Error handling is done in mutations
     }
   };
 
@@ -893,16 +896,9 @@ const Settings: React.FC = () => {
                 <button
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
                   onClick={handleSaveAmenities}
-                  disabled={updateAmenityMutation.status === 'pending'}
+                  disabled={updateAmenityMutation.status === 'pending' || bulkUpdateAmenitiesMutation.status === 'pending'}
                 >
-                  {updateAmenityMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
-                </button>
-                <button
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-                  onClick={handleSyncAmenities}
-                  disabled={bulkUpdateAmenitiesMutation.status === 'pending'}
-                >
-                  {bulkUpdateAmenitiesMutation.status === 'pending' ? 'Yuborilmoqda...' : 'Talaba sayti'}
+                  {updateAmenityMutation.status === 'pending' || bulkUpdateAmenitiesMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
                 </button>
                 <button
                   className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition"
