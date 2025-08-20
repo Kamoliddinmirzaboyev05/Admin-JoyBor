@@ -12,6 +12,8 @@ import {
 import { useAppStore } from '../../stores/useAppStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from './Navbar';
+import { useQuery } from '@tanstack/react-query';
+import { apiQueries } from '../../data/api';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -50,6 +52,13 @@ const Sidebar: React.FC = () => {
     navigate(href);
     if (isMobile) setMobileOpen(false);
   };
+
+  // API: yotoqxona sozlamalari (nomi)
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: apiQueries.getSettings,
+    staleTime: 1000 * 60 * 5,
+  });
 
   // Sidebar content
   const sidebarContent = (
@@ -131,10 +140,10 @@ const Sidebar: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-gray-900 dark:text-white">
-                    Toshkent TTU
+                    {settings?.university?.name || 'Universitet'}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Yotoqxona #1
+                    {settings?.name || settings?.dormitory_name || 'Yotoqxona'}
                   </p>
                 </div>
               </div>

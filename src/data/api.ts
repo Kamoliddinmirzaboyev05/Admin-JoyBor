@@ -172,11 +172,15 @@ export const apiQueries = {
     return [];
   },
   markNotificationAsRead: async (id: number) => {
+    // Prefer new POST endpoint shown in API docs; fall back to legacy PATCH routes
     try {
-      return await patch(`/notification/${id}/read/`, { is_read: true });
-    } catch (e: any) {
-      // Try plural fallback
-      return await patch(`/notifications/${id}/read/`, { is_read: true });
+      return await post('/notifications/mark-read/', { notification_id: id });
+    } catch (e1: any) {
+      try {
+        return await patch(`/notification/${id}/read/`, { is_read: true });
+      } catch (e2: any) {
+        return await patch(`/notifications/${id}/read/`, { is_read: true });
+      }
     }
   },
   

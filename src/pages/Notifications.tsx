@@ -37,12 +37,24 @@ const Notifications: React.FC = () => {
   // Bildirishnomani o'qilgan qilish mutation
   const markAsReadMutation = useMutation({
     mutationFn: (id: number) => apiQueries.markNotificationAsRead(id),
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+      const previous = queryClient.getQueryData<Notification[]>(['notifications']);
+      queryClient.setQueryData<Notification[]>(['notifications'], (old) => {
+        if (!Array.isArray(old)) return old as any;
+        return old.map((n) => (n.id === id ? { ...n, read: true, is_read: true } : n));
+      });
+      return { previous };
+    },
+    onError: (_err, _id, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(['notifications'], ctx.previous);
+      toast.error("Bildirishnomani o'qilgan qilishda xatolik yuz berdi!");
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       toast.success("Bildirishnoma o'qilgan deb belgilandi!");
     },
-    onError: (err: any) => {
-      toast.error(err?.message || "Bildirishnomani o'qilgan qilishda xatolik yuz berdi!");
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 
@@ -52,12 +64,24 @@ const Notifications: React.FC = () => {
       const unreadNotifications = notifications.filter(n => !n.read && !n.is_read);
       await Promise.all(unreadNotifications.map(n => apiQueries.markNotificationAsRead(n.id)));
     },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+      const previous = queryClient.getQueryData<Notification[]>(['notifications']);
+      queryClient.setQueryData<Notification[]>(['notifications'], (old) => {
+        if (!Array.isArray(old)) return old as any;
+        return old.map((n) => ({ ...n, read: true, is_read: true }));
+      });
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(['notifications'], ctx.previous);
+      toast.error("Bildirishnomalarni o'qilgan qilishda xatolik yuz berdi!");
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
       toast.success("Barcha bildirishnomalar o'qilgan deb belgilandi!");
     },
-    onError: (err: any) => {
-      toast.error(err?.message || "Bildirishnomalarni o'qilgan qilishda xatolik yuz berdi!");
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 

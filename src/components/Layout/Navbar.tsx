@@ -3,7 +3,7 @@ import { Bell, Moon, Sun, User, LogOut, PanelLeft } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../../data/api';
 
 interface NavbarProps {
@@ -15,6 +15,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
   const [showNotifications, setShowNotifications] = React.useState(false);
   const [showProfile, setShowProfile] = React.useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // API dan yotoqxona ma'lumotlarini olish
   const { data: settings } = useQuery({
@@ -37,17 +38,31 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
     staleTime: 1000 * 60 * 2, // 2 daqiqa cache
   });
 
-  // API dan kelgan notifications yoki store dan olingan notifications
-  const displayNotifications = apiNotifications.length > 0 ? apiNotifications : notifications;
-  // O'qilmagan bildirishnomalar soni (read yoki is_read false bo'lganlar)
-  const unreadCount = displayNotifications.filter((n: any) => !n.read && !n.is_read).length;
+  // Bildirishnomani o'qilgan qilish uchun mutation
+  const markReadMutation = useMutation({
+    mutationFn: (id: number) => apiQueries.markNotificationAsRead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+
+  // API dan kelgan notifications (store faqat demo uchun, navbar faqat API ga tayansin)
+  const displayNotifications = Array.isArray(apiNotifications) ? apiNotifications : [];
+  // O'qilmagan bildirishnomalar soni
+  const unreadCount = displayNotifications.filter((n: any) => !n?.read && !n?.is_read).length;
 
   const handleNotificationClick = (id: string) => {
-    markNotificationRead(id);
+    // React Query cache-ni optimistik yangilash (badge darhol yo'qolsin)
+    queryClient.setQueryData(['notifications'], (oldData: any) => {
+      if (!Array.isArray(oldData)) return oldData;
+      return oldData.map((n: any) => {
+        const nid = Number(n.id ?? n.notification_id ?? n.pk);
+        return nid === Number(id) ? { ...n, read: true, is_read: true } : n;
+      });
+    });
+
     // API orqali ham o'qilgan qilish
-    if (apiNotifications.length > 0) {
-      apiQueries.markNotificationAsRead(Number(id)).catch(console.error);
-    }
+    markReadMutation.mutate(Number(id));
   };
 
   return (
