@@ -28,10 +28,16 @@ const Notifications: React.FC = () => {
   const { data: notifications = [], isLoading, error } = useQuery<Notification[]>({
     queryKey: ['notifications'],
     queryFn: async () => {
-      const res = await apiQueries.getNotifications();
-      return Array.isArray(res) ? res : [];
+      try {
+        const res = await apiQueries.getNotifications();
+        return Array.isArray(res) ? res : [];
+      } catch (error) {
+        console.error('Notifications fetch error:', error);
+        return [];
+      }
     },
     staleTime: 1000 * 60 * 2, // 2 daqiqa cache
+    retry: 2,
   });
 
   // Bildirishnomani o'qilgan qilish mutation

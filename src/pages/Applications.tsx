@@ -133,7 +133,6 @@ const districtOptions: Record<string, { value: string; label: string }[]> = {
 };
 
 const Applications: React.FC = () => {
-  const queryClient = useQueryClient();
   const { subscribe } = useGlobalEvents();
   const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -419,7 +418,7 @@ const Applications: React.FC = () => {
                 {/* Action button */}
                 <div className="flex flex-col gap-3">
                   <Link
-                    to={`/application/${app.id}`}
+                    to={`/applications/${app.id}`}
                     className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl"
                   >
                     <span>Batafsil</span>

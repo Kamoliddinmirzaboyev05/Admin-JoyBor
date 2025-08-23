@@ -7,7 +7,7 @@ import Select from 'react-select';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
-import { useAppStore } from '../stores/useAppStore';
+// import { useAppStore } from '../stores/useAppStore';
 import { link } from '../data/config';
 import axios from 'axios';
 import { formatCurrency } from '../utils/formatters';
@@ -43,8 +43,8 @@ const selectStyles = {
     backgroundColor: state.isSelected
       ? (document.documentElement.classList.contains('dark') ? '#2563eb' : '#3b82f6')
       : state.isFocused
-      ? (document.documentElement.classList.contains('dark') ? '#374151' : '#e0e7ef')
-      : 'transparent',
+        ? (document.documentElement.classList.contains('dark') ? '#374151' : '#e0e7ef')
+        : 'transparent',
     color: state.isSelected || document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
     cursor: 'pointer',
   }),
@@ -53,10 +53,9 @@ const selectStyles = {
 const Students: React.FC = () => {
   const queryClient = useQueryClient();
   const { emitStudentUpdate, subscribe } = useGlobalEvents();
-  const updateStudentStore = useAppStore(state => state.updateStudent);
   const [showModal, setShowModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Record<string, unknown> | null>(null);
-  
+
   // formData'ga gender va course string maydonini qo'sh
   const [formData, setFormData] = useState<{
     firstName: string;
@@ -105,7 +104,7 @@ const Students: React.FC = () => {
   });
   const [loading, setLoading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
-  
+
   // Fetch provinces using React Query
   const { data: provincesData = [] } = useQuery({
     queryKey: ['provinces'],
@@ -120,15 +119,15 @@ const Students: React.FC = () => {
     enabled: !!formData.region,
     staleTime: 1000 * 60 * 10, // 10 daqiqa cache
   });
-  
+
   const location = useLocation();
 
   // React Query bilan students ma'lumotlarini olish
-  const { 
-    data: students = [], 
-    isLoading, 
-    error, 
-    refetch 
+  const {
+    data: students = [],
+    isLoading,
+    error,
+    refetch
   } = useQuery({
     queryKey: ['students'],
     queryFn: apiQueries.getStudents,
@@ -156,11 +155,11 @@ const Students: React.FC = () => {
   const districtOptions = Array.isArray(districtsData)
     ? districtsData.map((d: any) => ({ value: String(d.id), label: d.name }))
     : [];
-  const floorOptions = Array.isArray(floorsData) 
-    ? floorsData.map((f: any) => ({ 
-        value: String(f.id), 
-        label: `${f.name.endsWith('-qavat') ? f.name : `${f.name}-qavat`} (${f.gender === 'male' ? 'Yigitlar' : 'Qizlar'})` 
-      }))
+  const floorOptions = Array.isArray(floorsData)
+    ? floorsData.map((f: any) => ({
+      value: String(f.id),
+      label: `${f.name.endsWith('-qavat') ? f.name : `${f.name}-qavat`} (${f.gender === 'male' ? 'Yigitlar' : 'Qizlar'})`
+    }))
     : [];
   const roomOptions = Array.isArray(roomsData)
     ? roomsData.map((r: any) => ({ value: String(r.id), label: r.name }))
@@ -251,9 +250,9 @@ const Students: React.FC = () => {
   const handleEdit = (student: Record<string, any>) => {
     setEditingStudent(student);
     setFormData({
-      firstName: student.name || "",
+      firstName: student.first_name || "",
       lastName: student.last_name || "",
-      fatherName: student.middle_name || "",
+      fatherName: student.father_name || "",
       phone: student.phone || "",
       email: student.email || "",
       room: student.room && typeof student.room === 'object' ? String(student.room.id) : "",
@@ -266,10 +265,12 @@ const Students: React.FC = () => {
       isPrivileged: Boolean(student.privilege),
       privilegeShare: student.privilegeShare || "",
       avatar: student.picture || "",
-      tarif: student.tarif || "",
+      tarif: String(student.tarif || ""),
       direction: student.direction || "",
       floor: student.floor && typeof student.floor === 'object' ? String(student.floor.id) : "",
       gender: student.gender || "",
+      passportImage1: null,
+      passportImage2: null,
     });
     setAvatarPreview(student.picture || "");
     setShowModal(true);
@@ -348,7 +349,7 @@ const Students: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation tekshirish (faqat yangi talaba qo'shishda)
     if (!editingStudent) {
       const validationErrors = validateForm();
@@ -384,11 +385,11 @@ const Students: React.FC = () => {
         await axios.patch(
           `${link}/students/${editingStudent.id}/`,
           payload,
-          { 
-            headers: { 
+          {
+            headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
-            } 
+            }
           }
         );
         toast.success('Talaba maʼlumotlari yangilandi!');
@@ -423,17 +424,17 @@ const Students: React.FC = () => {
         ...prev,
         [name]: option ? option.value : '',
       };
-      
+
       // Agar qavat o'zgarsa, xonani tozalash
       if (name === 'floor') {
         newData.room = '';
       }
-      
+
       // Agar viloyat o'zgarsa, tumanni tozalash
       if (name === 'region') {
         newData.district = '';
       }
-      
+
       return newData;
     });
   };
@@ -456,11 +457,11 @@ const Students: React.FC = () => {
   // Add filter states for gender and payment status
   const [genderFilter, setGenderFilter] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
-  
+
   // Debug: API dan kelayotgan ma'lumotlarni ko'rish
   React.useEffect(() => {
     if (students.length > 0) {
-      console.log('Students data sample:', students.slice(0, 2).map(s => ({
+      console.log('Students data sample:', students.slice(0, 2).map((s: Record<string, any>) => ({
         name: s.name,
         total_payment: s.total_payment,
         tarif: s.tarif,
@@ -473,24 +474,24 @@ const Students: React.FC = () => {
   const filteredStudents = students
     .filter((s: Record<string, any>) => {
       // Gender filter validation
-      
+
       // Gender filter - API dan kelayotgan qiymatlarni tekshirish
       let matchesGender = true;
       if (genderFilter) {
         const studentGender = String(s.gender || '').toLowerCase().trim();
         const filterGender = genderFilter.toLowerCase();
-        
+
         // Barcha mumkin bo'lgan variantlarni tekshirish
-        matchesGender = studentGender === filterGender || 
-                       (studentGender === 'erkak' && filterGender === 'male') ||
-                       (studentGender === 'ayol' && filterGender === 'female') ||
-                       (studentGender === 'male' && filterGender === 'male') ||
-                       (studentGender === 'female' && filterGender === 'female') ||
-                       (studentGender === 'м' && filterGender === 'male') || // Rus tilida
-                       (studentGender === 'ж' && filterGender === 'female'); // Rus tilida
-        
+        matchesGender = studentGender === filterGender ||
+          (studentGender === 'erkak' && filterGender === 'male') ||
+          (studentGender === 'ayol' && filterGender === 'female') ||
+          (studentGender === 'male' && filterGender === 'male') ||
+          (studentGender === 'female' && filterGender === 'female') ||
+          (studentGender === 'м' && filterGender === 'male') || // Rus tilida
+          (studentGender === 'ж' && filterGender === 'female'); // Rus tilida
+
         // Debug gender filter
-        if (genderFilter && students.indexOf(s) < 3) {
+        if (genderFilter && students.indexOf(s as Record<string, any>) < 3) {
           console.log(`Gender filter debug for ${s.name}:`, {
             studentGender,
             filterGender,
@@ -498,14 +499,14 @@ const Students: React.FC = () => {
           });
         }
       }
-      
+
       // Payment filter
       let matchesPayment = true;
-      
+
       if (paymentStatusFilter) {
         // Total payment ni olish
         const totalPayment = Number(s.total_payment) || 0;
-        
+
         // Tarif qiymatini olish
         let tarif = 0;
         if (s.tarif !== undefined && s.tarif !== null) {
@@ -517,25 +518,25 @@ const Students: React.FC = () => {
             tarif = numStr ? Number(numStr) : 0;
           }
         }
-        
+
         // Agar tarif hali ham 0 yoki yo'q bo'lsa, default qiymat
         if (tarif <= 0) {
           tarif = 1200000; // Default oylik tarif
         }
-        
+
         // Haqdor/qarzdor logikasi
         const isHaqdor = totalPayment >= tarif;
         const isQarzdor = totalPayment < tarif;
-        
+
         // Filter bo'yicha tekshirish
         if (paymentStatusFilter === "haqdor") {
           matchesPayment = isHaqdor;
         } else if (paymentStatusFilter === "qarzdor") {
           matchesPayment = isQarzdor;
         }
-        
+
         // Debug payment filter (faqat birinchi 3 ta talaba uchun)
-        if (paymentStatusFilter && students.indexOf(s) < 3) {
+        if (paymentStatusFilter && students.indexOf(s as Record<string, any>) < 3) {
           console.log(`Payment filter debug for ${s.name || s.last_name}:`, {
             originalTarif: s.tarif,
             parsedTarif: tarif,
@@ -547,18 +548,18 @@ const Students: React.FC = () => {
           });
         }
       }
-      
+
       const finalMatch = matchesGender && matchesPayment;
-      
+
       // Debug final filter result
-      if ((genderFilter || paymentStatusFilter) && students.indexOf(s) < 3) {
+      if ((genderFilter || paymentStatusFilter) && students.indexOf(s as Record<string, any>) < 3) {
         console.log(`Final filter result for ${s.name}:`, {
           matchesGender,
           matchesPayment,
           finalMatch
         });
       }
-      
+
       return finalMatch;
     })
     .sort((a: Record<string, any>, b: Record<string, any>) => {
@@ -584,12 +585,12 @@ const Students: React.FC = () => {
     // URL parametrlarini tekshirish
     const urlParams = new URLSearchParams(window.location.search);
     const openModal = urlParams.get('openModal');
-    
+
     if (openModal === 'true') {
       setShowModal(true);
       // URL dan parametrni olib tashlash
       window.history.replaceState({}, document.title, window.location.pathname);
-      
+
       // SessionStorage dan ma'lumotlarni olish
       const pendingData = sessionStorage.getItem('pendingStudentData');
       if (pendingData) {
@@ -602,23 +603,28 @@ const Students: React.FC = () => {
             fatherName: studentData.fatherName || '',
             phone: studentData.phone || '',
             direction: studentData.direction || '',
-            faculty: '', // Bo'sh qoldirish
+            faculty: studentData.faculty || '',
+            group: studentData.group || '',
             passport: studentData.passport || '',
             course: studentData.course || '1-kurs',
-            gender: studentData.gender || 'Erkak',
+            gender: studentData.gender || 'male',
             isPrivileged: studentData.isPrivileged || false,
             tarif: studentData.tarif || '1200000',
+            region: studentData.province || '',
+            district: studentData.district || '',
             passportImage1: studentData.passportImage1Base64 || null,
             passportImage2: studentData.passportImage2Base64 || null,
           }));
           // Ma'lumotlarni tozalash
           sessionStorage.removeItem('pendingStudentData');
+          toast.success('Ariza ma\'lumotlari yuklandi! Qo\'shimcha ma\'lumotlarni to\'ldiring.');
         } catch (error) {
-          // Pending student data parse error logged
+          console.error('Pending student data parse error:', error);
+          sessionStorage.removeItem('pendingStudentData');
         }
       }
     }
-    
+
     // Eski location.state logikasi
     if (location.state && (location.state as any).openAddModal) {
       setShowModal(true);
@@ -813,7 +819,7 @@ const Students: React.FC = () => {
             classNamePrefix="react-select"
             className="min-w-[140px]"
           />
-          
+
           {/* Filter reset button */}
           {(genderFilter || paymentStatusFilter) && (
             <button
@@ -827,7 +833,7 @@ const Students: React.FC = () => {
             </button>
           )}
         </div>
-        
+
         {/* Filter results info */}
         {(genderFilter || paymentStatusFilter) && (
           <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -840,11 +846,10 @@ const Students: React.FC = () => {
               </span>
             )}
             {paymentStatusFilter && (
-              <span className={`ml-2 px-2 py-1 rounded text-xs ${
-                paymentStatusFilter === "haqdor" 
-                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                  : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-              }`}>
+              <span className={`ml-2 px-2 py-1 rounded text-xs ${paymentStatusFilter === "haqdor"
+                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                }`}>
                 {paymentStatusFilter === "haqdor" ? "Haqdor" : "Qarzdor"}
               </span>
             )}
@@ -943,56 +948,56 @@ const Students: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Ism <span className="text-red-500">*</span>
                     </label>
-                    <input 
-                      type="text" 
-                      name="firstName" 
-                      value={formData.firstName} 
-                      onChange={handleInputChange} 
+                    <input
+                      type="text"
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleInputChange}
                       required
                       placeholder="Talabaning ismini kiriting"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Familiya <span className="text-red-500">*</span>
                     </label>
-                    <input 
-                      type="text" 
-                      name="lastName" 
-                      value={formData.lastName} 
-                      onChange={handleInputChange} 
+                    <input
+                      type="text"
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleInputChange}
                       required
                       placeholder="Talabaning familiyasini kiriting"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Otasining ismi <span className="text-red-500">*</span>
                     </label>
-                    <input 
-                      type="text" 
-                      name="fatherName" 
-                      value={formData.fatherName} 
-                      onChange={handleInputChange} 
+                    <input
+                      type="text"
+                      name="fatherName"
+                      value={formData.fatherName}
+                      onChange={handleInputChange}
                       required
                       placeholder="Otasining ismini kiriting"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Telefon <span className="text-red-500">*</span>
                     </label>
-                    <input 
-                      type="tel" 
-                      name="phone" 
-                      value={formData.phone} 
-                      onChange={handleInputChange} 
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
                       required
-                      placeholder="+998901234567" 
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                      placeholder="+998901234567"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -1007,42 +1012,42 @@ const Students: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Fakultet <span className="text-red-500">*</span>
                     </label>
-                    <input 
-                      type="text" 
-                      name="faculty" 
-                      value={formData.faculty} 
-                      onChange={handleInputChange} 
+                    <input
+                      type="text"
+                      name="faculty"
+                      value={formData.faculty}
+                      onChange={handleInputChange}
                       required
-                      placeholder="Fakultet nomi" 
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                      placeholder="Fakultet nomi"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Yo'nalish <span className="text-red-500">*</span>
                     </label>
-                    <input 
-                      type="text" 
-                      name="direction" 
-                      value={formData.direction} 
-                      onChange={handleInputChange} 
+                    <input
+                      type="text"
+                      name="direction"
+                      value={formData.direction}
+                      onChange={handleInputChange}
                       required
-                      placeholder="Yo'nalish nomi" 
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                      placeholder="Yo'nalish nomi"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Guruh <span className="text-red-500">*</span>
                     </label>
-                    <input 
-                      type="text" 
-                      name="group" 
-                      value={formData.group} 
-                      onChange={handleInputChange} 
+                    <input
+                      type="text"
+                      name="group"
+                      value={formData.group}
+                      onChange={handleInputChange}
                       required
-                      placeholder="IF-21-01" 
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                      placeholder="IF-21-01"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -1125,14 +1130,28 @@ const Students: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Passport ma'lumoti <span className="text-red-500">*</span>
                     </label>
-                    <input 
-                      type="text" 
-                      name="passport" 
-                      value={formData.passport} 
-                      onChange={handleInputChange} 
+                    <input
+                      type="text"
+                      name="passport"
+                      value={formData.passport}
+                      onChange={handleInputChange}
                       required
                       placeholder="AB1234567"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" 
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Tarif <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="tarif"
+                      value={formData.tarif}
+                      onChange={handleInputChange}
+                      required
+                      placeholder="1200000"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                   <div className="flex items-center gap-2 mt-4 sm:mt-8">
@@ -1175,7 +1194,7 @@ const Students: React.FC = () => {
                   </div>
                 )}
               </div>
-              <div className="fixed left-0 right-0 bottom-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex justify-end pt-4 gap-2 px-2 sm:px-8 pb-6 z-20 max-w-xl mx-auto w-full" style={{borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem'}}>
+              <div className="fixed left-0 right-0 bottom-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex justify-end pt-4 gap-2 px-2 sm:px-8 pb-6 z-20 max-w-xl mx-auto w-full" style={{ borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem' }}>
                 <button type="button" onClick={() => setShowModal(false)} className="px-3 sm:px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-sm sm:text-base">Bekor qilish</button>
                 <button type="submit" className="px-3 sm:px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors text-sm sm:text-base" disabled={loading}>
                   {editingStudent ? 'Saqlash' : loading ? (

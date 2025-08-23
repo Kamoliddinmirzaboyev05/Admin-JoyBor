@@ -165,21 +165,28 @@ export const apiQueries = {
   
   // Notifications
   getNotifications: async () => {
-    const res: any = await get('/notifications/');
-    if (Array.isArray(res)) return res;
-    if (Array.isArray(res?.results)) return res.results;
-    if (Array.isArray(res?.notifications)) return res.notifications;
-    return [];
+    try {
+      const res: any = await get('/notifications/my/');
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res?.results)) return res.results;
+      if (Array.isArray(res?.notifications)) return res.notifications;
+      return [];
+    } catch (error) {
+      console.error('Get notifications error:', error);
+      return [];
+    }
   },
   markNotificationAsRead: async (id: number) => {
-    // Prefer new POST endpoint shown in API docs; fall back to legacy PATCH routes
     try {
+      // Yangi POST endpoint
       return await post('/notifications/mark-read/', { notification_id: id });
     } catch (e1: any) {
       try {
-        return await patch(`/notification/${id}/read/`, { is_read: true });
+        // Fallback PATCH endpoint
+        return await patch(`/notifications/${id}/`, { is_read: true });
       } catch (e2: any) {
-        return await patch(`/notifications/${id}/read/`, { is_read: true });
+        console.error('Mark notification as read error:', e2);
+        throw e2;
       }
     }
   },

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import BackButton from '../components/UI/BackButton';
-import { BadgeCheck, Phone, MapPin, GraduationCap, Calendar, User, FileText, Image, X, Check, XCircle } from 'lucide-react';
+import { BadgeCheck, Phone, MapPin, GraduationCap, Calendar, User, FileText, Image, X, Check, XCircle, UserPlus, Building, CreditCard, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { link } from '../data/config';
@@ -45,15 +45,15 @@ function InfoCard({ icon, label, value }: { icon: React.ReactNode; label: string
 
 function ImageCard({ src, alt, label }: { src?: string | null; alt: string; label: string }) {
   if (!src) return null;
-  
+
   return (
     <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
         <Image className="w-4 h-4 text-blue-600 dark:text-blue-400" />
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
       </div>
-      <img 
-        src={src} 
+      <img
+        src={src}
         alt={alt}
         className="w-full h-48 object-cover rounded-lg border border-gray-200 dark:border-slate-600"
       />
@@ -63,14 +63,14 @@ function ImageCard({ src, alt, label }: { src?: string | null; alt: string; labe
 
 const ApplicationDetail: React.FC = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { emitApplicationUpdate, emitStudentUpdate, subscribe } = useGlobalEvents();
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
-  
+
   // Fetch application details from API
   const {
     data: application,
@@ -122,38 +122,36 @@ const ApplicationDetail: React.FC = () => {
 
   const prepareStudentDataFromApplication = () => {
     if (!application) return null;
-    
-    const fullName = application.fio || application.name || '';
-    const nameParts = fullName.trim().split(' ');
-    
-    // Ismni ajratish
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
-    const middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '';
-    
+
+    const fullName = application.name || '';
+    const lastName = application.last_name || '';
+    const middleName = application.middle_name || '';
+
     // Telefon raqamini to'g'ri formatda tayyorlash
     let phone = application.phone ? application.phone.toString() : '';
     if (phone.startsWith('+')) phone = phone.substring(1);
-    
+
     return {
-      firstName,
-      lastName,
+      firstName: fullName,
+      lastName: lastName,
       fatherName: middleName,
       phone,
       direction: application.direction || '',
-      faculty: '', // Bo'sh qoldirish
+      faculty: application.faculty || '',
+      group: application.group || '',
       passport: application.passport || '',
-      // Default qiymatlar
       course: '1-kurs',
-      gender: 'Erkak',
+      gender: 'male',
       isPrivileged: false,
-      group: '',
       tarif: '1200000',
+      // Province va district ID larini olish
+      province: application.province?.id || '',
+      district: application.district?.id || '',
       // Rasm URL (keyin yuklab olish uchun)
       imageUrl: application.user_image || null,
       // Pasport rasmlari
-      passportImage1: application.passport_image_first || null,
-      passportImage2: application.passport_image_second || null,
+      passportImage1Base64: application.passport_image_first || null,
+      passportImage2Base64: application.passport_image_second || null,
     };
   };
 
@@ -161,14 +159,13 @@ const ApplicationDetail: React.FC = () => {
     setLoading(true);
     try {
       const token = sessionStorage.getItem('access');
-      
-      // FormData bilan urinib ko'ramiz (Students.tsx kabi)
+
       const formData = new FormData();
       formData.append('status', 'APPROVED');
       if (comment.trim()) {
         formData.append('admin_comment', comment.trim());
       }
-      
+
       const response = await fetch(`${link}/applications/${id}/`, {
         method: 'PATCH',
         headers: {
@@ -176,7 +173,7 @@ const ApplicationDetail: React.FC = () => {
         },
         body: formData,
       });
-      
+
       if (!response.ok) {
         let errorData;
         try {
@@ -184,26 +181,22 @@ const ApplicationDetail: React.FC = () => {
         } catch {
           errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
         }
-        // API Response error logged
         throw new Error(errorData.message || errorData.detail || `Server xatoligi: ${response.status}`);
       }
-      
+
       toast.success('Ariza muvaffaqiyatli qabul qilindi!');
       setShowApproveModal(false);
       setComment('');
-      
+
       // Barcha bog'liq cache larni yangilash
       await Promise.all([
         invalidateApplicationCaches(queryClient),
         invalidateStudentCaches(queryClient)
       ]);
-      // Force immediate refetch
       await refetch();
-      // Emit global events
       emitApplicationUpdate({ action: 'approved', id });
-      emitStudentUpdate({ action: 'created' }); // Yangi talaba yaratildi
+      emitStudentUpdate({ action: 'created' });
     } catch (error: any) {
-      // Approve error logged
       toast.error(error.message || 'Arizani qabul qilishda xatolik yuz berdi!');
     } finally {
       setLoading(false);
@@ -215,16 +208,15 @@ const ApplicationDetail: React.FC = () => {
       toast.error('Iltimos, rad etish sababini yozing!');
       return;
     }
-    
+
     setLoading(true);
     try {
       const token = sessionStorage.getItem('access');
-      
-      // FormData bilan urinib ko'ramiz (Students.tsx kabi)
+
       const formData = new FormData();
       formData.append('status', 'REJECTED');
       formData.append('admin_comment', comment.trim());
-      
+
       const response = await fetch(`${link}/applications/${id}/`, {
         method: 'PATCH',
         headers: {
@@ -232,7 +224,7 @@ const ApplicationDetail: React.FC = () => {
         },
         body: formData,
       });
-      
+
       if (!response.ok) {
         let errorData;
         try {
@@ -240,25 +232,30 @@ const ApplicationDetail: React.FC = () => {
         } catch {
           errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
         }
-        // API Response error logged
         throw new Error(errorData.message || errorData.detail || `Server xatoligi: ${response.status}`);
       }
-      
+
       toast.success('Ariza rad etildi!');
       setShowRejectModal(false);
       setComment('');
-      
-      // Barcha bog'liq cache larni yangilash
+
       await invalidateApplicationCaches(queryClient);
-      // Force immediate refetch
       await refetch();
-      // Emit global event
       emitApplicationUpdate({ action: 'rejected', id });
     } catch (error: any) {
-      // Reject error logged
       toast.error(error.message || 'Arizani rad etishda xatolik yuz berdi!');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddToStudents = () => {
+    const studentData = prepareStudentDataFromApplication();
+    if (studentData) {
+      // Ma'lumotlarni sessionStorage ga saqlash
+      sessionStorage.setItem('pendingStudentData', JSON.stringify(studentData));
+      // Students sahifasiga o'tish va modalni ochish
+      navigate('/students?openModal=true');
     }
   };
 
@@ -321,8 +318,8 @@ const ApplicationDetail: React.FC = () => {
                 </div>
               )}
               <div>
-                <h1 className="text-2xl font-bold mb-1">{application.fio || application.name}</h1>
-                <p className="text-blue-100 mb-2">{application.university}</p>
+                <h1 className="text-2xl font-bold mb-1">{application.name} {application.last_name}</h1>
+                <p className="text-blue-100 mb-2">{application.dormitory?.university?.name}</p>
                 <div className="flex items-center gap-4 text-sm text-blue-100">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
@@ -340,35 +337,50 @@ const ApplicationDetail: React.FC = () => {
           {/* Details Section */}
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              <InfoCard 
+              <InfoCard
                 icon={<User className="w-5 h-5" />}
                 label="To'liq ism"
-                value={application.fio || application.name}
+                value={`${application.name} ${application.last_name || ''}`}
               />
-              <InfoCard 
+              <InfoCard
                 icon={<Phone className="w-5 h-5" />}
                 label="Telefon raqam"
                 value={`+${application.phone}`}
               />
-              <InfoCard 
-                icon={<GraduationCap className="w-5 h-5" />}
+              <InfoCard
+                icon={<Building className="w-5 h-5" />}
                 label="Universitet"
-                value={application.university}
+                value={application.dormitory?.university?.name}
               />
-              <InfoCard 
+              <InfoCard
                 icon={<MapPin className="w-5 h-5" />}
-                label="Shahar"
-                value={application.city}
+                label="Viloyat"
+                value={application.province?.name}
               />
-              <InfoCard 
+              <InfoCard
                 icon={<MapPin className="w-5 h-5" />}
-                label="Qishloq/Tuman"
-                value={application.village}
+                label="Tuman"
+                value={application.district?.name}
               />
-              <InfoCard 
-                icon={<FileText className="w-5 h-5" />}
+              <InfoCard
+                icon={<GraduationCap className="w-5 h-5" />}
                 label="Yo'nalish"
                 value={application.direction}
+              />
+              <InfoCard
+                icon={<GraduationCap className="w-5 h-5" />}
+                label="Fakultet"
+                value={application.faculty}
+              />
+              <InfoCard
+                icon={<GraduationCap className="w-5 h-5" />}
+                label="Guruh"
+                value={application.group}
+              />
+              <InfoCard
+                icon={<CreditCard className="w-5 h-5" />}
+                label="Pasport"
+                value={application.passport}
               />
             </div>
 
@@ -376,7 +388,7 @@ const ApplicationDetail: React.FC = () => {
             {application.comment && (
               <div className="bg-blue-50 dark:bg-slate-700/50 border border-blue-200 dark:border-slate-600 rounded-xl p-4 mb-6">
                 <div className="flex items-center gap-2 mb-2">
-                  <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <MessageSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Talaba izohi</span>
                 </div>
                 <p className="text-gray-700 dark:text-gray-300">{application.comment}</p>
@@ -385,22 +397,20 @@ const ApplicationDetail: React.FC = () => {
 
             {/* Admin Comment Section */}
             {application.admin_comment && (
-              <div className={`border rounded-xl p-4 mb-6 ${
-                application.status === 'APPROVED' 
-                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' 
-                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
-              }`}>
+              <div className={`border rounded-xl p-4 mb-6 ${application.status === 'APPROVED'
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
+                : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
+                }`}>
                 <div className="flex items-center gap-2 mb-2">
                   {application.status === 'APPROVED' ? (
                     <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
                   ) : (
                     <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
                   )}
-                  <span className={`text-sm font-medium ${
-                    application.status === 'APPROVED' 
-                      ? 'text-green-700 dark:text-green-300' 
-                      : 'text-red-700 dark:text-red-300'
-                  }`}>
+                  <span className={`text-sm font-medium ${application.status === 'APPROVED'
+                    ? 'text-green-700 dark:text-green-300'
+                    : 'text-red-700 dark:text-red-300'
+                    }`}>
                     Admin javobi
                   </span>
                 </div>
@@ -410,12 +420,12 @@ const ApplicationDetail: React.FC = () => {
 
             {/* Passport Images */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <ImageCard 
+              <ImageCard
                 src={application.passport_image_first}
                 alt="Pasport birinchi sahifa"
                 label="Pasport (birinchi sahifa)"
               />
-              <ImageCard 
+              <ImageCard
                 src={application.passport_image_second}
                 alt="Pasport ikkinchi sahifa"
                 label="Pasport (ikkinchi sahifa)"
@@ -429,7 +439,7 @@ const ApplicationDetail: React.FC = () => {
                   <FileText className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Hujjat</span>
                 </div>
-                <a 
+                <a
                   href={application.document}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -443,14 +453,14 @@ const ApplicationDetail: React.FC = () => {
             {/* Action Buttons - Only show for pending applications */}
             {(application.status === 'PENDING' || application.status === 'NEW') && (
               <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-slate-700">
-                <button 
+                <button
                   onClick={() => setShowApproveModal(true)}
                   className="px-6 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-colors duration-200 flex items-center gap-2"
                 >
                   <BadgeCheck className="w-4 h-4" />
                   Qabul qilish
                 </button>
-                <button 
+                <button
                   onClick={() => setShowRejectModal(true)}
                   className="px-6 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition-colors duration-200 flex items-center gap-2"
                 >
@@ -463,13 +473,12 @@ const ApplicationDetail: React.FC = () => {
             {/* Status Message and Actions for processed applications */}
             {application.status !== 'PENDING' && application.status !== 'NEW' && (
               <div className="pt-4 border-t border-gray-200 dark:border-slate-700">
-                <div className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg mb-4 ${
-                  application.status === 'APPROVED' 
-                    ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300' 
-                    : application.status === 'REJECTED'
+                <div className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg mb-4 ${application.status === 'APPROVED'
+                  ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300'
+                  : application.status === 'REJECTED'
                     ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300'
                     : 'bg-gray-100 dark:bg-gray-900/20 text-gray-700 dark:text-gray-300'
-                }`}>
+                  }`}>
                   {application.status === 'APPROVED' ? (
                     <>
                       <Check className="w-5 h-5" />
@@ -487,15 +496,15 @@ const ApplicationDetail: React.FC = () => {
                     </>
                   )}
                 </div>
-                
+
                 {/* Add Student Button for approved applications */}
                 {application.status === 'APPROVED' && (
                   <div className="flex justify-center">
                     <button
-                      onClick={() => setShowAddStudentModal(true)}
+                      onClick={handleAddToStudents}
                       className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center gap-2"
                     >
-                      <User className="w-5 h-5" />
+                      <UserPlus className="w-5 h-5" />
                       Talabalar ro'yxatiga qo'shish
                     </button>
                   </div>
@@ -532,7 +541,7 @@ const ApplicationDetail: React.FC = () => {
                   <p className="text-sm text-gray-500 dark:text-gray-400">Qabul qilish sababini yozing</p>
                 </div>
               </div>
-              
+
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Qabul qilish sababi (ixtiyoriy)
@@ -545,7 +554,7 @@ const ApplicationDetail: React.FC = () => {
                   rows={4}
                 />
               </div>
-              
+
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={() => {
@@ -605,7 +614,7 @@ const ApplicationDetail: React.FC = () => {
                   <p className="text-sm text-gray-500 dark:text-gray-400">Rad etish sababini yozing</p>
                 </div>
               </div>
-              
+
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Rad etish sababi *
@@ -619,7 +628,7 @@ const ApplicationDetail: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={() => {
@@ -647,120 +656,6 @@ const ApplicationDetail: React.FC = () => {
                     </>
                   )}
                 </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Add Student Modal */}
-      <AnimatePresence>
-        {showAddStudentModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowAddStudentModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 40 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 40 }}
-              className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-slate-700"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    Talabalar ro'yxatiga qo'shish
-                  </h3>
-                  <button
-                    onClick={() => setShowAddStudentModal(false)}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-                
-                <div className="text-center py-8">
-                  <User className="w-16 h-16 mx-auto text-blue-500 mb-4" />
-                  <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                    Talaba ma'lumotlari tayyorlandi
-                  </h4>
-                  <p className="text-gray-600 dark:text-gray-400 mb-6">
-                    Ariza ma'lumotlari asosida talaba yaratiladi. Qo'shimcha ma'lumotlarni keyin tahrirlashingiz mumkin.
-                  </p>
-                  
-                  {/* Tayyorlangan ma'lumotlarni ko'rsatish */}
-                  {(() => {
-                    const studentData = prepareStudentDataFromApplication();
-                    if (!studentData) return null;
-                    
-                    return (
-                      <div className="bg-gray-50 dark:bg-slate-700 rounded-lg p-4 mb-6 text-left">
-                        <h5 className="font-medium text-gray-900 dark:text-white mb-3">Tayyorlangan ma'lumotlar:</h5>
-                        <div className="grid grid-cols-2 gap-3 text-sm text-gray-700 dark:text-gray-300">
-                          <div><strong className="text-gray-900 dark:text-white">Ism:</strong> {studentData.firstName}</div>
-                          <div><strong className="text-gray-900 dark:text-white">Familiya:</strong> {studentData.lastName}</div>
-                          <div><strong className="text-gray-900 dark:text-white">Otasining ismi:</strong> {studentData.fatherName}</div>
-                          <div><strong className="text-gray-900 dark:text-white">Telefon:</strong> +{studentData.phone}</div>
-                          <div><strong className="text-gray-900 dark:text-white">Universitet:</strong> {application.university}</div>
-                          <div><strong className="text-gray-900 dark:text-white">Yo'nalish:</strong> {studentData.direction}</div>
-                          <div><strong className="text-gray-900 dark:text-white">Pasport:</strong> {studentData.passport}</div>
-                          <div><strong className="text-gray-900 dark:text-white">Kurs:</strong> {studentData.course}</div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                  
-                  <div className="flex gap-3 justify-center">
-                    <button
-                      onClick={() => setShowAddStudentModal(false)}
-                      className="px-6 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-lg transition-colors"
-                    >
-                      Bekor qilish
-                    </button>
-                    <button
-                      onClick={async () => {
-                        // Students sahifasiga o'tish va modal ochish
-                        const studentData = prepareStudentDataFromApplication();
-                        if (studentData) {
-                          // Passport rasmlarini yuklab olish va sessionStorage ga saqlash
-                          const dataToSave = { ...studentData };
-                          
-                          // Passport rasmlarini base64 formatida saqlash
-                          if (application.passport_image_first) {
-                            try {
-                              const response = await fetch(application.passport_image_first);
-                              const blob = await response.blob();
-                              const reader = new FileReader();
-                              reader.onload = () => {
-                                dataToSave.passportImage1Base64 = reader.result as string;
-                                saveAndNavigate(dataToSave);
-                              };
-                              reader.readAsDataURL(blob);
-                              return; // Async operatsiya tugashini kutish
-                            } catch (error) {
-                              // Passport image 1 yuklab olishda xatolik
-                            }
-                          }
-                          
-                          saveAndNavigate(dataToSave);
-                        }
-                        
-                        function saveAndNavigate(data: any) {
-                          sessionStorage.setItem('pendingStudentData', JSON.stringify(data));
-                          window.location.href = '/students?openModal=true';
-                        }
-                      }}
-                      className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
-                    >
-                      <User className="w-4 h-4" />
-                      Talaba qo'shish
-                    </button>
-                  </div>
-                </div>
               </div>
             </motion.div>
           </motion.div>

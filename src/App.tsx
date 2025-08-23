@@ -91,7 +91,7 @@ function App() {
                 <Applications />
               </Suspense>
             } />
-            <Route path="application/:id" element={
+            <Route path="applications/:id" element={
               <Suspense fallback={<LoadingSpinner />}>
                 <ApplicationDetail />
               </Suspense>
