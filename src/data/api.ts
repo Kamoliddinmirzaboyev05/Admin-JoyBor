@@ -166,11 +166,66 @@ export const apiQueries = {
   // Notifications
   getNotifications: async () => {
     try {
-      const res: any = await get('/notifications/my/');
-      if (Array.isArray(res)) return res;
-      if (Array.isArray(res?.results)) return res.results;
-      if (Array.isArray(res?.notifications)) return res.notifications;
-      return [];
+      // Ikkita turdagi bildirishnomalarni olish
+      const [generalNotifications, applicationNotifications] = await Promise.all([
+        get('/notifications/my/').catch(() => []),
+        get('/application_notifications/').catch(() => [])
+      ]);
+
+      const allNotifications = [];
+
+      // Umumiy bildirishnomalar
+      if (Array.isArray(generalNotifications)) {
+        const mappedGeneral = generalNotifications.map((item: any) => ({
+          id: item.id, // User notification ID
+          notification_id: item.notification?.id, // Original notification ID - o'qilgan qilish uchun
+          title: item.notification?.title || 'Bildirishnoma',
+          message: item.notification?.message || '',
+          type: (item.notification?.type || 'info') as 'info' | 'success' | 'warning' | 'error',
+          read: item.is_read,
+          is_read: item.is_read,
+          created_at: item.notification?.created_at || item.received_at,
+          received_at: item.received_at,
+          image: item.notification?.image,
+          image_url: item.notification?.image_url,
+          target_type: item.notification?.target_type,
+          target_user: item.notification?.target_user,
+          is_active: item.notification?.is_active,
+          category: 'general',
+          notification_type: 'general' as const
+        }));
+        allNotifications.push(...mappedGeneral);
+      }
+
+      // Ariza bildirishnomalar
+      if (Array.isArray(applicationNotifications)) {
+        const mappedApplications = applicationNotifications.map((item: any) => ({
+          id: item.id,
+          notification_id: item.id, // Ariza bildirishnomalar uchun id bir xil
+          title: 'Yangi ariza',
+          message: item.message || '',
+          type: 'info' as const,
+          read: item.is_read,
+          is_read: item.is_read,
+          created_at: item.created_at,
+          received_at: item.created_at,
+          image: undefined,
+          image_url: undefined,
+          target_type: 'application',
+          target_user: item.user,
+          is_active: true,
+          category: 'application',
+          notification_type: 'application' as const
+        }));
+        allNotifications.push(...mappedApplications);
+      }
+
+      // Vaqt bo'yicha saralash (eng yangi tepada)
+      return allNotifications.sort((a, b) => {
+        const aDate = new Date(a.received_at || a.created_at).getTime();
+        const bDate = new Date(b.received_at || b.created_at).getTime();
+        return bDate - aDate;
+      });
     } catch (error) {
       console.error('Get notifications error:', error);
       return [];
@@ -178,16 +233,81 @@ export const apiQueries = {
   },
   markNotificationAsRead: async (id: number) => {
     try {
-      // Yangi POST endpoint
-      return await post('/notifications/mark-read/', { notification_id: id });
-    } catch (e1: any) {
+      console.log('Trying to mark notification as read with ID:', id);
+      
+      // Birinchi urinish: POST endpoint
       try {
-        // Fallback PATCH endpoint
-        return await patch(`/notifications/${id}/`, { is_read: true });
-      } catch (e2: any) {
-        console.error('Mark notification as read error:', e2);
-        throw e2;
+        console.log('Trying POST /notifications/mark-read/ with notification_id:', id);
+        return await post('/notifications/mark-read/', { notification_id: id });
+      } catch (e1: any) {
+        console.log('POST endpoint failed:', e1.message, 'trying PATCH...');
+        
+        // Ikkinchi urinish: PATCH endpoint
+        try {
+          console.log('Trying PATCH /notifications/' + id + '/');
+          return await patch(`/notifications/${id}/`, { is_read: true });
+        } catch (e2: any) {
+          console.log('PATCH endpoint failed:', e2.message, 'trying PUT...');
+          
+          // Uchinchi urinish: PUT endpoint
+          try {
+            console.log('Trying PUT /notifications/' + id + '/');
+            return await put(`/notifications/${id}/`, { is_read: true });
+          } catch (e3: any) {
+            console.log('PUT endpoint failed:', e3.message, 'trying application notifications...');
+            
+            // To'rtinchi urinish: Application notifications endpoint
+            try {
+              console.log('Trying PATCH /application_notifications/' + id + '/');
+              return await patch(`/application_notifications/${id}/`, { is_read: true });
+            } catch (e4: any) {
+              console.log('Application notifications failed:', e4.message, 'trying alternative endpoints...');
+              
+              // Beshinchi urinish: Alternative endpoints
+              try {
+                console.log('Trying POST /notifications/mark-as-read/');
+                return await post('/notifications/mark-as-read/', { notification_id: id });
+              } catch (e5: any) {
+                try {
+                  console.log('Trying POST /notifications/read/');
+                  return await post('/notifications/read/', { notification_id: id });
+                } catch (e6: any) {
+                  try {
+                    console.log('Trying PATCH /notifications/mark-read/' + id + '/');
+                    return await patch(`/notifications/mark-read/${id}/`, { is_read: true });
+                  } catch (e7: any) {
+                    try {
+                      console.log('Trying POST /notifications/mark-read/ with different body');
+                      return await post('/notifications/mark-read/', { id: id });
+                    } catch (e8: any) {
+                      try {
+                        console.log('Trying POST /notifications/mark-read/ with different body 2');
+                        return await post('/notifications/mark-read/', { notification: id });
+                      } catch (e9: any) {
+                        console.error('All endpoints failed:', { 
+                          e1: e1.message, 
+                          e2: e2.message, 
+                          e3: e3.message, 
+                          e4: e4.message,
+                          e5: e5.message,
+                          e6: e6.message,
+                          e7: e7.message,
+                          e8: e8.message,
+                          e9: e9.message
+                        });
+                        throw new Error('Barcha endpointlar ishlamayapti');
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
+    } catch (error: any) {
+      console.error('Mark notification as read error:', error);
+      throw error;
     }
   },
   
