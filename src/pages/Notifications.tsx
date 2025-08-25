@@ -2,23 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
-import { 
-  Bell, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle, 
-  Info, 
-  Filter, 
-  Search, 
-  Eye, 
-  Trash2, 
+import {
+  Bell,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  Info,
+  Filter,
+  Search,
+  Eye,
   RefreshCw,
   Star,
-  MessageSquare,
-  Calendar,
-  Settings,
-  Archive,
-  MoreVertical,
   X,
   ZoomIn
 } from 'lucide-react';
@@ -84,15 +78,21 @@ const Notifications: React.FC = () => {
     refetchInterval: 30000, // Auto-refresh every 30 seconds
   });
 
-  // Bildirishnomani o'qilgan qilish mutation
+  // Umumiy bildirishnomani o'qilgan qilish mutation
   const markAsReadMutation = useMutation({
     mutationFn: (id: number) => apiQueries.markNotificationAsRead(id),
     onMutate: async (id: number) => {
       await queryClient.cancelQueries({ queryKey: ['notifications'] });
       const previous = queryClient.getQueryData<Notification[]>(['notifications']);
+
+      // Optimistik yangilash - to'g'ri notification ni topish
       queryClient.setQueryData<Notification[]>(['notifications'], (old) => {
         if (!Array.isArray(old)) return old as any;
-        return old.map((n) => (n.id === id ? { ...n, read: true, is_read: true } : n));
+        return old.map((n) => {
+          // notification_id yoki id bo'yicha topish
+          const matchesId = n.id === id || n.notification_id === id;
+          return matchesId ? { ...n, read: true, is_read: true } : n;
+        });
       });
       return { previous };
     },
@@ -108,11 +108,59 @@ const Notifications: React.FC = () => {
     },
   });
 
+  // Ariza bildirishnomani o'qilgan qilish mutation
+  const markApplicationAsReadMutation = useMutation({
+    mutationFn: (id: number) => apiQueries.markApplicationNotificationAsRead(id),
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+      const previous = queryClient.getQueryData<Notification[]>(['notifications']);
+
+      // Optimistik yangilash
+      queryClient.setQueryData<Notification[]>(['notifications'], (old) => {
+        if (!Array.isArray(old)) return old as any;
+        return old.map((n) => {
+          return n.id === id ? { ...n, read: true, is_read: true } : n;
+        });
+      });
+      return { previous };
+    },
+    onError: (_err, _id, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(['notifications'], ctx.previous);
+      toast.error("Ariza bildirishnomani o'qilgan qilishda xatolik yuz berdi!");
+    },
+    onSuccess: () => {
+      toast.success("Ariza bildirishnoma o'qilgan deb belgilandi!");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+
   // Barcha o'qilmagan bildirishnomalarni o'qilgan qilish
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
-      const unreadNotifications = notifications.filter(n => !n.read && !n.is_read);
-      await Promise.all(unreadNotifications.map(n => apiQueries.markNotificationAsRead(n.id)));
+      const unreadNotifications = notifications.filter(n => !Boolean(n.read || n.is_read));
+
+      // Ariza va umumiy bildirishnomalarni ajratish
+      const applicationNotifications = unreadNotifications.filter(n => n.notification_type === 'application');
+      const generalNotifications = unreadNotifications.filter(n => n.notification_type !== 'application');
+
+      const promises = [];
+
+      // Agar ariza bildirishnomalari bo'lsa, barcha ariza bildirishnomalarini o'qilgan qilish
+      if (applicationNotifications.length > 0) {
+        promises.push(apiQueries.markAllApplicationNotificationsAsRead());
+      }
+
+      // Umumiy bildirishnomalarni alohida-alohida o'qilgan qilish
+      if (generalNotifications.length > 0) {
+        promises.push(...generalNotifications.map(n => {
+          const notificationId = n.notification_id || n.id;
+          return apiQueries.markNotificationAsRead(notificationId);
+        }));
+      }
+
+      await Promise.all(promises);
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['notifications'] });
@@ -138,7 +186,16 @@ const Notifications: React.FC = () => {
   // Tanlangan bildirishnomalarni o'qilgan qilish
   const markSelectedAsReadMutation = useMutation({
     mutationFn: async (ids: number[]) => {
-      await Promise.all(ids.map(id => apiQueries.markNotificationAsRead(id)));
+      const selectedNotifs = notifications.filter(n => ids.includes(n.id));
+
+      await Promise.all(selectedNotifs.map(notification => {
+        if (notification.notification_type === 'application') {
+          return apiQueries.markApplicationNotificationAsRead(notification.id);
+        } else {
+          const notificationId = notification.notification_id || notification.id;
+          return apiQueries.markNotificationAsRead(notificationId);
+        }
+      }));
     },
     onSuccess: () => {
       toast.success(`${selectedNotifications.length} ta bildirishnoma o'qilgan deb belgilandi!`);
@@ -154,9 +211,14 @@ const Notifications: React.FC = () => {
   });
 
   const handleMarkAsRead = (notification: Notification) => {
-    // notification_id ni yuborish kerak
-    const notificationId = notification.notification_id || notification.id;
-    markAsReadMutation.mutate(notificationId);
+    // Ariza bildirishnomasi uchun maxsus endpoint ishlatamiz
+    if (notification.notification_type === 'application') {
+      markApplicationAsReadMutation.mutate(notification.id);
+    } else {
+      // Umumiy bildirishnomalar uchun
+      const notificationId = notification.notification_id || notification.id;
+      markAsReadMutation.mutate(notificationId);
+    }
   };
 
   const handleMarkAllAsRead = () => {
@@ -171,23 +233,26 @@ const Notifications: React.FC = () => {
 
   // Bildirishnomani bosganda avtomatik o'qilgan qilish va sahifaga o'tish
   const handleNotificationClick = (notification: Notification) => {
+    // O'qilmagan bo'lsa o'qilgan qilish
+    const isRead = Boolean(notification.read || notification.is_read);
+    if (!isRead) {
+      handleMarkAsRead(notification);
+    }
+
     // Ariza bildirishnomasi bo'lsa ariza sahifasiga o'tish
     if (notification.notification_type === 'application') {
       // Ariza sahifasiga o'tish
-      window.location.href = '/applications';
+      setTimeout(() => {
+        window.location.href = '/applications';
+      }, 100); // O'qilgan qilish uchun biroz kutish
       return;
-    }
-
-    // O'qilmagan bo'lsa o'qilgan qilish
-    if (!notification.read && !notification.is_read) {
-      handleMarkAsRead(notification);
     }
   };
 
   // Tanlash funksiyalari
   const handleSelectNotification = (id: number) => {
-    setSelectedNotifications(prev => 
-      prev.includes(id) 
+    setSelectedNotifications(prev =>
+      prev.includes(id)
         ? prev.filter(n => n !== id)
         : [...prev, id]
     );
@@ -206,7 +271,8 @@ const Notifications: React.FC = () => {
     const matchesSearch = (notification.title?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
       (notification.message?.toLowerCase() || "").includes(searchTerm.toLowerCase());
 
-    const isRead = Boolean((notification as any).read) || Boolean((notification as any).is_read);
+    // O'qilgan holatni to'g'ri tekshirish
+    const isRead = Boolean(notification.read || notification.is_read);
     const matchesFilter = filterType === "all" ||
       (filterType === "read" && isRead) ||
       (filterType === "unread" && !isRead);
@@ -214,8 +280,17 @@ const Notifications: React.FC = () => {
     return matchesSearch && matchesFilter;
   });
 
-  // Saralash - oxirgi kelgan bildirishnoma eng tepada
+  // Saralash - avval o'qilmagan xabarlar, keyin sana bo'yicha
   const sortedNotifications = [...filteredNotifications].sort((a, b) => {
+    const aRead = Boolean(a.read || a.is_read);
+    const bRead = Boolean(b.read || b.is_read);
+
+    // Avval o'qilmagan xabarlarni tepaga chiqarish
+    if (aRead !== bRead) {
+      return aRead ? 1 : -1; // O'qilmagan (-1) tepada, o'qilgan (1) pastda
+    }
+
+    // Agar ikkalasi ham bir xil holatda bo'lsa, sana bo'yicha saralash
     switch (sortBy) {
       case 'date':
         // received_at yoki created_at bo'yicha saralash
@@ -320,15 +395,22 @@ const Notifications: React.FC = () => {
                   <Bell className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-                    Bildirishnomalar
-                  </h1>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                      Bildirishnomalar
+                    </h1>
+                    {notifications.filter(n => !Boolean(n.read || n.is_read)).length > 0 && (
+                      <div className="bg-red-500 text-white text-sm font-medium px-3 py-1 rounded-full">
+                        {notifications.filter(n => !Boolean(n.read || n.is_read)).length} yangi
+                      </div>
+                    )}
+                  </div>
                   <p className="text-gray-600 dark:text-gray-400 mt-1">
                     Tizim bildirishnomalari va muhim xabarlar
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => refetch()}
@@ -364,7 +446,7 @@ const Notifications: React.FC = () => {
                   <div>
                     <span className="text-sm font-medium text-green-900 dark:text-green-100">O'qilgan</span>
                     <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {notifications.filter(n => n.read || n.is_read).length}
+                      {notifications.filter(n => Boolean(n.read || n.is_read)).length}
                     </p>
                   </div>
                 </div>
@@ -377,7 +459,7 @@ const Notifications: React.FC = () => {
                   <div>
                     <span className="text-sm font-medium text-orange-900 dark:text-orange-100">O'qilmagan</span>
                     <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                      {notifications.filter(n => !n.read && !n.is_read).length}
+                      {notifications.filter(n => !Boolean(n.read || n.is_read)).length}
                     </p>
                   </div>
                 </div>
@@ -441,7 +523,7 @@ const Notifications: React.FC = () => {
             )}
 
             {/* Mark all as read button */}
-            {notifications.filter(n => !n.read && !n.is_read).length > 0 && !showBulkActions && (
+            {notifications.filter(n => !Boolean(n.read || n.is_read)).length > 0 && !showBulkActions && (
               <div className="mt-6 flex justify-end">
                 <button
                   onClick={handleMarkAllAsRead}
@@ -529,13 +611,13 @@ const Notifications: React.FC = () => {
                 }
               </p>
             </motion.div>
-                      ) : (
+          ) : (
             <div className="space-y-4">
               <AnimatePresence>
                 {sortedNotifications.map((notification, index) => {
-                  const isRead = notification.read || notification.is_read;
+                  const isRead = Boolean(notification.read || notification.is_read);
                   const isSelected = selectedNotifications.includes(notification.id);
-                  
+
                   return (
                     <motion.div
                       key={notification.id}
@@ -544,11 +626,9 @@ const Notifications: React.FC = () => {
                       exit={{ opacity: 0, y: -20 }}
                       transition={{ delay: 0.2 + index * 0.05 }}
                       onClick={() => handleNotificationClick(notification)}
-                      className={`bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer group ${
-                        !isRead ? "ring-2 ring-blue-100 dark:ring-blue-900/30 bg-gradient-to-r from-blue-50/50 to-transparent dark:from-blue-900/10" : ""
-                      } ${
-                        isSelected ? "ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20" : ""
-                      }`}
+                      className={`bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer group ${!isRead ? "ring-2 ring-blue-100 dark:ring-blue-900/30 bg-gradient-to-r from-blue-50/50 to-transparent dark:from-blue-900/10" : ""
+                        } ${isSelected ? "ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20" : ""
+                        }`}
                     >
                       <div className={`h-1 ${getNotificationBorderColor(notification.type).replace("border-l-", "bg-")}`}></div>
                       <div className="p-4 sm:p-6">
@@ -568,12 +648,11 @@ const Notifications: React.FC = () => {
                           </div>
 
                           <div className="flex-shrink-0 mt-1">
-                            <div className={`p-3 rounded-xl shadow-sm ${
-                              notification.type === "success" ? "bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/30 dark:to-green-800/30" :
+                            <div className={`p-3 rounded-xl shadow-sm ${notification.type === "success" ? "bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/30 dark:to-green-800/30" :
                               notification.type === "warning" ? "bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30" :
-                              notification.type === "error" ? "bg-gradient-to-br from-red-100 to-red-200 dark:from-red-900/30 dark:to-red-800/30" :
-                              "bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30"
-                            }`}>
+                                notification.type === "error" ? "bg-gradient-to-br from-red-100 to-red-200 dark:from-red-900/30 dark:to-red-800/30" :
+                                  "bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30"
+                              }`}>
                               {getNotificationIcon(notification.type)}
                             </div>
                           </div>
@@ -587,7 +666,7 @@ const Notifications: React.FC = () => {
                                 <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
                                   {notification.message}
                                 </p>
-                                
+
                                 {/* Notification image */}
                                 {notification.image_url && (
                                   <div className="mt-4 relative group">
@@ -596,10 +675,10 @@ const Notifications: React.FC = () => {
                                       <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-xl">
                                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                                       </div>
-                                      
-                                      <img 
-                                        src={notification.image_url} 
-                                        alt="Bildirishnoma rasm" 
+
+                                      <img
+                                        src={notification.image_url}
+                                        alt="Bildirishnoma rasm"
                                         className="w-full h-auto object-cover transition-transform duration-300 group-hover:scale-105 relative z-10 cursor-pointer"
                                         style={{ maxHeight: '250px' }}
                                         onClick={() => setSelectedImage(notification.image_url!)}
@@ -630,7 +709,7 @@ const Notifications: React.FC = () => {
                                         }}
                                       />
                                       <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20"></div>
-                                      
+
                                       {/* Zoom button */}
                                       <button
                                         onClick={(e) => {
@@ -658,18 +737,18 @@ const Notifications: React.FC = () => {
                             </div>
 
                             <div className="flex items-center justify-between mt-4">
-                                                          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                              <Clock className="w-4 h-4" />
-                              <span>
-                                {new Date(notification.received_at || notification.created_at).toLocaleString("uz-UZ", {
-                                  year: "numeric",
-                                  month: "long",
-                                  day: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit"
-                                })}
-                              </span>
-                            </div>
+                              <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                                <Clock className="w-4 h-4" />
+                                <span>
+                                  {new Date(notification.received_at || notification.created_at).toLocaleString("uz-UZ", {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit"
+                                  })}
+                                </span>
+                              </div>
 
                               <div className="flex items-center gap-3">
 
@@ -689,11 +768,10 @@ const Notifications: React.FC = () => {
                                   </button>
                                 )}
 
-                                <div className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${
-                                  isRead
-                                    ? "bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600"
-                                    : "bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800"
-                                }`}>
+                                <div className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${isRead
+                                  ? "bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600"
+                                  : "bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800"
+                                  }`}>
                                   {isRead ? "O'qilgan" : "Yangi"}
                                 </div>
                               </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Moon, Sun, User, LogOut, PanelLeft, CheckCircle, AlertCircle, Info, Clock, Eye, Settings, Archive, MoreVertical, RefreshCw } from 'lucide-react';
+import { Bell, Moon, Sun, User, LogOut, PanelLeft, CheckCircle, AlertCircle, Info, Clock, Eye, RefreshCw } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -11,7 +11,7 @@ interface NavbarProps {
 }
 
 const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
-  const { isDark, toggleTheme, notifications, markNotificationRead } = useAppStore();
+  const { isDark, toggleTheme } = useAppStore();
   const [showNotifications, setShowNotifications] = React.useState(false);
   const [showProfile, setShowProfile] = React.useState(false);
   const [notificationFilter, setNotificationFilter] = React.useState<'all' | 'unread'>('unread');
@@ -40,9 +40,17 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
     refetchInterval: 30000, // Auto-refresh every 30 seconds
   });
 
-  // Bildirishnomani o'qilgan qilish uchun mutation
+  // Umumiy bildirishnomani o'qilgan qilish uchun mutation
   const markReadMutation = useMutation({
     mutationFn: (id: number) => apiQueries.markNotificationAsRead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+
+  // Ariza bildirishnomani o'qilgan qilish uchun mutation
+  const markApplicationReadMutation = useMutation({
+    mutationFn: (id: number) => apiQueries.markApplicationNotificationAsRead(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
@@ -51,35 +59,46 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
   // API dan kelgan notifications (store faqat demo uchun, navbar faqat API ga tayansin)
   const displayNotifications = Array.isArray(apiNotifications) ? apiNotifications : [];
   // O'qilmagan bildirishnomalar soni
-  const unreadCount = displayNotifications.filter((n: any) => !n?.read && !n?.is_read).length;
+  const unreadCount = displayNotifications.filter((n: any) => !Boolean(n?.read || n?.is_read)).length;
 
   // Filtrlangan bildirishnomalar
   const filteredNotifications = displayNotifications.filter((n: any) => {
     if (notificationFilter === 'unread') {
-      return !n?.read && !n?.is_read;
+      return !Boolean(n?.read || n?.is_read);
     }
     return true;
   }).slice(0, 8); // Faqat 8 ta ko'rsatish
 
   const handleNotificationClick = (notification: any) => {
+    // O'qilmagan bo'lsa o'qilgan qilish
+    const isRead = Boolean(notification.read || notification.is_read);
+    if (!isRead) {
+      // React Query cache-ni optimistik yangilash (badge darhol yo'qolsin)
+      queryClient.setQueryData(['notifications'], (oldData: any) => {
+        if (!Array.isArray(oldData)) return oldData;
+        return oldData.map((n: any) => {
+          const nid = Number(n.id ?? n.notification_id ?? n.pk);
+          return nid === Number(notification.id) ? { ...n, read: true, is_read: true } : n;
+        });
+      });
+
+      // API orqali ham o'qilgan qilish - ariza bildirishnomalari uchun maxsus endpoint
+      if (notification.notification_type === 'application') {
+        markApplicationReadMutation.mutate(Number(notification.id));
+      } else {
+        const notificationId = notification.notification_id || notification.id;
+        markReadMutation.mutate(Number(notificationId));
+      }
+    }
+
     // Ariza bildirishnomasi bo'lsa ariza sahifasiga o'tish
     if (notification.notification_type === 'application') {
       // Ariza sahifasiga o'tish
-      window.location.href = '/applications';
+      setTimeout(() => {
+        window.location.href = '/applications';
+      }, 100); // O'qilgan qilish uchun biroz kutish
       return;
     }
-
-    // React Query cache-ni optimistik yangilash (badge darhol yo'qolsin)
-    queryClient.setQueryData(['notifications'], (oldData: any) => {
-      if (!Array.isArray(oldData)) return oldData;
-      return oldData.map((n: any) => {
-        const nid = Number(n.id ?? n.notification_id ?? n.pk);
-        return nid === Number(notification.id) ? { ...n, read: true, is_read: true } : n;
-      });
-    });
-
-    // API orqali ham o'qilgan qilish
-    markReadMutation.mutate(Number(notification.id));
   };
 
   const getNotificationIcon = (type: string) => {
@@ -273,7 +292,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                         ) : (
                           <div className="divide-y divide-gray-200 dark:divide-gray-700">
                             {filteredNotifications.map((notification: any) => {
-                              const isRead = notification.read || notification.is_read;
+                              const isRead = Boolean(notification.read || notification.is_read);
                               return (
                                 <motion.div
                                   key={notification.id}
@@ -397,12 +416,41 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                           </button>
                           {unreadCount > 0 && (
                             <button
-                              onClick={() => {
+                              onClick={async () => {
                                 // Mark all as read functionality
-                                const unreadNotifications = displayNotifications.filter((n: any) => !n?.read && !n?.is_read);
-                                unreadNotifications.forEach((n: any) => {
-                                  handleNotificationClick(n);
+                                const unreadNotifications = displayNotifications.filter((n: any) => !Boolean(n?.read || n?.is_read));
+                                
+                                // Ariza va umumiy bildirishnomalarni ajratish
+                                const applicationNotifications = unreadNotifications.filter((n: any) => n.notification_type === 'application');
+                                const generalNotifications = unreadNotifications.filter((n: any) => n.notification_type !== 'application');
+                                
+                                // Optimistik yangilash
+                                queryClient.setQueryData(['notifications'], (oldData: any) => {
+                                  if (!Array.isArray(oldData)) return oldData;
+                                  return oldData.map((n: any) => ({ ...n, read: true, is_read: true }));
                                 });
+                                
+                                try {
+                                  const promises = [];
+                                  
+                                  // Agar ariza bildirishnomalari bo'lsa, barcha ariza bildirishnomalarini o'qilgan qilish
+                                  if (applicationNotifications.length > 0) {
+                                    promises.push(apiQueries.markAllApplicationNotificationsAsRead());
+                                  }
+                                  
+                                  // Umumiy bildirishnomalarni alohida-alohida o'qilgan qilish
+                                  generalNotifications.forEach((n: any) => {
+                                    const notificationId = n.notification_id || n.id;
+                                    promises.push(apiQueries.markNotificationAsRead(notificationId));
+                                  });
+                                  
+                                  await Promise.all(promises);
+                                  queryClient.invalidateQueries({ queryKey: ['notifications'] });
+                                } catch (error) {
+                                  console.error('Error marking all as read:', error);
+                                  // Xatolik bo'lsa, cache ni qaytarish
+                                  queryClient.invalidateQueries({ queryKey: ['notifications'] });
+                                }
                               }}
                               className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
                             >

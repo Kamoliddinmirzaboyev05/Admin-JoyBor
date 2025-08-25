@@ -310,6 +310,27 @@ export const apiQueries = {
       throw error;
     }
   },
+
+  // Ariza bildirishnomalari uchun maxsus funksiyalar
+  markApplicationNotificationAsRead: async (id: number) => {
+    try {
+      console.log('Marking application notification as read with ID:', id);
+      return await post('/application_notifications/mark-read/', { notification_id: id });
+    } catch (error: any) {
+      console.error('Mark application notification as read error:', error);
+      throw error;
+    }
+  },
+
+  markAllApplicationNotificationsAsRead: async () => {
+    try {
+      console.log('Marking all application notifications as read');
+      return await post('/application_notifications/mark-all-read/', {});
+    } catch (error: any) {
+      console.error('Mark all application notifications as read error:', error);
+      throw error;
+    }
+  },
   
   // Amenities
   getAmenities: () => get('/amenities/'),
