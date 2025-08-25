@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import BackButton from '../components/UI/BackButton';
-import { BadgeCheck, Phone, MapPin, GraduationCap, Calendar, User, FileText, Image, X, Check, XCircle, UserPlus, Building, CreditCard, MessageSquare } from 'lucide-react';
+import { BadgeCheck, Phone, MapPin, GraduationCap, Calendar, User, FileText, Image, Check, XCircle, UserPlus, Building, CreditCard, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { link } from '../data/config';
@@ -9,20 +9,66 @@ import { toast } from 'sonner';
 import { invalidateApplicationCaches, invalidateStudentCaches } from '../utils/cacheUtils';
 import { useGlobalEvents } from '../utils/globalEvents';
 
-const statusColors = {
+// Application interface API ma'lumotlariga mos
+interface Application {
+  id: number;
+  user: {
+    id: number;
+    username: string;
+  };
+  dormitory: {
+    id: number;
+    name: string;
+  };
+  name: string;
+  last_name: string;
+  middle_name: string;
+  province: {
+    id: number;
+    name: string;
+  };
+  district: {
+    id: number;
+    name: string;
+    province: number;
+  };
+  faculty: string;
+  direction: string | null;
+  course: string;
+  group: string | null;
+  phone: number;
+  passport: string | null;
+  status: string;
+  comment: string;
+  admin_comment: string | null;
+  document: string | null;
+  user_image: string | null;
+  passport_image_first: string | null;
+  passport_image_second: string | null;
+  created_at: string;
+}
+
+const statusColors: Record<string, string> = {
   'PENDING': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700',
   'APPROVED': 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700',
   'REJECTED': 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700',
-  'CANCELLED': 'bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700',
-  'NEW': 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700',
 };
 
-const statusLabels = {
+const statusLabels: Record<string, string> = {
   'PENDING': 'Ko\'rib chiqilmoqda',
   'APPROVED': 'Qabul qilindi',
   'REJECTED': 'Rad etilgan',
-  'CANCELLED': 'Bekor qilindi',
-  'NEW': 'Yangi',
+};
+
+// Status olish funksiyasi
+const getStatusColor = (status: string) => {
+  const upperStatus = String(status).toUpperCase();
+  return statusColors[upperStatus] || 'bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700';
+};
+
+const getStatusLabel = (status: string) => {
+  const upperStatus = String(status).toUpperCase();
+  return statusLabels[upperStatus] || status;
 };
 
 function InfoCard({ icon, label, value }: { icon: React.ReactNode; label: string; value?: string | number | null }) {
@@ -77,7 +123,7 @@ const ApplicationDetail: React.FC = () => {
     isLoading,
     error,
     refetch
-  } = useQuery({
+  } = useQuery<Application>({
     queryKey: ['application', id],
     queryFn: async () => {
       const token = sessionStorage.getItem('access');
@@ -122,31 +168,29 @@ const ApplicationDetail: React.FC = () => {
 
   const prepareStudentDataFromApplication = () => {
     if (!application) return null;
-
-    const fullName = application.name || '';
+    const firstName = application.name || '';
     const lastName = application.last_name || '';
-    const middleName = application.middle_name || '';
+    const fatherName = application.middle_name || '';
 
     // Telefon raqamini to'g'ri formatda tayyorlash
     let phone = application.phone ? application.phone.toString() : '';
     if (phone.startsWith('+')) phone = phone.substring(1);
 
     return {
-      firstName: fullName,
-      lastName: lastName,
-      fatherName: middleName,
+      firstName,
+      lastName,
+      fatherName,
       phone,
       direction: application.direction || '',
       faculty: application.faculty || '',
       group: application.group || '',
       passport: application.passport || '',
-      course: '1-kurs',
-      gender: 'male',
+      course: application.course || '1-kurs',
+      gender: 'Erkak', // Default gender
       isPrivileged: false,
-      tarif: '1200000',
       // Province va district ID larini olish
-      province: application.province?.id || '',
-      district: application.district?.id || '',
+      province: application.province?.id ? String(application.province.id) : '',
+      district: application.district?.id ? String(application.district.id) : '',
       // Rasm URL (keyin yuklab olish uchun)
       imageUrl: application.user_image || null,
       // Pasport rasmlari
@@ -283,6 +327,10 @@ const ApplicationDetail: React.FC = () => {
     );
   }
 
+  // Debug: Application ma'lumotlarini console ga chiqarish
+  console.log('Application data:', application);
+  console.log('Application status:', application.status, typeof application.status);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 40 }}
@@ -295,9 +343,9 @@ const ApplicationDetail: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <BackButton label="Orqaga" />
-          <span className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border ${statusColors[application.status as keyof typeof statusColors] || statusColors.NEW}`}>
+          <span className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border ${getStatusColor(application.status)}`}>
             <BadgeCheck className="w-4 h-4" />
-            {statusLabels[application.status as keyof typeof statusLabels] || application.status}
+            {getStatusLabel(application.status)}
           </span>
         </div>
 
@@ -314,12 +362,12 @@ const ApplicationDetail: React.FC = () => {
                 />
               ) : (
                 <div className="w-20 h-20 rounded-full border-4 border-white/20 bg-white/10 flex items-center justify-center text-2xl font-bold">
-                  {application.name?.charAt(0) || 'A'}
+                  {(application.last_name?.charAt(0) || '') + (application.name?.charAt(0) || '') || 'A'}
                 </div>
               )}
               <div>
-                <h1 className="text-2xl font-bold mb-1">{application.name} {application.last_name}</h1>
-                <p className="text-blue-100 mb-2">{application.dormitory?.university?.name}</p>
+                <h1 className="text-2xl font-bold mb-1">{application.last_name} {application.name}</h1>
+                <p className="text-blue-100 mb-2">{application.dormitory?.name || 'Yotoqxona'}</p>
                 <div className="flex items-center gap-4 text-sm text-blue-100">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
@@ -340,7 +388,7 @@ const ApplicationDetail: React.FC = () => {
               <InfoCard
                 icon={<User className="w-5 h-5" />}
                 label="To'liq ism"
-                value={`${application.name} ${application.last_name || ''}`}
+                value={`${application.last_name} ${application.name} ${application.middle_name}`.trim()}
               />
               <InfoCard
                 icon={<Phone className="w-5 h-5" />}
@@ -349,8 +397,8 @@ const ApplicationDetail: React.FC = () => {
               />
               <InfoCard
                 icon={<Building className="w-5 h-5" />}
-                label="Universitet"
-                value={application.dormitory?.university?.name}
+                label="Yotoqxona"
+                value={application.dormitory?.name}
               />
               <InfoCard
                 icon={<MapPin className="w-5 h-5" />}
@@ -364,13 +412,18 @@ const ApplicationDetail: React.FC = () => {
               />
               <InfoCard
                 icon={<GraduationCap className="w-5 h-5" />}
+                label="Fakultet"
+                value={application.faculty}
+              />
+              <InfoCard
+                icon={<GraduationCap className="w-5 h-5" />}
                 label="Yo'nalish"
                 value={application.direction}
               />
               <InfoCard
                 icon={<GraduationCap className="w-5 h-5" />}
-                label="Fakultet"
-                value={application.faculty}
+                label="Kurs"
+                value={application.course}
               />
               <InfoCard
                 icon={<GraduationCap className="w-5 h-5" />}
@@ -381,6 +434,16 @@ const ApplicationDetail: React.FC = () => {
                 icon={<CreditCard className="w-5 h-5" />}
                 label="Pasport"
                 value={application.passport}
+              />
+              <InfoCard
+                icon={<User className="w-5 h-5" />}
+                label="Foydalanuvchi ID"
+                value={application.user?.id}
+              />
+              <InfoCard
+                icon={<User className="w-5 h-5" />}
+                label="Username"
+                value={application.user?.username}
               />
             </div>
 
@@ -397,17 +460,17 @@ const ApplicationDetail: React.FC = () => {
 
             {/* Admin Comment Section */}
             {application.admin_comment && (
-              <div className={`border rounded-xl p-4 mb-6 ${application.status === 'APPROVED'
+              <div className={`border rounded-xl p-4 mb-6 ${String(application.status).toUpperCase() === 'APPROVED'
                 ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
                 : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
                 }`}>
                 <div className="flex items-center gap-2 mb-2">
-                  {application.status === 'APPROVED' ? (
+                  {String(application.status).toUpperCase() === 'APPROVED' ? (
                     <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
                   ) : (
                     <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
                   )}
-                  <span className={`text-sm font-medium ${application.status === 'APPROVED'
+                  <span className={`text-sm font-medium ${String(application.status).toUpperCase() === 'APPROVED'
                     ? 'text-green-700 dark:text-green-300'
                     : 'text-red-700 dark:text-red-300'
                     }`}>
@@ -451,7 +514,7 @@ const ApplicationDetail: React.FC = () => {
             )}
 
             {/* Action Buttons - Only show for pending applications */}
-            {(application.status === 'PENDING' || application.status === 'NEW') && (
+            {String(application.status).toUpperCase() === 'PENDING' && (
               <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-slate-700">
                 <button
                   onClick={() => setShowApproveModal(true)}
@@ -471,34 +534,27 @@ const ApplicationDetail: React.FC = () => {
             )}
 
             {/* Status Message and Actions for processed applications */}
-            {application.status !== 'PENDING' && application.status !== 'NEW' && (
+            {String(application.status).toUpperCase() !== 'PENDING' && (
               <div className="pt-4 border-t border-gray-200 dark:border-slate-700">
-                <div className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg mb-4 ${application.status === 'APPROVED'
+                <div className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg mb-4 ${String(application.status).toUpperCase() === 'APPROVED'
                   ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300'
-                  : application.status === 'REJECTED'
-                    ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300'
-                    : 'bg-gray-100 dark:bg-gray-900/20 text-gray-700 dark:text-gray-300'
+                  : 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300'
                   }`}>
-                  {application.status === 'APPROVED' ? (
+                  {String(application.status).toUpperCase() === 'APPROVED' ? (
                     <>
                       <Check className="w-5 h-5" />
                       <span className="font-medium">Bu ariza qabul qilingan</span>
                     </>
-                  ) : application.status === 'REJECTED' ? (
+                  ) : (
                     <>
                       <XCircle className="w-5 h-5" />
                       <span className="font-medium">Bu ariza rad etilgan</span>
-                    </>
-                  ) : (
-                    <>
-                      <X className="w-5 h-5" />
-                      <span className="font-medium">Bu ariza bekor qilingan</span>
                     </>
                   )}
                 </div>
 
                 {/* Add Student Button for approved applications */}
-                {application.status === 'APPROVED' && (
+                {String(application.status).toUpperCase() === 'APPROVED' && (
                   <div className="flex justify-center">
                     <button
                       onClick={handleAddToStudents}

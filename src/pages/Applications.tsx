@@ -13,20 +13,38 @@ interface StatusColors {
 
 interface Application {
   id: string | number;
-  fullName?: string;
-  full_name?: string;
   name?: string;
-  fio?: string;
-  phone: string;
-  date: string;
+  last_name?: string;
+  middle_name?: string;
+  phone: string | number;
+  date?: string;
   created_at?: string;
   status: string;
   city?: string;
-  village?: string;
-  university?: string;
+  province?: {
+    id: number;
+    name: string;
+  };
+  district?: {
+    id: number;
+    name: string;
+    province: number;
+  };
+  faculty?: string;
   direction?: string;
+  course?: string;
+  group?: string;
+  passport?: string;
   admin_comment?: string;
   comment?: string;
+  dormitory?: {
+    id: number;
+    name: string;
+  };
+  user_image?: string;
+  passport_image_first?: string;
+  passport_image_second?: string;
+  document?: string;
 }
 
 interface FormData {
@@ -59,10 +77,8 @@ const statusColors: StatusColors = {
   'PENDING': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
   'APPROVED': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
   'REJECTED': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
-  'REVIEWING': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
   // O'zbek tilidagi statuslar ham qo'llab-quvvatlash uchun
   'Yangi': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  'Ko\'rib chiqilmoqda': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
   'Rad etilgan': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
   'Qabul qilindi': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
 } as const;
@@ -73,10 +89,8 @@ const getStatusText = (status: string) => {
     'PENDING': 'Yangi',
     'APPROVED': 'Qabul qilindi',
     'REJECTED': 'Rad etilgan',
-    'REVIEWING': 'Ko\'rib chiqilmoqda',
     // O'zbek tilidagi statuslar
     'Yangi': 'Yangi',
-    'Ko\'rib chiqilmoqda': 'Ko\'rib chiqilmoqda',
     'Rad etilgan': 'Rad etilgan',
     'Qabul qilindi': 'Qabul qilindi',
   };
@@ -200,27 +214,34 @@ const Applications: React.FC = () => {
     return unsubscribe;
   }, [subscribe, refetch]);
 
-  // Filter API data with proper type safety
-  const filteredApps = applications.filter((app) => {
-    const searchLower = search.toLowerCase();
+  // Filter API data with proper type safety and sort by newest first
+  const filteredApps = applications
+    .filter((app) => {
+      const searchLower = search.toLowerCase();
 
-    // Qidiruv - faqat ism va telefon bo'yicha
-    const nameMatch = !search || (
-      (app.name || '').toLowerCase().includes(searchLower) ||
-      (app.fio || '').toLowerCase().includes(searchLower) ||
-      (app.phone || '').toString().includes(searchLower)
-    );
+      // Qidiruv - faqat ism va telefon bo'yicha
+      const nameMatch = !search || (
+        (app.name || '').toLowerCase().includes(searchLower) ||
+        (app.last_name || '').toLowerCase().includes(searchLower) ||
+        (app.middle_name || '').toLowerCase().includes(searchLower) ||
+        (app.phone || '').toString().includes(searchLower)
+      );
 
-    // Status filter - ingliz va o'zbek tillarini qo'llab-quvvatlash
-    const statusMatch = !statusFilter ||
-      app.status === statusFilter ||
-      (statusFilter === 'PENDING' && (app.status === 'Yangi' || app.status === 'PENDING')) ||
-      (statusFilter === 'REVIEWING' && (app.status === 'Ko\'rib chiqilmoqda' || app.status === 'REVIEWING')) ||
-      (statusFilter === 'APPROVED' && (app.status === 'Qabul qilindi' || app.status === 'APPROVED')) ||
-      (statusFilter === 'REJECTED' && (app.status === 'Rad etilgan' || app.status === 'REJECTED'));
+      // Status filter - ingliz va o'zbek tillarini qo'llab-quvvatlash
+      const statusMatch = !statusFilter ||
+        app.status === statusFilter ||
+        (statusFilter === 'PENDING' && (app.status === 'Yangi' || app.status === 'PENDING')) ||
+        (statusFilter === 'APPROVED' && (app.status === 'Qabul qilindi' || app.status === 'APPROVED')) ||
+        (statusFilter === 'REJECTED' && (app.status === 'Rad etilgan' || app.status === 'REJECTED'));
 
-    return nameMatch && statusMatch;
-  });
+      return nameMatch && statusMatch;
+    })
+    .sort((a, b) => {
+      // Eng yangisi tepada bo'lishi uchun created_at bo'yicha saralash
+      const dateA = new Date(a.created_at || a.date || 0).getTime();
+      const dateB = new Date(b.created_at || b.date || 0).getTime();
+      return dateB - dateA; // Eng yangi birinchi
+    });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -300,7 +321,6 @@ const Applications: React.FC = () => {
                 >
                   <option value="">Barcha holatlar</option>
                   <option value="PENDING">🆕 Yangi arizalar ({applications.filter(app => app.status === 'PENDING' || app.status === 'Yangi').length})</option>
-                  <option value="REVIEWING">⏳ Ko'rib chiqilmoqda ({applications.filter(app => app.status === 'REVIEWING' || app.status === 'Ko\'rib chiqilmoqda').length})</option>
                   <option value="APPROVED">✅ Qabul qilingan ({applications.filter(app => app.status === 'APPROVED' || app.status === 'Qabul qilindi').length})</option>
                   <option value="REJECTED">❌ Rad etilgan ({applications.filter(app => app.status === 'REJECTED' || app.status === 'Rad etilgan').length})</option>
                 </select>
@@ -354,14 +374,22 @@ const Applications: React.FC = () => {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-4">
                       {/* Avatar */}
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg">
-                        <User className="w-6 h-6" />
-                      </div>
+                      {app.user_image ? (
+                        <img
+                          src={app.user_image}
+                          alt={app.name}
+                          className="w-12 h-12 rounded-xl object-cover border-2 border-gray-200 dark:border-gray-700 shadow-lg"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg text-lg font-bold">
+                          {(app.last_name?.[0] || '') + (app.name?.[0] || '') || <User className="w-6 h-6" />}
+                        </div>
+                      )}
 
                       {/* Ariza yuboruvchi ismi */}
                       <div>
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                          {app.fio || app.name || `Ariza #${app.id}`}
+                          {`${app.last_name || ''} ${app.name || ''}`.trim() || `Ariza #${app.id}`}
                         </h3>
                         <div
                           className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(app.status)}`}
@@ -370,8 +398,6 @@ const Applications: React.FC = () => {
                             <CheckCircle className="w-4 h-4 mr-2" />
                           ) : app.status === 'REJECTED' || app.status === 'Rad etilgan' ? (
                             <XCircle className="w-4 h-4 mr-2" />
-                          ) : app.status === 'REVIEWING' || app.status === 'Ko\'rib chiqilmoqda' ? (
-                            <Clock className="w-4 h-4 mr-2" />
                           ) : (
                             <AlertCircle className="w-4 h-4 mr-2" />
                           )}
@@ -384,7 +410,7 @@ const Applications: React.FC = () => {
                   {/* Ma'lumotlar grid - faqat muhim ma'lumotlar */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Viloyat */}
-                    {app.city && (
+                    {(app.province?.name || app.city) && (
                       <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                         <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                           <span className="text-green-600 dark:text-green-400 text-sm">🏙️</span>
@@ -392,7 +418,37 @@ const Applications: React.FC = () => {
                         <div>
                           <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Viloyat</p>
                           <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {app.city}
+                            {app.province?.name || app.city}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Fakultet */}
+                    {app.faculty && (
+                      <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                          <span className="text-blue-600 dark:text-blue-400 text-sm">🎓</span>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Fakultet</p>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {app.faculty}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Telefon */}
+                    {app.phone && (
+                      <div className="flex items-center gap-3 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                        <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
+                          <span className="text-orange-600 dark:text-orange-400 text-sm">📞</span>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Telefon</p>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                            +{app.phone}
                           </p>
                         </div>
                       </div>
@@ -429,12 +485,18 @@ const Applications: React.FC = () => {
                   <div className="flex gap-2">
                     {(app.status === 'PENDING' || app.status === 'Yangi') && (
                       <>
-                        <button className="flex-1 px-3 py-2 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition">
+                        <Link
+                          to={`/applications/${app.id}`}
+                          className="flex-1 px-3 py-2 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition text-center"
+                        >
                           Qabul
-                        </button>
-                        <button className="flex-1 px-3 py-2 text-xs font-medium text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition">
+                        </Link>
+                        <Link
+                          to={`/applications/${app.id}`}
+                          className="flex-1 px-3 py-2 text-xs font-medium text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition text-center"
+                        >
                           Rad
-                        </button>
+                        </Link>
                       </>
                     )}
                   </div>

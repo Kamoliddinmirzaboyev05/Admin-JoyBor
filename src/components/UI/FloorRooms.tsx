@@ -28,8 +28,8 @@ function useRoomsByFloor(floorId: number) {
     queryFn: async () => {
       const res = await get(`/rooms/?floor=${floorId}`);
       return (res || []).map((room: Record<string, unknown>) => {
-        const students = room.students || [];
-        const capacity = room.capacity || 0;
+        const students = Array.isArray(room.students) ? room.students : [];
+        const capacity = typeof room.capacity === 'number' ? room.capacity : 0;
         const currentOccupancy = students.length;
         let status = 'EMPTY';
         if (currentOccupancy === 0) status = 'EMPTY';
@@ -66,7 +66,7 @@ const FloorRooms: React.FC<{
   const allRooms = Array.isArray(data) ? data : [];
   
   // Filter rooms based on status and gender
-  const rooms = allRooms.filter(room => {
+  const filteredRooms = allRooms.filter(room => {
     // Gender filter
     if (genderFilter && room.gender !== genderFilter) {
       return false;
@@ -86,6 +86,13 @@ const FloorRooms: React.FC<{
     }
     
     return true;
+  });
+
+  // Sort rooms by room number (extract numeric part and sort)
+  const rooms = filteredRooms.sort((a, b) => {
+    const roomANum = parseInt(a.name.replace(/\D/g, '')) || 0;
+    const roomBNum = parseInt(b.name.replace(/\D/g, '')) || 0;
+    return roomANum - roomBNum;
   });
 
   return (

@@ -62,7 +62,6 @@ const Students: React.FC = () => {
     lastName: string;
     fatherName: string;
     phone: string;
-    email: string;
     room: string;
     course: string;
     faculty: string;
@@ -73,7 +72,6 @@ const Students: React.FC = () => {
     isPrivileged: boolean;
     privilegeShare: string;
     avatar: string | File;
-    tarif: string;
     direction: string;
     floor: string;
     gender: string;
@@ -84,7 +82,6 @@ const Students: React.FC = () => {
     lastName: "",
     fatherName: "",
     phone: "",
-    email: "",
     room: "",
     course: "1-kurs",
     faculty: "",
@@ -95,7 +92,6 @@ const Students: React.FC = () => {
     isPrivileged: false,
     privilegeShare: "",
     avatar: "",
-    tarif: "",
     direction: "",
     floor: "",
     gender: "",
@@ -149,6 +145,13 @@ const Students: React.FC = () => {
     staleTime: 1000 * 60 * 5,
   });
 
+  // Fetch all rooms for filter dropdown
+  const { data: allRoomsData = [] } = useQuery({
+    queryKey: ['all-rooms'],
+    queryFn: () => apiQueries.getRooms(),
+    staleTime: 1000 * 60 * 5,
+  });
+
   const regionOptions = Array.isArray(provincesData)
     ? provincesData.map((p: any) => ({ value: String(p.id), label: p.name }))
     : [];
@@ -162,7 +165,18 @@ const Students: React.FC = () => {
     }))
     : [];
   const roomOptions = Array.isArray(roomsData)
-    ? roomsData.map((r: any) => ({ value: String(r.id), label: r.name }))
+    ? roomsData
+      .sort((a: any, b: any) => {
+        // Xona nomlarini raqam bo'yicha saralash
+        const aNum = parseInt(a.name.replace(/\D/g, '')) || 0;
+        const bNum = parseInt(b.name.replace(/\D/g, '')) || 0;
+        return aNum - bNum;
+      })
+      .map((r: any) => ({ value: String(r.id), label: r.name }))
+    : [];
+
+  const allRoomOptions = Array.isArray(allRoomsData)
+    ? allRoomsData.map((r: any) => ({ value: String(r.id), label: r.name }))
     : [];
 
   const columns = [
@@ -224,7 +238,6 @@ const Students: React.FC = () => {
       lastName: "",
       fatherName: "",
       phone: "",
-      email: "",
       room: "",
       course: "1-kurs",
       faculty: "",
@@ -235,7 +248,6 @@ const Students: React.FC = () => {
       isPrivileged: false,
       privilegeShare: "",
       avatar: "",
-      tarif: "",
       direction: "",
       floor: "",
       gender: "",
@@ -254,7 +266,6 @@ const Students: React.FC = () => {
       lastName: student.last_name || "",
       fatherName: student.father_name || "",
       phone: student.phone || "",
-      email: student.email || "",
       room: student.room && typeof student.room === 'object' ? String(student.room.id) : "",
       course: student.course || "1-kurs",
       faculty: student.faculty || "",
@@ -265,7 +276,6 @@ const Students: React.FC = () => {
       isPrivileged: Boolean(student.privilege),
       privilegeShare: student.privilegeShare || "",
       avatar: student.picture || "",
-      tarif: String(student.tarif || ""),
       direction: student.direction || "",
       floor: student.floor && typeof student.floor === 'object' ? String(student.floor.id) : "",
       gender: student.gender || "",
@@ -323,9 +333,7 @@ const Students: React.FC = () => {
     if (!formData.room.trim()) {
       errors.push("Xona tanlanishi shart");
     }
-    if (!formData.tarif.trim()) {
-      errors.push("Tarif kiritilishi shart");
-    }
+
 
     // Telefon raqami formatini tekshirish
     if (formData.phone.trim()) {
@@ -454,9 +462,10 @@ const Students: React.FC = () => {
     }
   };
 
-  // Add filter states for gender and payment status
+  // Add filter states for gender, payment status, and room
   const [genderFilter, setGenderFilter] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
+  const [roomFilter, setRoomFilter] = useState("");
 
   // Debug: API dan kelayotgan ma'lumotlarni ko'rish
   React.useEffect(() => {
@@ -549,13 +558,25 @@ const Students: React.FC = () => {
         }
       }
 
-      const finalMatch = matchesGender && matchesPayment;
+      // Room filter
+      let matchesRoom = true;
+      if (roomFilter) {
+        const studentRoom = s.room;
+        if (studentRoom && typeof studentRoom === 'object' && studentRoom.id) {
+          matchesRoom = String(studentRoom.id) === roomFilter;
+        } else {
+          matchesRoom = false;
+        }
+      }
+
+      const finalMatch = matchesGender && matchesPayment && matchesRoom;
 
       // Debug final filter result
-      if ((genderFilter || paymentStatusFilter) && students.indexOf(s as Record<string, any>) < 3) {
+      if ((genderFilter || paymentStatusFilter || roomFilter) && students.indexOf(s as Record<string, any>) < 3) {
         console.log(`Final filter result for ${s.name}:`, {
           matchesGender,
           matchesPayment,
+          matchesRoom,
           finalMatch
         });
       }
@@ -563,7 +584,19 @@ const Students: React.FC = () => {
       return finalMatch;
     })
     .sort((a: Record<string, any>, b: Record<string, any>) => {
-      // Alifbo tartibida saralash (familiya bo'yicha)
+      // Avval xona bo'yicha saralash
+      const roomA = a.room && typeof a.room === 'object' ? a.room.name || '' : '';
+      const roomB = b.room && typeof b.room === 'object' ? b.room.name || '' : '';
+
+      // Xona nomlarini raqamli qismlarini ajratib olish va saralash
+      const roomANum = parseInt(roomA.replace(/\D/g, '')) || 0;
+      const roomBNum = parseInt(roomB.replace(/\D/g, '')) || 0;
+
+      if (roomANum !== roomBNum) {
+        return roomANum - roomBNum;
+      }
+
+      // Xona nomlari teng bo'lsa, alifbo tartibida saralash (familiya bo'yicha)
       const lastNameA = (a.last_name || '').toLowerCase();
       const lastNameB = (b.last_name || '').toLowerCase();
       return lastNameA.localeCompare(lastNameB, 'uz-UZ');
@@ -607,14 +640,19 @@ const Students: React.FC = () => {
             group: studentData.group || '',
             passport: studentData.passport || '',
             course: studentData.course || '1-kurs',
-            gender: studentData.gender || 'male',
+            gender: studentData.gender || 'Erkak',
             isPrivileged: studentData.isPrivileged || false,
-            tarif: studentData.tarif || '1200000',
             region: studentData.province || '',
             district: studentData.district || '',
+            avatar: studentData.imageUrl || '',
             passportImage1: studentData.passportImage1Base64 || null,
             passportImage2: studentData.passportImage2Base64 || null,
           }));
+          
+          // Avatar preview ni ham o'rnatish
+          if (studentData.imageUrl) {
+            setAvatarPreview(studentData.imageUrl);
+          }
           // Ma'lumotlarni tozalash
           sessionStorage.removeItem('pendingStudentData');
           toast.success('Ariza ma\'lumotlari yuklandi! Qo\'shimcha ma\'lumotlarni to\'ldiring.');
@@ -672,16 +710,39 @@ const Students: React.FC = () => {
     if (formData.floor) formdata.append("floor", String(parseInt(formData.floor)));
     if (formData.room) formdata.append("room", String(parseInt(formData.room)));
     if (formData.phone) formdata.append("phone", formData.phone);
-    if (formData.tarif) formdata.append("tarif", formData.tarif);
+    formdata.append("tarif", "1200000"); // Default tarif
     if (formData.isPrivileged) formdata.append("privilege", String(formData.isPrivileged));
     if (formData.privilegeShare) {
       formdata.append("privilegeShare", formData.privilegeShare);
     }
     if (formData.gender) formdata.append("gender", formData.gender);
     if (formData.course) formdata.append("course", formData.course);
-    // Fix instanceof check for avatar
-    if (formData.avatar && typeof formData.avatar !== "string" && formData.avatar instanceof File) {
-      formdata.append("picture", formData.avatar);
+    // Avatar handling - both File and URL string
+    if (formData.avatar) {
+      if (typeof formData.avatar !== "string" && formData.avatar instanceof File) {
+        // File upload
+        formdata.append("picture", formData.avatar);
+      } else if (typeof formData.avatar === "string" && formData.avatar.trim()) {
+        // URL string - send as picture_url
+        formdata.append("picture_url", formData.avatar);
+      }
+    }
+
+    // Passport images handling
+    if (formData.passportImage1) {
+      if (typeof formData.passportImage1 !== "string" && formData.passportImage1 instanceof File) {
+        formdata.append("passport_image_first", formData.passportImage1);
+      } else if (typeof formData.passportImage1 === "string" && formData.passportImage1.trim()) {
+        formdata.append("passport_image_first_url", formData.passportImage1);
+      }
+    }
+
+    if (formData.passportImage2) {
+      if (typeof formData.passportImage2 !== "string" && formData.passportImage2 instanceof File) {
+        formdata.append("passport_image_second", formData.passportImage2);
+      } else if (typeof formData.passportImage2 === "string" && formData.passportImage2.trim()) {
+        formdata.append("passport_image_second_url", formData.passportImage2);
+      }
     }
 
     const requestOptions = {
@@ -762,7 +823,7 @@ const Students: React.FC = () => {
           <h1 className="text-xl sm:text-3xl font-bold text-gray-900 dark:text-white">Talabalar</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1 text-xs sm:text-base">
             Yotoqxonada yashayotgan talabalar ro'yxati
-            {(genderFilter || paymentStatusFilter) && (
+            {(genderFilter || paymentStatusFilter || roomFilter) && (
               <span className="ml-2 text-blue-600 dark:text-blue-400 font-medium">
                 ({filteredStudents.length} ta natija)
               </span>
@@ -819,13 +880,24 @@ const Students: React.FC = () => {
             classNamePrefix="react-select"
             className="min-w-[140px]"
           />
+          <Select
+            options={allRoomOptions}
+            value={roomFilter ? allRoomOptions.find(opt => opt.value === roomFilter) || null : null}
+            onChange={opt => setRoomFilter(opt ? String(opt.value) : "")}
+            isClearable
+            placeholder="Xona"
+            styles={selectStyles}
+            classNamePrefix="react-select"
+            className="min-w-[120px]"
+          />
 
           {/* Filter reset button */}
-          {(genderFilter || paymentStatusFilter) && (
+          {(genderFilter || paymentStatusFilter || roomFilter) && (
             <button
               onClick={() => {
                 setGenderFilter("");
                 setPaymentStatusFilter("");
+                setRoomFilter("");
               }}
               className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
@@ -835,7 +907,7 @@ const Students: React.FC = () => {
         </div>
 
         {/* Filter results info */}
-        {(genderFilter || paymentStatusFilter) && (
+        {(genderFilter || paymentStatusFilter || roomFilter) && (
           <div className="text-sm text-gray-600 dark:text-gray-400">
             <span className="font-medium text-blue-600 dark:text-blue-400">
               {filteredStudents.length}
@@ -851,6 +923,11 @@ const Students: React.FC = () => {
                 : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
                 }`}>
                 {paymentStatusFilter === "haqdor" ? "Haqdor" : "Qarzdor"}
+              </span>
+            )}
+            {roomFilter && (
+              <span className="ml-2 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded text-xs">
+                {allRoomOptions.find(opt => opt.value === roomFilter)?.label || roomFilter}
               </span>
             )}
           </div>
@@ -1079,6 +1156,7 @@ const Students: React.FC = () => {
                       styles={selectStyles}
                       classNamePrefix="react-select"
                     />
+                    <span className="text-xs text-gray-500 mt-1">Qavat tanlang, keyin to'lmagan xonalar ko'rsatiladi</span>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona</label>
@@ -1087,11 +1165,17 @@ const Students: React.FC = () => {
                       value={roomOptions.find(opt => String(opt.value) === String(formData.room)) || null}
                       onChange={opt => handleSelectChange('room', opt)}
                       isClearable
-                      placeholder="Xona tanlang..."
+                      placeholder="To'lmagan xona tanlang..."
                       styles={selectStyles}
                       classNamePrefix="react-select"
                       isDisabled={!formData.floor}
                     />
+                    {!formData.floor && (
+                      <span className="text-xs text-gray-500 mt-1">Avval qavat tanlang</span>
+                    )}
+                    {formData.floor && roomOptions.length === 0 && (
+                      <span className="text-xs text-orange-500 mt-1">Bu qavatda bo'sh xona yo'q</span>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Viloyat/Shahar</label>
@@ -1140,20 +1224,7 @@ const Students: React.FC = () => {
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Tarif <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="tarif"
-                      value={formData.tarif}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="1200000"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
+
                   <div className="flex items-center gap-2 mt-4 sm:mt-8">
                     <input type="checkbox" name="isPrivileged" checked={formData.isPrivileged} onChange={handleCheckboxChange} className="form-checkbox h-5 w-5 text-primary-600" />
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Imtiyozli talaba</label>

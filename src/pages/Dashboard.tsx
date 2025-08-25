@@ -46,18 +46,15 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const unsubscribeStudent = subscribe('student-updated', () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
     });
 
     const unsubscribePayment = subscribe('payment-updated', () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['monthlyRevenue'] });
-      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
     });
 
     const unsubscribeApplication = subscribe('application-updated', () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
     });
 
     return () => {
@@ -90,24 +87,7 @@ const Dashboard: React.FC = () => {
     retry: 1
   });
 
-  // React Query bilan recent activities ma'lumotlarini olish
-  const {
-    data: recentActivities = [],
-    isLoading: recentActivitiesLoading
-  } = useQuery({
-    queryKey: ['recentActivities'],
-    queryFn: async () => {
-      try {
-        const res = await get(`${link}/recent_activity/`);
-        return Array.isArray(res.activities) ? res.activities : [];
-      } catch (error) {
-        // Recent activities fetch error logged
-        return [];
-      }
-    },
-    staleTime: 1000 * 60 * 5, // 5 daqiqa cache
-    retry: 1
-  });
+
 
   // Fetch todos from backend
   const fetchTodos = async () => {
@@ -133,8 +113,6 @@ const Dashboard: React.FC = () => {
         setNewTodo('');
         setTodoModalOpen(false);
         fetchTodos();
-        // Recent activities ni yangilash
-        queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
       } catch (err) {
         // Add todo error logged
         // Don't show alert for 403 errors, just log them
@@ -152,8 +130,6 @@ const Dashboard: React.FC = () => {
     try {
       await del(`${link}/tasks/${id}/`);
       fetchTodos();
-      // Recent activities ni yangilash
-      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
     } finally {
       setTodoLoading(false);
     }
@@ -171,8 +147,6 @@ const Dashboard: React.FC = () => {
       setEditId(null);
       setEditValue('');
       fetchTodos();
-      // Recent activities ni yangilash
-      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
     } finally {
       setTodoLoading(false);
     }
@@ -192,8 +166,6 @@ const Dashboard: React.FC = () => {
         status: todo.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED',
       });
       fetchTodos();
-      // Recent activities ni yangilash
-      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
     } finally {
       setTodoLoading(false);
     }
@@ -225,8 +197,17 @@ const Dashboard: React.FC = () => {
 
   // Use real dashboard data with proper type checking
   const students = (dashboardData as any)?.students || { total: 0, male: 0, female: 0 };
-  const rooms = (dashboardData as any)?.rooms || { total_available: 0, male_rooms: 0, female_rooms: 0 };
-  const payments = (dashboardData as any)?.payments || { debtor_students_count: 0, non_debtor_students_count: 0, total_payment: 0 };
+  const rooms = (dashboardData as any)?.rooms || {
+    available_places_total: 0,
+    available_places_male: 0,
+    available_places_female: 0
+  };
+  const payments = (dashboardData as any)?.payments || {
+    debtor_students_count: 0,
+    non_debtor_students_count: 0,
+    unplaced_students_count: 0,
+    total_payment: 0
+  };
   const applications = (dashboardData as any)?.applications || { total: 0, approved: 0, rejected: 0 };
 
   // Add this helper for Uzbek month names:
@@ -298,17 +279,17 @@ const Dashboard: React.FC = () => {
             ]}
           />
           <StatsCard
-            title="Xonalar"
-            value={rooms.total_available}
-            change={`Yigitlar: ${rooms.male_rooms}, Qizlar: ${rooms.female_rooms}`}
+            title="Bo'sh joylar"
+            value={rooms.available_places_total}
+            change={`Yigitlar: ${rooms.available_places_male}, Qizlar: ${rooms.available_places_female}`}
             changeType="neutral"
             icon={Building2}
             color="secondary"
             trend={undefined}
             subStats={[
-              { label: "Jami bo'sh", value: rooms.total_available },
-              { label: "Yigitlar", value: rooms.male_rooms },
-              { label: "Qizlar", value: rooms.female_rooms },
+              { label: "Jami bo'sh", value: rooms.available_places_total },
+              { label: "Yigitlar", value: rooms.available_places_male },
+              { label: "Qizlar", value: rooms.available_places_female },
             ]}
           />
           <StatsCard
@@ -322,6 +303,7 @@ const Dashboard: React.FC = () => {
             subStats={[
               { label: 'Qarzdor', value: payments.debtor_students_count },
               { label: 'To\'lagan', value: payments.non_debtor_students_count },
+              { label: 'Joylashtirilmagan', value: payments.unplaced_students_count },
               { label: 'Jami', value: formatCurrency(payments.total_payment) },
             ]}
           />
@@ -452,8 +434,8 @@ const Dashboard: React.FC = () => {
                 <Pie
                   data={[
                     { name: 'Band joylar', value: students.total },
-                    { name: "Yigitlar uchun bo'sh joylar", value: rooms.male_rooms },
-                    { name: "Qizlar uchun bo'sh joylar", value: rooms.female_rooms },
+                    { name: "Yigitlar uchun bo'sh joylar", value: rooms.available_places_male },
+                    { name: "Qizlar uchun bo'sh joylar", value: rooms.available_places_female },
                   ]}
                   cx="50%"
                   cy="50%"
@@ -504,11 +486,11 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="flex items-center space-x-3 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg">
               <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span>
-              <span className="text-sm font-medium text-green-700 dark:text-green-300">Yigitlar uchun bo'sh joylar ({rooms.male_rooms})</span>
+              <span className="text-sm font-medium text-green-700 dark:text-green-300">Yigitlar uchun bo'sh joylar ({rooms.available_places_male})</span>
             </div>
             <div className="flex items-center space-x-3 bg-pink-50 dark:bg-pink-900/20 px-3 py-2 rounded-lg">
               <span className="inline-block w-3 h-3 rounded-full bg-pink-500"></span>
-              <span className="text-sm font-medium text-pink-700 dark:text-pink-300">Qizlar uchun bo'sh joylar ({rooms.female_rooms})</span>
+              <span className="text-sm font-medium text-pink-700 dark:text-pink-300">Qizlar uchun bo'sh joylar ({rooms.available_places_female})</span>
             </div>
           </div>
         </motion.div>
@@ -550,7 +532,7 @@ const Dashboard: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Recent Activity Card (move above grid on mobile, first on desktop) */}
+        {/* Recent Applications Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -558,31 +540,35 @@ const Dashboard: React.FC = () => {
           className="bg-white dark:bg-gray-800 rounded-xl shadow-card p-6 border border-gray-200 dark:border-gray-700 mb-8 md:mb-0 md:col-span-1 min-w-0"
         >
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-            <Clock4 className="w-5 h-5 text-primary-500" /> So'nggi Faoliyat
+            <FileText className="w-5 h-5 text-primary-500" /> So'nggi Arizalar
           </h3>
           <div className="space-y-4">
-            {recentActivitiesLoading ? (
+            {dashboardLoading ? (
               <div className="flex items-center justify-center py-8">
                 <svg className="animate-spin h-6 w-6 text-blue-500" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
               </div>
-            ) : recentActivities.length === 0 ? (
-              <div className="text-gray-400 dark:text-gray-500 text-center py-4">Ma'lumot yo'q</div>
-            ) : (recentActivities.slice(0, 3)).map((activity: any, idx: number) => (
-              <div key={idx} className="flex items-start space-x-3">
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center ${activity.type === 'payment_approved' ? 'bg-green-100 dark:bg-green-900/20' :
-                  activity.type === 'debt' ? 'bg-yellow-100 dark:bg-yellow-900/20' :
-                    activity.type === 'new_student' ? 'bg-blue-100 dark:bg-blue-900/20' :
-                      'bg-gray-100 dark:bg-gray-800/40'
+            ) : !dashboardData?.recent_applications || dashboardData.recent_applications.length === 0 ? (
+              <div className="text-gray-400 dark:text-gray-500 text-center py-4">Arizalar yo'q</div>
+            ) : (dashboardData.recent_applications.slice(0, 5)).map((app: any, idx: number) => (
+              <div key={idx} className="flex items-start space-x-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer" onClick={() => navigate(`/applications/${app.id || idx}`)}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${app.status === 'APPROVED' ? 'bg-green-500' :
+                  app.status === 'REJECTED' ? 'bg-red-500' :
+                    'bg-blue-500'
                   }`}>
-                  {activity.type === 'payment_approved' && <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />}
-                  {activity.type === 'debt' && <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />}
-                  {activity.type === 'new_student' && <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
-                  {!['payment_approved', 'debt', 'new_student'].includes(activity.type) && <FileText className="w-5 h-5 text-gray-400" />}
+                  {app.status === 'APPROVED' && <CheckCircle2 className="w-4 h-4" />}
+                  {app.status === 'REJECTED' && <X className="w-4 h-4" />}
+                  {app.status === 'PENDING' && <Clock4 className="w-4 h-4" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{activity.title}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{activity.desc}</div>
-                  <div className="text-xs text-gray-400 mt-1">{activity.time}</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{app.name}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    {app.status === 'APPROVED' ? 'Qabul qilindi' :
+                      app.status === 'REJECTED' ? 'Rad etildi' :
+                        'Kutilmoqda'}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    {app.created_at ? new Date(app.created_at).toLocaleDateString('uz-UZ') : ''}
+                  </div>
                 </div>
               </div>
             ))}

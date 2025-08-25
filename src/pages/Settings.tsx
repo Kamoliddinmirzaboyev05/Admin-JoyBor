@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Edit, DollarSign, ListChecks, Wifi, BookOpen, WashingMachine, Tv, Coffee, Plus, Info, MapPin, User, School, FileImage, Phone, MessageCircle, Send, Map } from 'lucide-react';
-import GoogleMap from '../components/GoogleMap';
+import { Edit, DollarSign, ListChecks, Wifi, BookOpen, WashingMachine, Tv, Coffee, Plus, Info, MapPin, User, School, FileImage, Phone, MessageCircle, Send } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
@@ -129,8 +128,6 @@ const Settings: React.FC = () => {
   const [descriptionForm, setDescriptionForm] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [localAmenities, setLocalAmenities] = useState<any[]>([]);
-  const [showMap, setShowMap] = useState(false);
-  const [mapLocation, setMapLocation] = useState({ lat: 41.2995, lng: 69.2401, address: '' });
 
   // Telefon raqamini formatlash funksiyasi
   const formatPhoneNumber = (value: string) => {
@@ -606,50 +603,7 @@ const Settings: React.FC = () => {
       </div>
 
 
-      {/* Google Maps - Doim ko'rinadigan */}
-      <div className="mb-4 sm:mb-6 lg:mb-8">
-        <SectionCard
-          icon={<Map className="w-8 h-8 text-blue-500" />}
-          title={((<span className="text-lg font-bold text-blue-700 dark:text-blue-300">Yotoqxona joylashuvi</span>) as React.ReactNode)}
-          description="Xaritada yotoqxona joylashuvini ko'ring va o'zgartiring"
-        >
-          <div className="space-y-4">
-            <GoogleMap
-              latitude={mapLocation.lat}
-              longitude={mapLocation.lng}
-              height="400px"
-              showControls={true}
-              onLocationSelect={(lat, lng, address) => {
-                setMapLocation({ lat, lng, address });
-                toast.success(`Yangi joylashuv tanlandi!`, {
-                  description: address,
-                  duration: 4000,
-                });
-              }}
-            />
-            {mapLocation.address && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  <strong>Tanlangan manzil:</strong> {mapLocation.address}
-                </p>
-                <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
-                  Koordinatalar: {mapLocation.lat.toFixed(6)}, {mapLocation.lng.toFixed(6)}
-                </p>
-              </div>
-            )}
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  toast.success('Joylashuv saqlandi!');
-                }}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                Joylashuvni saqlash
-              </button>
-            </div>
-          </div>
-        </SectionCard>
-      </div>
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6 lg:mb-10">
         {/* Dormitory Info Card */}
@@ -689,58 +643,7 @@ const Settings: React.FC = () => {
           </div>
         </SectionCard>
         
-        {/* Google Maps */}
-        {showMap && (
-          <div className="md:col-span-2">
-            <SectionCard
-              icon={<Map className="w-8 h-8 text-blue-500" />}
-              title={((<span className="text-lg font-bold text-blue-700 dark:text-blue-300">Yotoqxona joylashuvi</span>) as React.ReactNode)}
-            >
-              <div className="space-y-4">
-                <GoogleMap
-                  latitude={mapLocation.lat}
-                  longitude={mapLocation.lng}
-                  height="450px"
-                  showControls={true}
-                  onLocationSelect={(lat, lng, address) => {
-                    setMapLocation({ lat, lng, address });
-                    toast.success(`Yangi joylashuv tanlandi!`, {
-                      description: address,
-                      duration: 4000,
-                    });
-                  }}
-                />
-                {mapLocation.address && (
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                    <p className="text-sm text-blue-800 dark:text-blue-200">
-                      <strong>Tanlangan manzil:</strong> {mapLocation.address}
-                    </p>
-                    <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
-                      Koordinatalar: {mapLocation.lat.toFixed(6)}, {mapLocation.lng.toFixed(6)}
-                    </p>
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      // Bu yerda API ga joylashuvni saqlash logikasini qo'shish mumkin
-                      toast.success('Joylashuv saqlandi!');
-                    }}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    Joylashuvni saqlash
-                  </button>
-                  <button
-                    onClick={() => setShowMap(false)}
-                    className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                  >
-                    Yopish
-                  </button>
-                </div>
-              </div>
-            </SectionCard>
-          </div>
-        )}
+
         
         {/* Prices Card */}
         <SectionCard
