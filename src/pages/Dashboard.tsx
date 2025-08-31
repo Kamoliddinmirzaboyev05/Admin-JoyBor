@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Building2, CreditCard, FileText, AlertTriangle, CheckCircle2, Clock4, Plus, X, Edit2, Trash2 } from 'lucide-react';
+import { Users, Building2, CreditCard, FileText, AlertTriangle, CheckCircle2, Clock4, Plus, X, Edit2, Trash2, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 // useAppStore import removed as it's not used
@@ -288,8 +288,8 @@ const Dashboard: React.FC = () => {
             trend={undefined}
             subStats={[
               { label: "Jami bo'sh", value: rooms.available_places_total },
-              { label: "Yigitlar", value: rooms.available_places_male },
-              { label: "Qizlar", value: rooms.available_places_female },
+              { label: "Yigitlar uchun", value: rooms.available_places_male },
+              { label: "Qizlar uchun", value: rooms.available_places_female },
             ]}
           />
           <StatsCard
@@ -532,7 +532,7 @@ const Dashboard: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Recent Applications Card */}
+        {/* Recent Activities Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -540,18 +540,18 @@ const Dashboard: React.FC = () => {
           className="bg-white dark:bg-gray-800 rounded-xl shadow-card p-6 border border-gray-200 dark:border-gray-700 mb-8 md:mb-0 md:col-span-1 min-w-0"
         >
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-primary-500" /> So'nggi Arizalar
+            <Activity className="w-5 h-5 text-primary-500" /> Oxirgi Amallar
           </h3>
-          <div className="space-y-4">
+          <div className="space-y-3 max-h-[240px] overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin' }}>
             {dashboardLoading ? (
               <div className="flex items-center justify-center py-8">
                 <svg className="animate-spin h-6 w-6 text-blue-500" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
               </div>
             ) : !dashboardData?.recent_applications || dashboardData.recent_applications.length === 0 ? (
-              <div className="text-gray-400 dark:text-gray-500 text-center py-4">Arizalar yo'q</div>
-            ) : (dashboardData.recent_applications.slice(0, 5)).map((app: any, idx: number) => (
-              <div key={idx} className="flex items-start space-x-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer" onClick={() => navigate(`/applications/${app.id || idx}`)}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${app.status === 'APPROVED' ? 'bg-green-500' :
+              <div className="text-gray-400 dark:text-gray-500 text-center py-4">Oxirgi amallar yo'q</div>
+            ) : (dashboardData.recent_applications.slice(0, 3)).map((app: any, idx: number) => (
+              <div key={idx} className="flex items-start space-x-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer border border-gray-100 dark:border-gray-600" onClick={() => navigate(`/applications/${app.id || idx}`)}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm ${app.status === 'APPROVED' ? 'bg-green-500' :
                   app.status === 'REJECTED' ? 'bg-red-500' :
                     'bg-blue-500'
                   }`}>
@@ -562,9 +562,9 @@ const Dashboard: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{app.name}</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {app.status === 'APPROVED' ? 'Qabul qilindi' :
-                      app.status === 'REJECTED' ? 'Rad etildi' :
-                        'Kutilmoqda'}
+                    {app.status === 'APPROVED' ? 'Ariza qabul qilindi' :
+                      app.status === 'REJECTED' ? 'Ariza rad etildi' :
+                        'Ariza kutilmoqda'}
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
                     {app.created_at ? new Date(app.created_at).toLocaleDateString('uz-UZ') : ''}

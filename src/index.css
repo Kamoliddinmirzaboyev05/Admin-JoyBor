@@ -17,29 +17,41 @@
 
 /* Custom Scrollbar Styles */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3b82f6; /* Tailwind blue-500 */
-  border-radius: 8px;
-  border: 2px solid #e5e7eb; /* Tailwind gray-200, bilinmas border */
+  background: #d1d5db; /* Tailwind gray-300 */
+  border-radius: 6px;
   transition: background 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #2563eb; /* Tailwind blue-600 */
+  background: #9ca3af; /* Tailwind gray-400 */
 }
 
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563; /* Tailwind gray-600 */
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6b7280; /* Tailwind gray-500 */
+}
+
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #3b82f6 transparent;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.dark * {
+  scrollbar-color: #4b5563 transparent;
 }
 
 /* React Datepicker Dark Mode Customization */

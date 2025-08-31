@@ -59,12 +59,12 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
   // API dan kelgan notifications (store faqat demo uchun, navbar faqat API ga tayansin)
   const displayNotifications = Array.isArray(apiNotifications) ? apiNotifications : [];
   // O'qilmagan bildirishnomalar soni
-  const unreadCount = displayNotifications.filter((n: any) => !Boolean(n?.read || n?.is_read)).length;
+  const unreadCount = displayNotifications.filter((n: any) => !(n?.read || n?.is_read)).length;
 
   // Filtrlangan bildirishnomalar
   const filteredNotifications = displayNotifications.filter((n: any) => {
     if (notificationFilter === 'unread') {
-      return !Boolean(n?.read || n?.is_read);
+      return !(n?.read || n?.is_read);
     }
     return true;
   }).slice(0, 8); // Faqat 8 ta ko'rsatish
@@ -418,7 +418,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                             <button
                               onClick={async () => {
                                 // Mark all as read functionality
-                                const unreadNotifications = displayNotifications.filter((n: any) => !Boolean(n?.read || n?.is_read));
+                                const unreadNotifications = displayNotifications.filter((n: any) => !(n?.read || n?.is_read));
                                 
                                 // Ariza va umumiy bildirishnomalarni ajratish
                                 const applicationNotifications = unreadNotifications.filter((n: any) => n.notification_type === 'application');

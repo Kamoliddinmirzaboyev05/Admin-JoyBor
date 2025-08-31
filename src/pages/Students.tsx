@@ -18,16 +18,11 @@ import { useGlobalEvents } from '../utils/globalEvents';
 const selectStyles = {
   control: (base: any, state: any) => ({
     ...base,
-    backgroundColor: 'var(--tw-bg-opacity,1) #fff',
-    borderColor: state.isFocused ? '#3b82f6' : '#d1d5db',
-    boxShadow: state.isFocused ? '0 0 0 2px #3b82f6' : undefined,
+    backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
+    borderColor: state.isFocused ? (document.documentElement.classList.contains('dark') ? '#60a5fa' : '#3b82f6') : (document.documentElement.classList.contains('dark') ? '#374151' : '#d1d5db'),
+    boxShadow: state.isFocused ? `0 0 0 2px ${document.documentElement.classList.contains('dark') ? '#60a5fa' : '#3b82f6'}` : undefined,
     minHeight: 40,
     fontSize: 15,
-    ...(document.documentElement.classList.contains('dark') && {
-      backgroundColor: '#1f2937',
-      color: '#fff',
-      borderColor: state.isFocused ? '#60a5fa' : '#374151',
-    })
   }),
   menu: (base: any) => ({
     ...base,
@@ -37,6 +32,14 @@ const selectStyles = {
   singleValue: (base: any) => ({
     ...base,
     color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
+  }),
+  input: (base: any) => ({
+    ...base,
+    color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
+  }),
+  placeholder: (base: any) => ({
+    ...base,
+    color: document.documentElement.classList.contains('dark') ? '#d1d5db' : '#6b7280',
   }),
   option: (base: any, state: any) => ({
     ...base,
@@ -584,19 +587,7 @@ const Students: React.FC = () => {
       return finalMatch;
     })
     .sort((a: Record<string, any>, b: Record<string, any>) => {
-      // Avval xona bo'yicha saralash
-      const roomA = a.room && typeof a.room === 'object' ? a.room.name || '' : '';
-      const roomB = b.room && typeof b.room === 'object' ? b.room.name || '' : '';
-
-      // Xona nomlarini raqamli qismlarini ajratib olish va saralash
-      const roomANum = parseInt(roomA.replace(/\D/g, '')) || 0;
-      const roomBNum = parseInt(roomB.replace(/\D/g, '')) || 0;
-
-      if (roomANum !== roomBNum) {
-        return roomANum - roomBNum;
-      }
-
-      // Xona nomlari teng bo'lsa, alifbo tartibida saralash (familiya bo'yicha)
+      // Familiya bo'yicha alifbo tartibida saralash
       const lastNameA = (a.last_name || '').toLowerCase();
       const lastNameB = (b.last_name || '').toLowerCase();
       return lastNameA.localeCompare(lastNameB, 'uz-UZ');

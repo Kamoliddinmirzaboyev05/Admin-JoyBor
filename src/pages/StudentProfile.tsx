@@ -16,16 +16,11 @@ import { useGlobalEvents } from '../utils/globalEvents';
 const selectStyles = {
   control: (base: any, state: any) => ({
     ...base,
-    backgroundColor: 'var(--tw-bg-opacity,1) #fff',
-    borderColor: state.isFocused ? '#3b82f6' : '#d1d5db',
-    boxShadow: state.isFocused ? '0 0 0 2px #3b82f6' : undefined,
+    backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
+    borderColor: state.isFocused ? (document.documentElement.classList.contains('dark') ? '#60a5fa' : '#3b82f6') : (document.documentElement.classList.contains('dark') ? '#374151' : '#d1d5db'),
+    boxShadow: state.isFocused ? `0 0 0 2px ${document.documentElement.classList.contains('dark') ? '#60a5fa' : '#3b82f6'}` : undefined,
     minHeight: 40,
     fontSize: 15,
-    ...(document.documentElement.classList.contains('dark') && {
-      backgroundColor: '#1f2937',
-      color: '#fff',
-      borderColor: state.isFocused ? '#60a5fa' : '#374151',
-    })
   }),
   menu: (base: any) => ({
     ...base,
@@ -35,6 +30,14 @@ const selectStyles = {
   singleValue: (base: any) => ({
     ...base,
     color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
+  }),
+  input: (base: any) => ({
+    ...base,
+    color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
+  }),
+  placeholder: (base: any) => ({
+    ...base,
+    color: document.documentElement.classList.contains('dark') ? '#d1d5db' : '#6b7280',
   }),
   option: (base: any, state: any) => ({
     ...base,
@@ -75,7 +78,7 @@ function ReadOnlyInput({ label, value, type }: { label: string; value?: string |
 function EditableInput({ label, value, onChange, type = 'text' }: { label: string; value?: string | number; onChange: (v: string) => void; type?: string }) {
   // Convert date format for date inputs (YYYY-MM-DD for HTML date input)
   let inputValue = value ?? '';
-  let inputType = type;
+  const inputType = type;
 
   if (type === "date" && typeof value === "string") {
     try {
@@ -141,6 +144,18 @@ const StudentProfile: React.FC = () => {
       });
     }
   }, [student]);
+
+  // Tahrirlash rejimiga o'tganda barcha inputlarni to'g'ri holatga keltirish
+  React.useEffect(() => {
+    if (editMode && student) {
+      // Form ma'lumotlarini qayta o'rnatish
+      setForm({
+        ...student,
+        course: student.course || '1-kurs',
+        gender: student.gender || 'Erkak',
+      });
+    }
+  }, [editMode, student]);
 
   // Listen for global student updates
   useEffect(() => {
@@ -209,12 +224,20 @@ const StudentProfile: React.FC = () => {
 
     const token = sessionStorage.getItem("access");
     const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
-    fetch(`${link}/available-rooms/?floor=${floorId}`, { headers })
+    fetch(`https://joyboryangi.pythonanywhere.com/available-rooms/?floor=${floorId}`, { headers })
       .then(res => {
         if (!res.ok) throw new Error("Xonalarni yuklashda xatolik");
         return res.json();
       })
-      .then(data => setRooms(data))
+      .then(data => {
+        // Xona raqami bo'yicha saralash
+        const sortedRooms = data.sort((a: any, b: any) => {
+          const aNum = parseInt(a.name.replace(/\D/g, '')) || 0;
+          const bNum = parseInt(b.name.replace(/\D/g, '')) || 0;
+          return aNum - bNum;
+        });
+        setRooms(sortedRooms);
+      })
       .catch(() => setRooms([]));
   }, [form?.floor]);
 

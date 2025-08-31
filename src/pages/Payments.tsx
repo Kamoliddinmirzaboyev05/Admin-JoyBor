@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import DataTable from "../components/UI/DataTable";
-import { CreditCard, Plus, X, Wallet, Eye, Edit, Filter } from "lucide-react";
+import { CreditCard, Plus, X, Wallet, Eye, Edit, Calendar } from "lucide-react";
 import Select from "react-select";
 import { motion, AnimatePresence } from "framer-motion";
 import DatePicker from "react-datepicker";
@@ -14,12 +14,30 @@ import { formatCurrency, formatCurrencyDetailed } from "../utils/formatters";
 import { invalidatePaymentCaches } from "../utils/cacheUtils";
 import { useGlobalEvents } from "../utils/globalEvents";
 
+// Type definitions
+interface Student extends Record<string, unknown> {
+  id: number;
+  name: string;
+  last_name: string;
+}
+
+interface Payment extends Record<string, unknown> {
+  id: number;
+  student: Student;
+  amount: number;
+  paid_date: string;
+  valid_until: string;
+  method: "Cash" | "Card";
+  status: string;
+  comment?: string;
+}
+
 const Payments: React.FC = () => {
   const queryClient = useQueryClient();
   const { emitPaymentUpdate, subscribe } = useGlobalEvents();
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<any>(null);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [form, setForm] = useState({
     studentId: "",
@@ -30,6 +48,7 @@ const Payments: React.FC = () => {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const location = useLocation();
 
   // Filter states
@@ -37,13 +56,31 @@ const Payments: React.FC = () => {
   const [dateRangeFilter, setDateRangeFilter] = useState("");
   const [amountRangeFilter, setAmountRangeFilter] = useState("");
 
+  // Dark mode holatini kuzatish
+  useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
+    };
+
+    checkDarkMode();
+
+    // MutationObserver bilan dark mode o'zgarishlarini kuzatish
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
   // React Query bilan payments ma'lumotlarini olish
   const {
     data: payments = [],
     isLoading,
     error: fetchError,
     refetch
-  } = useQuery({
+  } = useQuery<Payment[]>({
     queryKey: ["payments"],
     queryFn: apiQueries.getPayments,
     staleTime: 1000 * 60 * 5, // 5 daqiqa cache
@@ -51,15 +88,16 @@ const Payments: React.FC = () => {
 
   // React Query bilan students ma'lumotlarini olish
   const {
-    data: students = []
-  } = useQuery({
+    data: students = [],
+    isLoading: studentsLoading
+  } = useQuery<Student[]>({
     queryKey: ["students"],
     queryFn: apiQueries.getStudents,
     staleTime: 1000 * 60 * 10, // 10 daqiqa cache
   });
 
   useEffect(() => {
-    if (location.state && (location.state as any).openAddPaymentModal) {
+    if (location.state && (location.state as { openAddPaymentModal?: boolean }).openAddPaymentModal) {
       setShowModal(true);
       window.history.replaceState({}, document.title);
     }
@@ -86,15 +124,15 @@ const Payments: React.FC = () => {
     {
       key: "student",
       title: "Talaba",
-      render: (_: unknown, row: Record<string, unknown>) => {
+      render: (_: unknown, row: Record<string, unknown>): React.ReactNode => {
         if (row.student && typeof row.student === "object") {
-          const student = row.student as Record<string, unknown>;
+          const student = row.student as { id: number; name: string; last_name: string };
           return (
             <Link
               to={`/studentprofile/${student.id}`}
               className="font-medium text-blue-600 hover:underline dark:text-blue-400"
             >
-              {`${student.last_name as string} ${student.name as string}`}
+              {`${student.last_name} ${student.name}`}
             </Link>
           );
         }
@@ -105,48 +143,55 @@ const Payments: React.FC = () => {
     {
       key: "amount",
       title: "Miqdor",
-      render: (v: unknown) => typeof v === "number" ? formatCurrency(v) : "-",
+      render: (amount: unknown): React.ReactNode => {
+        return typeof amount === "number" ? formatCurrency(amount) : "-";
+      },
       sortable: true,
     },
     {
       key: "paid_date",
       title: "To'lov sanasi",
-      render: (v: unknown) => typeof v === "string" ? (v ? new Date(v).toLocaleDateString("uz-UZ") : "-") : "-",
+      render: (date: unknown): React.ReactNode => {
+        return typeof date === "string" && date ? new Date(date).toLocaleDateString("uz-UZ") : "-";
+      },
       sortable: true,
     },
     {
       key: "method",
       title: "To'lov turi",
-      render: (v: unknown) => {
-        if (typeof v === "string") {
-          return v.toLowerCase() === "cash" ? "Naqd" : v.toLowerCase() === "card" ? "Karta orqali" : v;
+      render: (method: unknown): React.ReactNode => {
+        if (typeof method === "string") {
+          return method.toLowerCase() === "cash" ? "Naqd" : method.toLowerCase() === "card" ? "Karta orqali" : method;
         }
         return "-";
-        
       },
       sortable: true,
     },
     {
       key: "actions",
       title: "Amallar",
-      render: (_: unknown, row: Record<string, unknown>) => (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleView(row)}
-            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-            title="Korish"
-          >
-            <Eye className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => handleEdit(row)}
-            className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-            title="Tahrirlash"
-          >
-            <Edit className="w-4 h-4" />
-          </button>
-        </div>
-      ),
+      render: (_: unknown, row: Record<string, unknown>): React.ReactNode => {
+        // Type assertion to Payment for our handlers
+        const payment = row as Payment;
+        return (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleView(payment)}
+              className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+              title="Ko'rish"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleEdit(payment)}
+              className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+              title="Tahrirlash"
+            >
+              <Edit className="w-4 h-4" />
+            </button>
+          </div>
+        );
+      },
       sortable: false,
     },
   ];
@@ -165,81 +210,129 @@ const Payments: React.FC = () => {
     setSelectedPayment(null);
   };
 
-  const handleView = (payment: Record<string, unknown>) => {
+  const handleView = (payment: Payment) => {
     setSelectedPayment(payment);
     setShowViewModal(true);
   };
 
-  const handleEdit = (payment: Record<string, unknown>) => {
+  const handleEdit = (payment: Payment) => {
     setSelectedPayment(payment);
     setIsEditMode(true);
-
-    // Form malumotlarini toldirish - to'liq ma'lumotlar bilan
-    const student = payment.student as Record<string, unknown>;
 
     // Sanani to'g'ri formatda o'rnatish
     let validUntilDate = "";
     if (payment.valid_until) {
       try {
-        const date = new Date(payment.valid_until as string);
+        const date = new Date(payment.valid_until);
         if (!isNaN(date.getTime())) {
           validUntilDate = date.toISOString().split('T')[0]; // YYYY-MM-DD format
         }
-      } catch (e) {
+      } catch {
         validUntilDate = String(payment.valid_until);
       }
     }
 
     setForm({
-      studentId: student?.id ? String(student.id) : "",
+      studentId: payment.student?.id ? String(payment.student.id) : "",
       amount: payment.amount ? String(payment.amount) : "",
       validUntil: validUntilDate,
-      paymentType: (payment.method as string)?.toLowerCase() === "cash" ? "cash" : "card",
-      comment: payment.comment ? String(payment.comment) : "",
+      paymentType: payment.method?.toLowerCase() === "cash" ? "cash" : "card",
+      comment: payment.comment || "",
     });
 
     setError("");
     setShowModal(true);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  }, []);
 
-  const handleSelectChange = (opt: { value: string; label: string } | null) => {
-    setForm({ ...form, studentId: opt ? opt.value : "" });
-  };
+  const handleSelectChange = useCallback((opt: { value: string; label: string } | null) => {
+    setForm(prev => ({ ...prev, studentId: opt ? opt.value : "" }));
+  }, []);
 
   // Raqamni formatlash funksiyasi
-  const formatNumber = (value: string) => {
+  const formatNumber = useCallback((value: string) => {
+    if (!value) return "";
     // Faqat raqamlarni qoldirish
     const numericValue = value.replace(/[^\d]/g, "");
+    if (!numericValue) return "";
     // Raqamni formatlash (1000 -> 1,000)
     return numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  };
+  }, []);
 
   // Formatni olib tashlash funksiyasi
-  const unformatNumber = (value: string) => {
-    return value.replace(/,/g, "");
-  };
+  const unformatNumber = useCallback((value: string) => {
+    return value.replace(/[^\d]/g, "");
+  }, []);
 
   // Amount input uchun maxsus handler
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAmountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value;
     const unformattedValue = unformatNumber(rawValue);
-    const formattedValue = formatNumber(unformattedValue);
 
-    setForm({ ...form, amount: unformattedValue });
-    e.target.value = formattedValue;
-  };
+    // Maksimal qiymat tekshiruvi (100 million som)
+    const numericValue = Number(unformattedValue);
+    if (numericValue > 100000000) {
+      toast.error("Maksimal summa 100,000,000 som bo'lishi mumkin");
+      return;
+    }
+
+    setForm(prev => ({ ...prev, amount: unformattedValue }));
+
+    // Input qiymatini formatlangan holda ko'rsatish
+    e.target.value = formatNumber(unformattedValue);
+  }, [formatNumber, unformatNumber]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.studentId || !form.amount || !form.validUntil || !form.paymentType) {
-      setError("Barcha maydonlarni toldiring!");
-      toast.error("Barcha maydonlarni toldiring!");
+
+    // Form validation - yaxshilangan
+    const errors: string[] = [];
+
+    if (!form.studentId.trim()) {
+      errors.push("Talabani tanlang");
+    }
+
+    if (!form.amount.trim()) {
+      errors.push("To'lov miqdorini kiriting");
+    } else {
+      const amount = Number(form.amount);
+      if (isNaN(amount)) {
+        errors.push("To'lov miqdori faqat raqam bo'lishi kerak");
+      } else if (amount <= 0) {
+        errors.push("To'lov miqdori 0 dan katta bo'lishi kerak");
+      } else if (amount < 100000) {
+        errors.push("Minimal to'lov miqdori 100,000 som bo'lishi kerak");
+      } else if (amount > 100000000) {
+        errors.push("Maksimal to'lov miqdori 100,000,000 som bo'lishi mumkin");
+      }
+    }
+
+    if (!form.validUntil.trim()) {
+      errors.push("To'lov amal qilish sanasini tanlang");
+    } else {
+      const selectedDate = new Date(form.validUntil);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (selectedDate < today) {
+        errors.push("To'lov sanasi bugungi kundan kechroq bo'lishi kerak");
+      }
+    }
+
+    if (!form.paymentType.trim()) {
+      errors.push("To'lov turini tanlang");
+    }
+
+    if (errors.length > 0) {
+      const errorMessage = errors.join(". ");
+      setError(errorMessage);
+      toast.error(errorMessage);
       return;
     }
+
     setError("");
     setLoading(true);
     try {
@@ -298,7 +391,7 @@ const Payments: React.FC = () => {
         }
 
         // Muvaffaqiyatli yangilanganini tekshirish
-        await response.json(); // Response ni consume qilish
+        const updatedPayment = await response.json(); // Response ni consume qilish
         toast.success(`To'lov #${selectedPayment.id} muvaffaqiyatli yangilandi!`);
 
         // Form va modallarni yopish
@@ -311,10 +404,10 @@ const Payments: React.FC = () => {
         // Force immediate refetch
         await refetch();
         // Emit global event
-        emitPaymentUpdate({ action: 'updated', id: selectedPayment.id });
+        emitPaymentUpdate({ action: 'updated', id: selectedPayment.id, data: updatedPayment });
       } else {
         // Yangi qoshish
-        await apiQueries.createPayment({
+        const newPayment = await apiQueries.createPayment({
           student: Number(form.studentId),
           amount: Number(form.amount),
           valid_until: form.validUntil,
@@ -334,11 +427,21 @@ const Payments: React.FC = () => {
         // Force immediate refetch
         await refetch();
         // Emit global event
-        emitPaymentUpdate({ action: 'created' });
+        emitPaymentUpdate({ action: 'created', data: newPayment });
       }
     } catch (err: unknown) {
+      console.error("Payment operation error:", err);
+
       const errorMessage = isEditMode ? "To'lovni yangilashda xatolik: " : "To'lovni yaratishda xatolik: ";
-      const fullErrorMessage = errorMessage + (err instanceof Error ? err.message : "Noma'lum xatolik");
+      let fullErrorMessage = errorMessage;
+
+      if (err instanceof Error) {
+        fullErrorMessage += err.message;
+      } else if (typeof err === 'string') {
+        fullErrorMessage += err;
+      } else {
+        fullErrorMessage += "Noma'lum xatolik yuz berdi";
+      }
 
       setError(fullErrorMessage);
       toast.error(fullErrorMessage);
@@ -356,73 +459,95 @@ const Payments: React.FC = () => {
     }
   };
 
-  const studentOptions = students.map((s: any) => ({ value: String(s.id), label: `${s.name} ${s.last_name}` }));
+  // Student options - optimizatsiya qilingan
+  const studentOptions = useMemo(() => {
+    if (!Array.isArray(students)) return [];
 
-  // Filter payments based on selected filters
-  const filteredPayments = payments.filter((payment: any) => {
-    // Payment method filter
-    if (paymentMethodFilter) {
-      const method = payment.method?.toLowerCase();
-      if (paymentMethodFilter === "cash" && method !== "cash") return false;
-      if (paymentMethodFilter === "card" && method !== "card") return false;
-    }
+    return students
+      .filter((s: Student) => s.id && s.name && s.last_name)
+      .map((s: Student) => ({
+        value: String(s.id),
+        label: `${s.last_name} ${s.name}` // Familiya birinchi
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'uz')); // Alifbo tartibida
+  }, [students]);
 
-    // Date range filter
-    if (dateRangeFilter && payment.paid_date) {
-      const paymentDate = new Date(payment.paid_date);
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Filter payments based on selected filters - optimizatsiya qilingan
+  const filteredPayments = useMemo(() => {
+    if (!Array.isArray(payments)) return [];
 
-      switch (dateRangeFilter) {
-        case "today":
-          const paymentToday = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), paymentDate.getDate());
-          if (paymentToday.getTime() !== today.getTime()) return false;
-          break;
-        case "week":
-          const weekAgo = new Date(today.getTime());
-          weekAgo.setDate(today.getDate() - 7);
-          if (paymentDate < weekAgo) return false;
-          break;
-        case "month":
-          const monthAgo = new Date(today.getTime());
-          monthAgo.setMonth(today.getMonth() - 1);
-          if (paymentDate < monthAgo) return false;
-          break;
-        case "year":
-          const yearAgo = new Date(today.getTime());
-          yearAgo.setFullYear(today.getFullYear() - 1);
-          if (paymentDate < yearAgo) return false;
-          break;
+    return payments.filter((payment: Payment) => {
+      // Payment method filter
+      if (paymentMethodFilter) {
+        const method = payment.method?.toLowerCase();
+        if (paymentMethodFilter === "cash" && method !== "cash") return false;
+        if (paymentMethodFilter === "card" && method !== "card") return false;
       }
-    }
 
-    // Amount range filter
-    if (amountRangeFilter && payment.amount) {
-      const amount = Number(payment.amount);
-      switch (amountRangeFilter) {
-        case "low":
-          if (amount >= 1000000) return false;
-          break;
-        case "medium":
-          if (amount < 1000000 || amount >= 5000000) return false;
-          break;
-        case "high":
-          if (amount < 5000000) return false;
-          break;
+      // Date range filter
+      if (dateRangeFilter && payment.paid_date) {
+        const paymentDate = new Date(payment.paid_date);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        switch (dateRangeFilter) {
+          case "today": {
+            const paymentToday = new Date(paymentDate.getFullYear(), paymentDate.getMonth(), paymentDate.getDate());
+            if (paymentToday.getTime() !== today.getTime()) return false;
+            break;
+          }
+          case "week": {
+            const weekAgo = new Date(today.getTime());
+            weekAgo.setDate(today.getDate() - 7);
+            if (paymentDate < weekAgo) return false;
+            break;
+          }
+          case "month": {
+            const monthAgo = new Date(today.getTime());
+            monthAgo.setMonth(today.getMonth() - 1);
+            if (paymentDate < monthAgo) return false;
+            break;
+          }
+          case "year": {
+            const yearAgo = new Date(today.getTime());
+            yearAgo.setFullYear(today.getFullYear() - 1);
+            if (paymentDate < yearAgo) return false;
+            break;
+          }
+        }
       }
-    }
 
-    return true;
-  });
+      // Amount range filter
+      if (amountRangeFilter && payment.amount) {
+        const amount = Number(payment.amount);
+        switch (amountRangeFilter) {
+          case "low":
+            if (amount >= 1000000) return false;
+            break;
+          case "medium":
+            if (amount < 1000000 || amount >= 5000000) return false;
+            break;
+          case "high":
+            if (amount < 5000000) return false;
+            break;
+        }
+      }
+
+      return true;
+    });
+  }, [payments, paymentMethodFilter, dateRangeFilter, amountRangeFilter]);
 
   // Export handler for DataTable
-  const handleExportPayments = async () => {
+  const handleExportPayments = useCallback(async () => {
     try {
       const token = sessionStorage.getItem("access");
       if (!token) {
         toast.error("Avtorizatsiya talab qilinadi!");
         return;
       }
+
+      toast.info("Export boshlanmoqda...");
+
       const response = await fetch("https://joyboryangi.pythonanywhere.com/export-payment/", {
         method: "GET",
         headers: {
@@ -430,10 +555,14 @@ const Payments: React.FC = () => {
           "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/json",
         },
       });
+
       if (!response.ok) {
-        toast.error("Export xatolik yuz berdi!");
+        const errorText = await response.text();
+        console.error("Export error:", errorText);
+        toast.error(`Export xatolik: ${response.status} ${response.statusText}`);
         return;
       }
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -445,60 +574,101 @@ const Payments: React.FC = () => {
       window.URL.revokeObjectURL(url);
       toast.success("To'lovlar ro'yxati muvaffaqiyatli yuklandi!");
     } catch (error) {
+      console.error("Export error:", error);
       toast.error("Export xatolik yuz berdi!");
     }
-  };
+  }, []);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const selectStyles = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    control: (base: any, state: any) => ({
+  // React Select uchun dinamik styles
+  const selectStyles = useMemo(() => ({
+    control: (base: Record<string, unknown>, state: { isFocused: boolean }) => ({
       ...base,
-      backgroundColor: document.documentElement.classList.contains("dark") ? "#1f2937" : "#fff",
-      color: document.documentElement.classList.contains("dark") ? "#fff" : "#111827",
-      borderColor: state.isFocused ? (document.documentElement.classList.contains("dark") ? "#60a5fa" : "#3b82f6") : (document.documentElement.classList.contains("dark") ? "#374151" : "#d1d5db"),
-      boxShadow: state.isFocused ? `0 0 0 2px ${document.documentElement.classList.contains("dark") ? "#60a5fa" : "#3b82f6"}` : undefined,
-      minHeight: 40,
-      fontSize: 15,
+      backgroundColor: isDarkMode ? "#1f2937" : "#fff",
+      color: isDarkMode ? "#fff" : "#111827",
+      borderColor: state.isFocused
+        ? (isDarkMode ? "#60a5fa" : "#3b82f6")
+        : (isDarkMode ? "#374151" : "#d1d5db"),
+      boxShadow: state.isFocused
+        ? `0 0 0 2px ${isDarkMode ? "rgba(96, 165, 250, 0.3)" : "rgba(59, 130, 246, 0.3)"}`
+        : "none",
+      minHeight: 42,
+      fontSize: 14,
+      borderRadius: 8,
+      transition: "all 0.2s ease",
+      '&:hover': {
+        borderColor: isDarkMode ? "#4b5563" : "#9ca3af"
+      }
     }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    menu: (base: any) => ({
+    menu: (base: Record<string, unknown>) => ({
       ...base,
-      backgroundColor: document.documentElement.classList.contains("dark") ? "#1f2937" : "#fff",
-      color: document.documentElement.classList.contains("dark") ? "#fff" : "#111827",
+      backgroundColor: isDarkMode ? "#1f2937" : "#fff",
+      color: isDarkMode ? "#fff" : "#111827",
+      borderRadius: 8,
+      border: `1px solid ${isDarkMode ? "#374151" : "#d1d5db"}`,
+      boxShadow: isDarkMode
+        ? "0 10px 25px rgba(0, 0, 0, 0.3)"
+        : "0 10px 25px rgba(0, 0, 0, 0.1)",
+      zIndex: 9999
     }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    singleValue: (base: any) => ({
+    menuList: (base: Record<string, unknown>) => ({
       ...base,
-      color: document.documentElement.classList.contains("dark") ? "#fff" : "#111827",
+      padding: 4
     }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    input: (base: any) => ({
+    singleValue: (base: Record<string, unknown>) => ({
       ...base,
-      color: document.documentElement.classList.contains("dark") ? "#fff" : "#111827",
+      color: isDarkMode ? "#fff" : "#111827",
     }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    placeholder: (base: any) => ({
+    input: (base: Record<string, unknown>) => ({
       ...base,
-      color: document.documentElement.classList.contains("dark") ? "#d1d5db" : "#6b7280",
+      color: isDarkMode ? "#fff" : "#111827",
     }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    option: (base: any, state: any) => ({
+    placeholder: (base: Record<string, unknown>) => ({
+      ...base,
+      color: isDarkMode ? "#9ca3af" : "#6b7280",
+    }),
+    option: (base: Record<string, unknown>, state: { isSelected: boolean; isFocused: boolean }) => ({
       ...base,
       backgroundColor: state.isSelected
-        ? (document.documentElement.classList.contains("dark") ? "#2563eb" : "#3b82f6")
+        ? (isDarkMode ? "#2563eb" : "#3b82f6")
         : state.isFocused
-          ? (document.documentElement.classList.contains("dark") ? "#374151" : "#e0e7ef")
+          ? (isDarkMode ? "#374151" : "#f3f4f6")
           : "transparent",
-      color: state.isSelected || document.documentElement.classList.contains("dark") ? "#fff" : "#111827",
+      color: state.isSelected
+        ? "#fff"
+        : (isDarkMode ? "#e5e7eb" : "#111827"),
       cursor: "pointer",
+      borderRadius: 6,
+      margin: "2px 0",
+      padding: "8px 12px",
+      transition: "all 0.15s ease",
+      '&:active': {
+        backgroundColor: isDarkMode ? "#1d4ed8" : "#2563eb"
+      }
     }),
-  };
+    indicatorSeparator: () => ({ display: 'none' }),
+    dropdownIndicator: (base: Record<string, unknown>) => ({
+      ...base,
+      color: isDarkMode ? "#9ca3af" : "#6b7280",
+      '&:hover': {
+        color: isDarkMode ? "#60a5fa" : "#3b82f6"
+      }
+    }),
+    clearIndicator: (base: Record<string, unknown>) => ({
+      ...base,
+      color: isDarkMode ? "#9ca3af" : "#6b7280",
+      '&:hover': {
+        color: isDarkMode ? "#ef4444" : "#dc2626"
+      }
+    })
+  }), [isDarkMode]);
 
-  if (isLoading) {
+  if (isLoading || studentsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+          <p className="text-gray-600 dark:text-gray-400">Ma'lumotlar yuklanmoqda...</p>
+        </div>
       </div>
     );
   }
@@ -543,7 +713,6 @@ const Payments: React.FC = () => {
       {/* Filters */}
       <div className="flex flex-wrap gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
         <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-500" />
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filterlar:</span>
         </div>
 
@@ -660,7 +829,7 @@ const Payments: React.FC = () => {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 40, opacity: 0 }}
               transition={{ duration: 0.25, ease: "easeInOut" }}
-              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-2 sm:p-8 w-full max-w-md relative flex flex-col gap-4 sm:gap-6 max-h-[90vh] overflow-y-auto"
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-4 sm:p-6 lg:p-8 w-full max-w-sm sm:max-w-md lg:max-w-lg relative flex flex-col gap-4 sm:gap-6 max-h-[95vh] overflow-y-auto"
               onClick={e => e.stopPropagation()}
             >
               <button
@@ -681,77 +850,135 @@ const Payments: React.FC = () => {
                   </div>
                 )}
               </div>
-              <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:gap-6 pb-6 sm:pb-8">
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:gap-5 pb-6 sm:pb-8">
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">Talaba</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">
+                    Talaba
+                    {form.studentId && studentOptions.length > 0 && (
+                      <span className="text-xs text-green-600 dark:text-green-400 ml-2">✓</span>
+                    )}
+                  </label>
                   <Select
                     options={studentOptions}
-                    value={studentOptions.find((opt: { value: string; label: string }) => opt.value === form.studentId) || null}
+                    value={studentOptions.filter((opt: { value: string; label: string }) => opt.value === form.studentId)[0] || null}
                     onChange={handleSelectChange}
-                    isClearable
-                    placeholder="Talabani tanlang..."
+                    isClearable={!isEditMode}
+                    placeholder={studentsLoading ? "Talabalar yuklanmoqda..." : "Talabani qidiring yoki tanlang..."}
                     styles={selectStyles}
                     classNamePrefix="react-select"
-                    isDisabled={isEditMode} // Tahrirlash rejimida talabani o'zgartirishga ruxsat bermaslik
+                    isDisabled={isEditMode || studentsLoading}
+                    isLoading={studentsLoading}
+                    isSearchable={true}
+                    noOptionsMessage={() => "Talaba topilmadi"}
+                    loadingMessage={() => "Yuklanmoqda..."}
                   />
                   {isEditMode && (
-                    <div className="text-xs text-amber-600 dark:text-amber-400 mt-1 bg-amber-50 dark:bg-amber-900/20 p-2 rounded">
-                      ⚠️ Tahrirlash rejimida talabani o'zgartirib bo'lmaydi. Agar boshqa talabaga o'tkazish kerak bo'lsa, yangi to'lov yarating va eskisini o'chiring.
+                    <div className="text-xs text-amber-600 dark:text-amber-400 mt-2 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">⚠️ Eslatma:</span>
+                      </div>
+                      <p className="mt-1">Tahrirlash rejimida talabani o'zgartirib bo'lmaydi. Agar boshqa talabaga o'tkazish kerak bo'lsa, yangi to'lov yarating.</p>
+                    </div>
+                  )}
+                  {!isEditMode && studentOptions.length === 0 && !studentsLoading && (
+                    <div className="text-xs text-red-600 dark:text-red-400 mt-2 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+                      Talabalar ro'yxati bo'sh yoki yuklanmadi. Iltimos, sahifani yangilang.
                     </div>
                   )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">
-                    Miqdor (som)
-                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                      {form.amount && formatCurrency(Number(form.amount))}
-                    </span>
+                    To'lov miqdori (som)
+                    {form.amount && (
+                      <span className="text-xs font-medium text-green-600 dark:text-green-400 ml-2">
+                        = {formatCurrency(Number(form.amount))}
+                      </span>
+                    )}
                   </label>
-                  <input
-                    type="text"
-                    name="amount"
-                    value={formatNumber(form.amount)}
-                    onChange={handleAmountChange}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    required
-                    placeholder="Miqdorni kiriting (masalan: 1,200,000)"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-300 pointer-events-none z-10">
+                      <span className="text-sm font-medium">UZS</span>
+                    </span>
+                    <input
+                      type="text"
+                      name="amount"
+                      value={formatNumber(form.amount)}
+                      onChange={handleAmountChange}
+                      className="w-full pl-12 pr-3 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 text-right"
+                      required
+                      placeholder="1,200,000"
+                      autoComplete="off"
+                    />
+                  </div>
                   {isEditMode && selectedPayment && form.amount && Number(form.amount) !== selectedPayment.amount && (
-                    <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                      Avvalgi summa: {formatCurrency(selectedPayment.amount)} → Yangi: {formatCurrency(Number(form.amount))}
+                    <div className="text-xs text-blue-600 dark:text-blue-400 mt-2 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span>Avvalgi:</span>
+                        <span className="font-medium">{selectedPayment.amount ? formatCurrency(selectedPayment.amount) : '-'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Yangi:</span>
+                        <span className="font-medium">{formatCurrency(Number(form.amount))}</span>
+                      </div>
                     </div>
                   )}
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Minimal: 100,000 som • Maksimal: 100,000,000 som
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">
                     To'lov amal qilish sanasi
                     {isEditMode && selectedPayment?.valid_until && (
                       <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                        (Avvalgi: {new Date(selectedPayment.valid_until as string).toLocaleDateString("uz-UZ")})
+                        (Avvalgi: {selectedPayment.valid_until ? new Date(selectedPayment.valid_until).toLocaleDateString("uz-UZ") : '-'})
                       </span>
                     )}
                   </label>
-                  <div className="flex w-full min-w-0">
-                    <div className="relative w-full min-w-0 block">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-300 pointer-events-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                          <path fill="currentColor" d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1zm10 4V6H7v.01H5V20h14V6h-2zm-7 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z" />
-                        </svg>
-                      </span>
-                      <DatePicker
-                        selected={form.validUntil ? new Date(form.validUntil) : null}
-                        onChange={(date: Date | null) => setForm(f => ({ ...f, validUntil: date ? date.toISOString().slice(0, 10) : "" }))}
-                        dateFormat="yyyy-MM-dd"
-                        placeholderText="YYYY-MM-DD"
-                        className="w-full min-w-0 block pl-10 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent h-11 text-base"
-                        calendarClassName="!bg-white dark:!bg-gray-900 !text-gray-900 dark:!text-white !border !border-gray-300 dark:!border-gray-700 !rounded-xl"
-                        dayClassName={(date: Date) =>
-                          `!rounded-md !font-normal ${date && form.validUntil && date.toISOString().slice(0, 10) === form.validUntil ? "!bg-primary-600 !text-white" : "!text-gray-900 dark:!text-gray-100"} hover:!bg-primary-100 dark:hover:!bg-primary-900/30`
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-300 pointer-events-none z-10">
+                      <Calendar className="w-5 h-5" />
+                    </span>
+                    <DatePicker
+                      selected={form.validUntil ? new Date(form.validUntil) : null}
+                      onChange={(date: Date | null) => {
+                        if (date) {
+                          // Tanlangan sanani tekshirish
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+
+                          if (date < today) {
+                            toast.error("To'lov sanasi bugungi kundan kechroq bo'lishi kerak");
+                            return;
+                          }
                         }
-                        popperClassName="z-50"
-                        showPopperArrow={false}
-                      />
-                    </div>
+                        setForm(f => ({ ...f, validUntil: date ? date.toISOString().slice(0, 10) : "" }));
+                      }}
+                      dateFormat="dd.MM.yyyy"
+                      placeholderText="Sanani tanlang..."
+                      minDate={new Date()} // Bugungi kundan oldingi sanalarni tanlash mumkin emas
+                      className="w-full pl-10 pr-3 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200"
+                      calendarClassName="shadow-xl border border-gray-200 dark:border-gray-700"
+                      dayClassName={(date: Date) => {
+                        const isSelected = form.validUntil && date.toISOString().slice(0, 10) === form.validUntil;
+                        const isToday = date.toDateString() === new Date().toDateString();
+
+                        let classes = "rounded-lg mx-1 transition-all duration-150 ";
+
+                        if (isSelected) {
+                          classes += "!bg-primary-600 !text-white font-semibold shadow-md";
+                        } else if (isToday) {
+                          classes += "!bg-primary-100 dark:!bg-primary-900/30 !text-primary-600 dark:!text-primary-400 font-medium";
+                        } else {
+                          classes += "!text-gray-700 dark:!text-gray-300 hover:!bg-primary-50 dark:hover:!bg-primary-900/20";
+                        }
+
+                        return classes;
+                      }}
+                      popperClassName="z-[9999]"
+                      showPopperArrow={false}
+                      popperPlacement="bottom-start"
+                    />
                   </div>
                 </div>
                 <div>
@@ -878,19 +1105,19 @@ const Payments: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
                       <span className="text-white font-semibold text-sm">
-                        {selectedPayment.student && typeof selectedPayment.student === "object"
-                          ? `${((selectedPayment.student as any).name as string)[0]}${((selectedPayment.student as any).last_name as string)[0]}`
+                        {selectedPayment.student
+                          ? `${selectedPayment.student.name?.[0] || ""}${selectedPayment.student.last_name?.[0] || ""}`
                           : "?"}
                       </span>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500 dark:text-gray-400">Talaba</p>
                       <Link
-                        to={`/studentprofile/${(selectedPayment.student as any)?.id}`}
+                        to={`/studentprofile/${selectedPayment.student?.id || ''}`}
                         className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                       >
-                        {selectedPayment.student && typeof selectedPayment.student === "object"
-                          ? `${(selectedPayment.student as any).name} ${(selectedPayment.student as any).last_name}`
+                        {selectedPayment.student
+                          ? `${selectedPayment.student.name || ''} ${selectedPayment.student.last_name || ''}`
                           : "-"}
                       </Link>
                     </div>
@@ -901,7 +1128,7 @@ const Payments: React.FC = () => {
                 <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">To'lov miqdori</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {typeof selectedPayment.amount === "number" ? formatCurrencyDetailed(selectedPayment.amount) : "-"}
+                    {selectedPayment.amount ? formatCurrencyDetailed(selectedPayment.amount) : "-"}
                   </p>
                 </div>
 
@@ -910,7 +1137,7 @@ const Payments: React.FC = () => {
                   <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">To'lov sanasi</p>
                     <p className="font-semibold text-gray-900 dark:text-white">
-                      {selectedPayment.paid_date ? new Date(selectedPayment.paid_date as string).toLocaleDateString("uz-UZ") : "-"}
+                      {selectedPayment.paid_date ? new Date(selectedPayment.paid_date).toLocaleDateString("uz-UZ") : "-"}
                     </p>
                   </div>
 
@@ -933,7 +1160,7 @@ const Payments: React.FC = () => {
                 {selectedPayment.comment && (
                   <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Izoh</p>
-                    <p className="text-gray-900 dark:text-white">{selectedPayment.comment as string}</p>
+                    <p className="text-gray-900 dark:text-white">{selectedPayment.comment || '-'}</p>
                   </div>
                 )}
 
@@ -942,7 +1169,7 @@ const Payments: React.FC = () => {
                   <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Amal qilish muddati</p>
                     <p className="font-semibold text-gray-900 dark:text-white">
-                      {new Date(selectedPayment.valid_until as string).toLocaleDateString("uz-UZ")}
+                      {selectedPayment.valid_until ? new Date(selectedPayment.valid_until).toLocaleDateString("uz-UZ") : '-'}
                     </p>
                   </div>
                 )}

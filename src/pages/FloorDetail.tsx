@@ -19,16 +19,11 @@ const CARD_HEIGHT = 'h-44';
 const selectStyles = {
   control: (base: any, state: any) => ({
     ...base,
-    backgroundColor: 'var(--tw-bg-opacity,1) #fff',
-    borderColor: state.isFocused ? '#3b82f6' : '#d1d5db',
-    boxShadow: state.isFocused ? '0 0 0 2px #3b82f6' : undefined,
+    backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
+    borderColor: state.isFocused ? (document.documentElement.classList.contains('dark') ? '#60a5fa' : '#3b82f6') : (document.documentElement.classList.contains('dark') ? '#374151' : '#d1d5db'),
+    boxShadow: state.isFocused ? `0 0 0 2px ${document.documentElement.classList.contains('dark') ? '#60a5fa' : '#3b82f6'}` : undefined,
     minHeight: 40,
     fontSize: 15,
-    ...(document.documentElement.classList.contains('dark') && {
-      backgroundColor: '#1f2937',
-      color: '#fff',
-      borderColor: state.isFocused ? '#60a5fa' : '#374151',
-    })
   }),
   menu: (base: any) => ({
     ...base,
@@ -38,6 +33,14 @@ const selectStyles = {
   singleValue: (base: any) => ({
     ...base,
     color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
+  }),
+  input: (base: any) => ({
+    ...base,
+    color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
+  }),
+  placeholder: (base: any) => ({
+    ...base,
+    color: document.documentElement.classList.contains('dark') ? '#d1d5db' : '#6b7280',
   }),
   option: (base: any, state: any) => ({
     ...base,
@@ -846,8 +849,8 @@ const FloorDetail: React.FC = () => {
                       style={{ width: `${Math.min(100, (students.length / Math.max(1, room.capacity)) * 100)}%` }}
                     />
                   </div>
-                  <div className="mt-3 grid grid-cols-1 xs:grid-cols-2 gap-2 overflow-y-auto pr-2"
-                    style={{ maxHeight: '5.5rem' }}
+                  <div className="mt-3 grid grid-cols-1 xs:grid-cols-2 gap-2 overflow-y-auto pr-2 flex-1"
+                    style={{ maxHeight: '4rem' }}
                   >
                     {students.length === 0 ? (
                       <span className="text-gray-400 dark:text-slate-400 col-span-full">Talaba yo'q</span>
@@ -868,7 +871,7 @@ const FloorDetail: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center justify-between mt-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center justify-between mt-auto pt-3">
                   <div className="text-xs text-gray-500 dark:text-slate-400">
                     {students.length === 0 ? "Bo'sh" : students.length >= room.capacity ? "To'lgan" : "To'lmagan"}
                   </div>
@@ -878,7 +881,7 @@ const FloorDetail: React.FC = () => {
                         e.stopPropagation();
                         handleAddStudent(room);
                       }}
-                      className="text-xs bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded transition-colors w-full sm:w-auto"
+                      className="text-xs bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded transition-colors w-full sm:w-auto shrink-0"
                     >
                       + Qo'shish
                     </button>

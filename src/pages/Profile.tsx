@@ -1,18 +1,13 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, User, KeyRound, Mail, Phone, UserCog, ShieldCheck, CalendarCheck2, CheckCircle2, Activity, AtSign, MapPin, MessageCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { LogOut, User, KeyRound, Phone, UserCog, CalendarCheck2, MapPin, MessageCircle } from 'lucide-react';
 import BackButton from '../components/UI/BackButton';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiQueries } from '../data/api';
 import { useRef } from 'react';
-import { link } from '../data/config';
 
-const tabList = [
-  { key: 'main', label: 'Asosiy', icon: <UserCog className="w-4 h-4 mr-1" /> },
-  { key: 'security', label: 'Xavfsizlik', icon: <KeyRound className="w-4 h-4 mr-1" /> },
-  { key: 'activity', label: 'Faoliyat', icon: <Activity className="w-4 h-4 mr-1" /> },
-];
+
 
 function ProfileField({ icon, label, value, actionLabel, onAction }: { icon: React.ReactNode; label: string; value?: string; actionLabel?: string; onAction?: () => void }) {
   return (
@@ -38,23 +33,16 @@ const Profile: React.FC = () => {
     staleTime: 1000 * 60 * 5,
   });
   const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [showLoginForm, setShowLoginForm] = useState(false);
-  const [username, setUsername] = useState('');
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const [loginSuccess, setLoginSuccess] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState('main');
   const [showEditModal, setShowEditModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Set login state when admin is loaded
-  React.useEffect(() => {
-    if (admin && admin.username) setUsername(admin.username);
-  }, [admin]);
+
 
   // Edit form state
   const [editForm, setEditForm] = useState({
@@ -104,7 +92,7 @@ const Profile: React.FC = () => {
       if (value) formData.append(key, value as any);
     });
     setIsUpdating(true);
-    
+
     try {
       await apiQueries.updateAdminProfile(formData);
 
@@ -121,13 +109,6 @@ const Profile: React.FC = () => {
 
   if (isLoading) return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div></div>;
   if (error || !admin) return <div className="text-center py-10 text-red-600 dark:text-red-400">Admin ma'lumotlarini yuklashda xatolik yuz berdi.</div>;
-
-  const handleLoginChange = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginSuccess(true);
-    setTimeout(() => setLoginSuccess(false), 2000);
-    setShowLoginForm(false);
-  };
 
   const handlePasswordChange = (e: React.FormEvent) => {
     e.preventDefault();
@@ -353,8 +334,8 @@ const Profile: React.FC = () => {
                     </div>
                     {/* Remove button */}
                     {(editForm.image || admin.image) && (
-                  <button
-                    type="button"
+                      <button
+                        type="button"
                         onClick={() => setEditForm(f => ({ ...f, image: null }))}
                         className="absolute -top-2 -right-2 bg-white dark:bg-[#1E293B] border border-gray-300 dark:border-gray-700 rounded-full p-1 shadow hover:bg-red-500 hover:text-white transition-colors z-30"
                         aria-label="Rasmni olib tashlash"
@@ -411,19 +392,19 @@ const Profile: React.FC = () => {
                   </div>
                 </div>
               </form>
-              
+
               {/* Action Bar - Modal pastida */}
               <div className="border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#1E293B] px-6 py-4 flex justify-end gap-3">
-                <button 
-                  type="button" 
-                  onClick={() => setShowEditModal(false)} 
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
                   disabled={isUpdating}
                   className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Bekor qilish
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   form="editProfileForm"
                   disabled={isUpdating}
                   className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-semibold transition-colors flex items-center gap-2"

@@ -139,7 +139,7 @@ const Notifications: React.FC = () => {
   // Barcha o'qilmagan bildirishnomalarni o'qilgan qilish
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
-      const unreadNotifications = notifications.filter(n => !Boolean(n.read || n.is_read));
+      const unreadNotifications = notifications.filter(n => !(n.read || n.is_read));
 
       // Ariza va umumiy bildirishnomalarni ajratish
       const applicationNotifications = unreadNotifications.filter(n => n.notification_type === 'application');
@@ -399,9 +399,9 @@ const Notifications: React.FC = () => {
                     <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
                       Bildirishnomalar
                     </h1>
-                    {notifications.filter(n => !Boolean(n.read || n.is_read)).length > 0 && (
+                    {notifications.filter(n => !(n.read || n.is_read)).length > 0 && (
                       <div className="bg-red-500 text-white text-sm font-medium px-3 py-1 rounded-full">
-                        {notifications.filter(n => !Boolean(n.read || n.is_read)).length} yangi
+                        {notifications.filter(n => !(n.read || n.is_read)).length} yangi
                       </div>
                     )}
                   </div>
@@ -459,7 +459,7 @@ const Notifications: React.FC = () => {
                   <div>
                     <span className="text-sm font-medium text-orange-900 dark:text-orange-100">O'qilmagan</span>
                     <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                      {notifications.filter(n => !Boolean(n.read || n.is_read)).length}
+                      {notifications.filter(n => !(n.read || n.is_read)).length}
                     </p>
                   </div>
                 </div>
@@ -523,7 +523,7 @@ const Notifications: React.FC = () => {
             )}
 
             {/* Mark all as read button */}
-            {notifications.filter(n => !Boolean(n.read || n.is_read)).length > 0 && !showBulkActions && (
+            {notifications.filter(n => !(n.read || n.is_read)).length > 0 && !showBulkActions && (
               <div className="mt-6 flex justify-end">
                 <button
                   onClick={handleMarkAllAsRead}

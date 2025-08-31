@@ -27,7 +27,7 @@ const SEOHead: React.FC<SEOHeadProps> = ({
     const updateMetaTag = (name: string, content: string, property = false) => {
       const selector = property ? `meta[property="${name}"]` : `meta[name="${name}"]`;
       let meta = document.querySelector(selector) as HTMLMetaElement;
-      
+
       if (!meta) {
         meta = document.createElement('meta');
         if (property) {
