@@ -89,6 +89,35 @@ export const apiQueries = {
   // Applications
   getApplications: () => get('/applications/'),
   
+  // Leaders
+  getLeaders: () => get('/leaders/'),
+  createLeader: (data: {
+    floor: number;
+    username: string;
+    password: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  }) => post('/leaders/', data),
+  
+  // Attendance Sessions
+  getAttendanceSessions: (params?: {
+    date?: string;
+    floor?: number;
+    page?: number;
+    page_size?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.date) searchParams.append('date', params.date);
+    if (params?.floor) searchParams.append('floor', params.floor.toString());
+    if (params?.page) searchParams.append('page', params.page.toString());
+    if (params?.page_size) searchParams.append('page_size', params.page_size.toString());
+    
+    const queryString = searchParams.toString();
+    return get(`/attendance-sessions/${queryString ? `?${queryString}` : ''}`);
+  },
+  
   // Student Profile
   getStudentProfile: (id: string) => get(`/students/${id}/`),
   updateStudent: (id: string, data: Record<string, unknown>) => patch(`/students/${id}/`, data),

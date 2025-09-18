@@ -224,12 +224,13 @@ export const useNotifications = () => {
       let comparison = 0;
 
       switch (sortBy) {
-        case 'date':
+        case 'date': {
           // received_at yoki created_at bo'yicha saralash
           const aDate = new Date(a.received_at || a.created_at).getTime();
           const bDate = new Date(b.received_at || b.created_at).getTime();
           comparison = aDate - bDate;
           break;
+        }
         case 'type':
           comparison = a.type.localeCompare(b.type);
           break;

@@ -37,9 +37,13 @@ const Reports: React.FC = () => {
 
   // Dashboard ma'lumotlarini ajratib olish
   const students = dashboardData?.students || { total: 0, male: 0, female: 0 };
-  const rooms = dashboardData?.rooms || { total_available: 0, male_rooms: 0, female_rooms: 0 };
+  const rooms = dashboardData?.rooms || { 
+    available_places_total: 0, 
+    available_places_male: 0, 
+    available_places_female: 0 
+  };
   const payments = dashboardData?.payments || { total_payment: 0, debtor_students_count: 0, non_debtor_students_count: 0 };
-  const applications = dashboardData?.applications || { total: 0, approved: 0, rejected: 0 };
+
 
   const filteredActions = recentActivities.filter((a: any) =>
     a.title?.toLowerCase().includes(search.toLowerCase()) ||
@@ -71,30 +75,45 @@ const Reports: React.FC = () => {
       </motion.div>
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 shadow-xl p-6 flex flex-col items-center text-white relative overflow-hidden">
+          <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-500 shadow-xl p-6 flex flex-col items-center text-white relative overflow-hidden group hover:scale-105 transition-transform duration-200">
             <Users className="w-8 h-8 mb-2 opacity-90" />
             <div className="text-xs uppercase tracking-wider font-semibold opacity-80">Jami talabalar</div>
             <div className="text-3xl font-extrabold mt-1">{dashboardLoading ? '...' : students.total}</div>
-            <div className="absolute right-2 bottom-2 opacity-10 text-7xl font-black select-none">{students.total}</div>
+            <div className="text-xs mt-2 opacity-75 text-center">
+              <div>Yigitlar: {dashboardLoading ? '...' : students.male}</div>
+              <div>Qizlar: {dashboardLoading ? '...' : students.female}</div>
             </div>
-          <div className="rounded-2xl bg-gradient-to-br from-green-400 to-blue-500 shadow-xl p-6 flex flex-col items-center text-white relative overflow-hidden">
+            <div className="absolute right-2 bottom-2 opacity-10 text-7xl font-black select-none">{students.total}</div>
+          </div>
+          <div className="rounded-2xl bg-gradient-to-br from-green-400 to-blue-500 shadow-xl p-6 flex flex-col items-center text-white relative overflow-hidden group hover:scale-105 transition-transform duration-200">
             <CreditCard className="w-8 h-8 mb-2 opacity-90" />
             <div className="text-xs uppercase tracking-wider font-semibold opacity-80">Jami to‘lovlar</div>
-            <div className="text-3xl font-extrabold mt-1">
+            <div className="text-2xl font-extrabold mt-1">
               {dashboardLoading ? '...' : formatCurrency(payments.total_payment)}
+            </div>
+            <div className="text-xs mt-2 opacity-75 text-center">
+              <div>Qarzdor: {dashboardLoading ? '...' : payments.debtor_students_count}</div>
+              <div>To'lagan: {dashboardLoading ? '...' : payments.non_debtor_students_count}</div>
             </div>
             <div className="absolute right-2 bottom-2 opacity-10 text-7xl font-black select-none">💸</div>
           </div>
-          <div className="rounded-2xl bg-gradient-to-br from-indigo-400 to-purple-500 shadow-xl p-6 flex flex-col items-center text-white relative overflow-hidden">
+          <div className="rounded-2xl bg-gradient-to-br from-indigo-400 to-purple-500 shadow-xl p-6 flex flex-col items-center text-white relative overflow-hidden group hover:scale-105 transition-transform duration-200">
             <Building2 className="w-8 h-8 mb-2 opacity-90" />
-            <div className="text-xs uppercase tracking-wider font-semibold opacity-80">Bo'sh xonalar</div>
-            <div className="text-3xl font-extrabold mt-1">{dashboardLoading ? '...' : rooms.total_available}</div>
+            <div className="text-xs uppercase tracking-wider font-semibold opacity-80">Bo'sh joylar</div>
+            <div className="text-3xl font-extrabold mt-1">{dashboardLoading ? '...' : rooms.available_places_total}</div>
+            <div className="text-xs mt-2 opacity-75 text-center">
+              <div>Yigitlar: {dashboardLoading ? '...' : rooms.available_places_male}</div>
+              <div>Qizlar: {dashboardLoading ? '...' : rooms.available_places_female}</div>
+            </div>
             <div className="absolute right-2 bottom-2 opacity-10 text-7xl font-black select-none">🏠</div>
           </div>
-          <div className="rounded-2xl bg-gradient-to-br from-pink-500 to-red-500 shadow-xl p-6 flex flex-col items-center text-white relative overflow-hidden">
+          <div className="rounded-2xl bg-gradient-to-br from-pink-500 to-red-500 shadow-xl p-6 flex flex-col items-center text-white relative overflow-hidden group hover:scale-105 transition-transform duration-200">
             <AlertTriangle className="w-8 h-8 mb-2 opacity-90" />
             <div className="text-xs uppercase tracking-wider font-semibold opacity-80">Qarzdorlar</div>
             <div className="text-3xl font-extrabold mt-1 text-yellow-200">{dashboardLoading ? '...' : payments.debtor_students_count}</div>
+            <div className="text-xs mt-2 opacity-75 text-center">
+              <div>To'lagan: {dashboardLoading ? '...' : payments.non_debtor_students_count}</div>
+            </div>
             <div className="absolute right-2 bottom-2 opacity-10 text-7xl font-black select-none">⚠️</div>
           </div>
         </div>

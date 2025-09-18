@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, X, Filter, Search, ChevronDown, User, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { ChevronRight, X, Filter, Search, ChevronDown, User, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select, { SingleValue } from 'react-select';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useGlobalEvents } from '../utils/globalEvents';
 
 

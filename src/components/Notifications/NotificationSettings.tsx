@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, BellOff, Mail, Smartphone, Settings, Save, X, Info, AlertTriangle } from 'lucide-react';
+import { Bell, Mail, Smartphone, Settings, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface NotificationSettingsProps {
@@ -109,11 +109,11 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ isOpen, onC
     );
   };
 
-  const handleGlobalSettingChange = (key: string, value: any) => {
+  const handleGlobalSettingChange = (key: string, value: boolean) => {
     setGlobalSettings(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleQuietHoursChange = (key: string, value: any) => {
+  const handleQuietHoursChange = (key: string, value: boolean | string) => {
     setGlobalSettings(prev => ({
       ...prev,
       quietHours: { ...prev.quietHours, [key]: value }
@@ -132,7 +132,7 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ isOpen, onC
       
       toast.success('Bildirishnoma sozlamalari saqlandi!');
       onClose();
-    } catch (error) {
+    } catch {
       toast.error('Sozlamalarni saqlashda xatolik yuz berdi!');
     } finally {
       setIsSaving(false);

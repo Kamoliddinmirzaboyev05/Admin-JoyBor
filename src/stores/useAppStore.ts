@@ -60,6 +60,29 @@ interface Notification {
   createdAt: string;
 }
 
+interface Floor {
+  id: string;
+  number: number;
+  name: string;
+  totalRooms: number;
+  occupiedRooms: number;
+  totalStudents: number;
+  presentStudents: number;
+  absentStudents: number;
+}
+
+interface AttendanceRecord {
+  id: string;
+  studentId: string;
+  studentName: string;
+  room: string;
+  floor: number;
+  date: string;
+  status: 'present' | 'absent' | 'late';
+  checkInTime?: string;
+  notes?: string;
+}
+
 interface AppState {
   // Theme and UI
   isDark: boolean;
@@ -71,6 +94,8 @@ interface AppState {
   payments: Payment[];
   applications: Application[];
   notifications: Notification[];
+  floors: Floor[];
+  attendanceRecords: AttendanceRecord[];
   
   // Actions
   toggleTheme: () => void;
@@ -97,6 +122,12 @@ interface AppState {
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt'>) => void;
   markNotificationRead: (id: string) => void;
   clearNotifications: () => void;
+  
+  // Floor and Attendance actions
+  updateFloorStats: () => void;
+  markAttendance: (studentId: string, status: 'present' | 'absent' | 'late', notes?: string) => void;
+  getTodayAttendance: () => AttendanceRecord[];
+  getFloorAttendance: (floorNumber: number) => AttendanceRecord[];
 }
 
 // Sample data
@@ -212,6 +243,83 @@ const sampleApplications: Application[] = [
   },
 ];
 
+const sampleFloors: Floor[] = [
+  {
+    id: '1',
+    number: 1,
+    name: '1-qavat',
+    totalRooms: 20,
+    occupiedRooms: 18,
+    totalStudents: 35,
+    presentStudents: 32,
+    absentStudents: 3,
+  },
+  {
+    id: '2', 
+    number: 2,
+    name: '2-qavat',
+    totalRooms: 25,
+    occupiedRooms: 23,
+    totalStudents: 45,
+    presentStudents: 41,
+    absentStudents: 4,
+  },
+  {
+    id: '3',
+    number: 3, 
+    name: '3-qavat',
+    totalRooms: 25,
+    occupiedRooms: 20,
+    totalStudents: 38,
+    presentStudents: 35,
+    absentStudents: 3,
+  },
+  {
+    id: '4',
+    number: 4,
+    name: '4-qavat', 
+    totalRooms: 22,
+    occupiedRooms: 19,
+    totalStudents: 33,
+    presentStudents: 30,
+    absentStudents: 3,
+  },
+];
+
+const today = new Date().toISOString().split('T')[0];
+const sampleAttendanceRecords: AttendanceRecord[] = [
+  {
+    id: '1',
+    studentId: '1',
+    studentName: 'Akmal Karimov',
+    room: '101',
+    floor: 1,
+    date: today,
+    status: 'present',
+    checkInTime: '22:30',
+  },
+  {
+    id: '2',
+    studentId: '2',
+    studentName: 'Malika Tursunova', 
+    room: '205',
+    floor: 2,
+    date: today,
+    status: 'present',
+    checkInTime: '23:15',
+  },
+  {
+    id: '3',
+    studentId: '3',
+    studentName: 'Jasur Umarov',
+    room: '304',
+    floor: 3,
+    date: today,
+    status: 'absent',
+    notes: 'Uyga ketgan',
+  },
+];
+
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
@@ -222,6 +330,8 @@ export const useAppStore = create<AppState>()(
       rooms: sampleRooms,
       payments: samplePayments,
       applications: sampleApplications,
+      floors: sampleFloors,
+      attendanceRecords: sampleAttendanceRecords,
       notifications: [
         {
           id: '1',
@@ -312,6 +422,67 @@ export const useAppStore = create<AppState>()(
         })),
       
       clearNotifications: () => set(() => ({ notifications: [] })),
+      
+      // Floor and Attendance actions
+      updateFloorStats: () => set((state) => {
+        const updatedFloors = state.floors.map(floor => {
+          const floorStudents = state.students.filter(s => parseInt(s.room.toString().charAt(0)) === floor.number);
+          const todayAttendance = state.attendanceRecords.filter(r => r.floor === floor.number && r.date === new Date().toISOString().split('T')[0]);
+          
+          return {
+            ...floor,
+            totalStudents: floorStudents.length,
+            presentStudents: todayAttendance.filter(r => r.status === 'present').length,
+            absentStudents: todayAttendance.filter(r => r.status === 'absent').length,
+          };
+        });
+        
+        return { floors: updatedFloors };
+      }),
+      
+      markAttendance: (studentId, status, notes) => set((state) => {
+        const student = state.students.find(s => s.id === studentId);
+        if (!student) return state;
+        
+        const today = new Date().toISOString().split('T')[0];
+        const existingRecord = state.attendanceRecords.find(
+          r => r.studentId === studentId && r.date === today
+        );
+        
+        let updatedRecords;
+        if (existingRecord) {
+          updatedRecords = state.attendanceRecords.map(r => 
+            r.id === existingRecord.id 
+              ? { ...r, status, notes, checkInTime: status === 'present' ? new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : undefined }
+              : r
+          );
+        } else {
+          const newRecord: AttendanceRecord = {
+            id: Date.now().toString(),
+            studentId,
+            studentName: `${student.firstName} ${student.lastName}`,
+            room: student.room,
+            floor: parseInt(student.room.toString().charAt(0)),
+            date: today,
+            status,
+            checkInTime: status === 'present' ? new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : undefined,
+            notes,
+          };
+          updatedRecords = [...state.attendanceRecords, newRecord];
+        }
+        
+        return { attendanceRecords: updatedRecords };
+      }),
+      
+      getTodayAttendance: () => {
+        const today = new Date().toISOString().split('T')[0];
+        return useAppStore.getState().attendanceRecords.filter(r => r.date === today);
+      },
+      
+      getFloorAttendance: (floorNumber) => {
+        const today = new Date().toISOString().split('T')[0];
+        return useAppStore.getState().attendanceRecords.filter(r => r.floor === floorNumber && r.date === today);
+      },
     }),
     {
       name: 'joyBor-storage',
@@ -322,6 +493,8 @@ export const useAppStore = create<AppState>()(
         rooms: state.rooms,
         payments: state.payments,
         applications: state.applications,
+        floors: state.floors,
+        attendanceRecords: state.attendanceRecords,
       }),
     }
   )

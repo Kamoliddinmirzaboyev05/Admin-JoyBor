@@ -1,5 +1,5 @@
 import React from 'react';
-import { DivideIcon as LucideIcon } from 'lucide-react';
+import {  DivideIcon as LucideIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface StatsCardProps {

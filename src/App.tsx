@@ -10,6 +10,7 @@ const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const Students = React.lazy(() => import("./pages/Students"));
 const Payments = React.lazy(() => import("./pages/Payments"));
 const Rooms = React.lazy(() => import("./pages/Rooms"));
+const Attendance = React.lazy(() => import("./pages/Attendance"));
 const FloorDetail = React.lazy(() => import("./pages/FloorDetail"));
 const StudentProfile = React.lazy(() => import("./pages/StudentProfile"));
 const Profile = React.lazy(() => import("./pages/Profile"));
@@ -33,7 +34,7 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60 * 10, // 10 daqiqa cache - sahifalar o'rtasida o'tishda qayta yuklash bo'lmasligi uchun
       gcTime: 1000 * 60 * 30, // 30 daqiqa cache - ma'lumotlar xotirajada saqlanadi
-      retry: (failureCount, error: any) => {
+      retry: (failureCount, error: Error & { response?: { status?: number } }) => {
         // Don't retry on 403 or 401 errors
         if (error?.response?.status === 403 || error?.response?.status === 401) {
           return false;
@@ -84,6 +85,11 @@ function App() {
             <Route path="rooms/:floorId" element={
               <Suspense fallback={<LoadingSpinner />}>
                 <FloorDetail />
+              </Suspense>
+            } />
+            <Route path="attendance" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <Attendance />
               </Suspense>
             } />
             <Route path="applications" element={

@@ -1,9 +1,9 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import BackButton from '../components/UI/BackButton';
-import { get, post } from '../data/api';
+import { get } from '../data/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { X, Plus, MoreVertical, Filter } from 'lucide-react';
+import { X, MoreVertical, Filter } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -127,7 +127,6 @@ const FloorDetail: React.FC = () => {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { emitStudentUpdate } = useGlobalEvents();
 
   const [formData, setFormData] = useState<{
@@ -176,8 +175,7 @@ const FloorDetail: React.FC = () => {
   const {
     data: floors = [],
     isLoading: floorsLoading,
-    error: floorsError,
-    refetch: refetchFloors
+    error: floorsError
   } = useQuery({
     queryKey: ['floors'],
     queryFn: () => get('/floors/'),

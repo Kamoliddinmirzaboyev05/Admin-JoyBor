@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Loader2, Filter } from 'lucide-react';
+import { X, Filter } from 'lucide-react';
 import Select from 'react-select';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoManSharp, IoWomanSharp } from 'react-icons/io5';
