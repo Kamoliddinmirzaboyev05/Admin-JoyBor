@@ -9,7 +9,7 @@ import { post, get } from '../data/api';
 import axios from 'axios';
 // import NProgress from 'nprogress';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiQueries } from '../data/api';
+import { api } from '../data/api';
 import FloorRooms from '../components/UI/FloorRooms';
 import { link } from '../data/config';
 
@@ -117,7 +117,7 @@ const Rooms: React.FC = () => {
     refetch: refetchFloors 
   } = useQuery({
     queryKey: ['floors'],
-    queryFn: apiQueries.getFloors,
+    queryFn: api.getFloors,
     staleTime: 1000 * 30, // Cache ni qisqartirdik
     refetchOnWindowFocus: true,
     refetchOnMount: true,

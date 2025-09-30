@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import Select from 'react-select';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiQueries } from '../data/api';
+import { api } from '../data/api';
 // import { useAppStore } from '../stores/useAppStore';
 import { link } from '../data/config';
 import axios from 'axios';
@@ -107,14 +107,14 @@ const Students: React.FC = () => {
   // Fetch provinces using React Query
   const { data: provincesData = [] } = useQuery({
     queryKey: ['provinces'],
-    queryFn: apiQueries.getProvinces,
+    queryFn: api.getProvinces,
     staleTime: 1000 * 60 * 10, // 10 daqiqa cache
   });
 
   // Fetch districts for selected province using React Query
   const { data: districtsData = [] } = useQuery({
     queryKey: ['districts', formData.region],
-    queryFn: () => formData.region ? apiQueries.getDistricts(Number(formData.region)) : Promise.resolve([]),
+    queryFn: () => formData.region ? api.getDistricts(Number(formData.region)) : Promise.resolve([]),
     enabled: !!formData.region,
     staleTime: 1000 * 60 * 10, // 10 daqiqa cache
   });
@@ -129,21 +129,21 @@ const Students: React.FC = () => {
     refetch
   } = useQuery({
     queryKey: ['students'],
-    queryFn: apiQueries.getStudents,
+    queryFn: api.getStudents,
     staleTime: 1000 * 60 * 5, // 5 daqiqa cache
   });
 
   // Fetch available floors using React Query
   const { data: floorsData = [] } = useQuery({
     queryKey: ['available-floors'],
-    queryFn: apiQueries.getAvailableFloors,
+    queryFn: api.getAvailableFloors,
     staleTime: 1000 * 60 * 5,
   });
 
   // Fetch available rooms for selected floor using React Query
   const { data: roomsData = [] } = useQuery({
     queryKey: ['available-rooms', formData.floor],
-    queryFn: () => formData.floor ? apiQueries.getAvailableRooms(Number(formData.floor)) : Promise.resolve([]),
+    queryFn: () => formData.floor ? api.getAvailableRooms(Number(formData.floor)) : Promise.resolve([]),
     enabled: !!formData.floor,
     staleTime: 1000 * 60 * 5,
   });
@@ -151,7 +151,7 @@ const Students: React.FC = () => {
   // Fetch all rooms for filter dropdown
   const { data: allRoomsData = [] } = useQuery({
     queryKey: ['all-rooms'],
-    queryFn: () => apiQueries.getRooms(),
+    queryFn: () => api.getRooms(),
     staleTime: 1000 * 60 * 5,
   });
 
@@ -781,7 +781,7 @@ const Students: React.FC = () => {
         toast.error('Avtorizatsiya talab qilinadi!');
         return;
       }
-      const response = await fetch('https://joyboryangi.pythonanywhere.com/export-student/', {
+      const response = await fetch('https://joyborv1.pythonanywhere.com/export-student/', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

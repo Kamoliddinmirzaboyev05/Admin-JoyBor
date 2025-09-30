@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiQueries } from '../data/api';
+import { api } from '../data/api';
 import {
   Bell,
   Clock,
@@ -66,7 +66,7 @@ const Notifications: React.FC = () => {
     queryKey: ['notifications'],
     queryFn: async () => {
       try {
-        const res = await apiQueries.getNotifications();
+        const res = await api.getNotifications();
         return Array.isArray(res) ? res : [];
       } catch (error) {
         console.error('Notifications fetch error:', error);
@@ -80,7 +80,7 @@ const Notifications: React.FC = () => {
 
   // Umumiy bildirishnomani o'qilgan qilish mutation
   const markAsReadMutation = useMutation({
-    mutationFn: (id: number) => apiQueries.markNotificationAsRead(id),
+    mutationFn: (id: number) => api.markNotificationAsRead(id),
     onMutate: async (id: number) => {
       await queryClient.cancelQueries({ queryKey: ['notifications'] });
       const previous = queryClient.getQueryData<Notification[]>(['notifications']);
@@ -110,7 +110,7 @@ const Notifications: React.FC = () => {
 
   // Ariza bildirishnomani o'qilgan qilish mutation
   const markApplicationAsReadMutation = useMutation({
-    mutationFn: (id: number) => apiQueries.markApplicationNotificationAsRead(id),
+    mutationFn: (id: number) => api.markApplicationNotificationAsRead(id),
     onMutate: async (id: number) => {
       await queryClient.cancelQueries({ queryKey: ['notifications'] });
       const previous = queryClient.getQueryData<Notification[]>(['notifications']);
@@ -149,14 +149,14 @@ const Notifications: React.FC = () => {
 
       // Agar ariza bildirishnomalari bo'lsa, barcha ariza bildirishnomalarini o'qilgan qilish
       if (applicationNotifications.length > 0) {
-        promises.push(apiQueries.markAllApplicationNotificationsAsRead());
+        promises.push(api.markAllApplicationNotificationsAsRead());
       }
 
       // Umumiy bildirishnomalarni alohida-alohida o'qilgan qilish
       if (generalNotifications.length > 0) {
         promises.push(...generalNotifications.map(n => {
           const notificationId = n.notification_id || n.id;
-          return apiQueries.markNotificationAsRead(notificationId);
+          return api.markNotificationAsRead(notificationId);
         }));
       }
 
@@ -190,10 +190,10 @@ const Notifications: React.FC = () => {
 
       await Promise.all(selectedNotifs.map(notification => {
         if (notification.notification_type === 'application') {
-          return apiQueries.markApplicationNotificationAsRead(notification.id);
+          return api.markApplicationNotificationAsRead(notification.id);
         } else {
           const notificationId = notification.notification_id || notification.id;
-          return apiQueries.markNotificationAsRead(notificationId);
+          return api.markNotificationAsRead(notificationId);
         }
       }));
     },

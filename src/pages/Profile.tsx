@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { LogOut, User, KeyRound, Phone, UserCog, CalendarCheck2, MapPin, MessageCircle } from 'lucide-react';
 import BackButton from '../components/UI/BackButton';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiQueries } from '../data/api';
+import { api } from '../data/api';
 import { useRef } from 'react';
 
 
@@ -29,7 +29,7 @@ const Profile: React.FC = () => {
   const queryClient = useQueryClient();
   const { data: admin, isLoading, error } = useQuery({
     queryKey: ['adminProfile'],
-    queryFn: apiQueries.getAdminProfile,
+    queryFn: api.getAdminProfile,
     staleTime: 1000 * 60 * 5,
   });
   const [showPasswordForm, setShowPasswordForm] = useState(false);
@@ -94,7 +94,7 @@ const Profile: React.FC = () => {
     setIsUpdating(true);
 
     try {
-      await apiQueries.updateAdminProfile(formData);
+      await api.updateAdminProfile(formData);
 
       setShowEditModal(false);
       toast.success('Profil muvaffaqiyatli yangilandi!');

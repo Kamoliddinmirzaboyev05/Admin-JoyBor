@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, X, Filter, Search, ChevronDown, User, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { ChevronRight, X, Filter, Search, ChevronDown, User, CheckCircle, XCircle, AlertCircle, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select, { SingleValue } from 'react-select';
 import { useQuery } from '@tanstack/react-query';
 import { useGlobalEvents } from '../utils/globalEvents';
+import { toast } from 'sonner';
 
 
 interface StatusColors {
@@ -147,10 +148,11 @@ const districtOptions: Record<string, { value: string; label: string }[]> = {
 };
 
 const Applications: React.FC = () => {
-  const { subscribe } = useGlobalEvents();
+  const { subscribe, emitStudentUpdate } = useGlobalEvents();
   const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [showModal, setShowModal] = useState<boolean>(false);
+  const [convertingApp, setConvertingApp] = useState<string | number | null>(null);
 
   const [form, setForm] = useState<FormData>({
     firstName: '',
@@ -187,7 +189,7 @@ const Applications: React.FC = () => {
         throw new Error('Avtorizatsiya talab qilinadi');
       }
 
-      const response = await fetch('https://joyboryangi.pythonanywhere.com/applications/', {
+      const response = await fetch('https://joyborv1.pythonanywhere.com/applications/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -213,6 +215,50 @@ const Applications: React.FC = () => {
     });
     return unsubscribe;
   }, [subscribe, refetch]);
+
+  // Convert application to student function - Updated to use FormData
+  const handleConvertToStudent = async (applicationId: string | number) => {
+    setConvertingApp(applicationId);
+    try {
+      const token = sessionStorage.getItem('access');
+      if (!token) {
+        toast.error('Avtorizatsiya talab qilinadi');
+        return;
+      }
+
+      // Create FormData instead of JSON
+      const formData = new FormData();
+      formData.append('application_id', String(applicationId));
+
+      const response = await fetch('https://joyborv1.pythonanywhere.com/student/create/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData, // Send FormData instead of JSON
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || errorData.message || 'Arizani talabaga aylantirishda xatolik');
+      }
+
+      const result = await response.json();
+      toast.success('Ariza muvaffaqiyatli talabaga aylantirildi!');
+      
+      // Refresh applications list
+      await refetch();
+      
+      // Emit global event for student update
+      emitStudentUpdate({ action: 'created', data: result });
+      
+    } catch (error: any) {
+      console.error('Convert application error:', error);
+      toast.error(error.message || 'Arizani talabaga aylantirishda xatolik yuz berdi');
+    } finally {
+      setConvertingApp(null);
+    }
+  };
 
   // Filter API data with proper type safety and sort by newest first
   const filteredApps = applications
@@ -485,12 +531,23 @@ const Applications: React.FC = () => {
                   <div className="flex gap-2">
                     {(app.status === 'PENDING' || app.status === 'Yangi') && (
                       <>
-                        <Link
-                          to={`/applications/${app.id}`}
-                          className="flex-1 px-3 py-2 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition text-center"
+                        <button
+                          onClick={() => handleConvertToStudent(app.id)}
+                          disabled={convertingApp === app.id}
+                          className="flex-1 px-3 py-2 text-xs font-medium text-white bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 rounded-lg transition text-center disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
                         >
-                          Qabul
-                        </Link>
+                          {convertingApp === app.id ? (
+                            <>
+                              <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
+                              <span>Qo'shilmoqda...</span>
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="w-3 h-3" />
+                              <span>Talaba qilish</span>
+                            </>
+                          )}
+                        </button>
                         <Link
                           to={`/applications/${app.id}`}
                           className="flex-1 px-3 py-2 text-xs font-medium text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition text-center"
@@ -594,4 +651,4 @@ export default Applications;
 
 // Tailwind input style helper
 // Add this to your global CSS or index.css if not already present:
-// .input { @apply w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent; } 
+// .input { @apply w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent; }

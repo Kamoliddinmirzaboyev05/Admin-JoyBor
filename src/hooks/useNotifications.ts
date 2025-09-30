@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiQueries } from '../data/api';
+import { api } from '../data/api';
 import { toast } from 'sonner';
 
 interface Notification {
@@ -50,7 +50,7 @@ export const useNotifications = () => {
     queryKey: ['notifications'],
     queryFn: async () => {
       try {
-        const res = await apiQueries.getNotifications();
+        const res = await api.getNotifications();
         return Array.isArray(res) ? res : [];
       } catch (error) {
         console.error('Notifications fetch error:', error);
@@ -64,7 +64,7 @@ export const useNotifications = () => {
 
   // Mark as read mutation
   const markAsReadMutation = useMutation({
-    mutationFn: (id: number) => apiQueries.markNotificationAsRead(id),
+    mutationFn: (id: number) => api.markNotificationAsRead(id),
     onMutate: async (id: number) => {
       await queryClient.cancelQueries({ queryKey: ['notifications'] });
       const previous = queryClient.getQueryData<Notification[]>(['notifications']);
@@ -92,7 +92,7 @@ export const useNotifications = () => {
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
       const unreadNotifications = notifications.filter(n => !n.read && !n.is_read);
-      await Promise.all(unreadNotifications.map(n => apiQueries.markNotificationAsRead(n.id)));
+      await Promise.all(unreadNotifications.map(n => api.markNotificationAsRead(n.id)));
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['notifications'] });
@@ -120,7 +120,7 @@ export const useNotifications = () => {
   // Mark multiple as read mutation
   const markMultipleAsReadMutation = useMutation({
     mutationFn: async (ids: number[]) => {
-      await Promise.all(ids.map(id => apiQueries.markNotificationAsRead(id)));
+      await Promise.all(ids.map(id => api.markNotificationAsRead(id)));
     },
     onSuccess: (_, ids) => {
       toast.success(`${ids.length} ta bildirishnoma o'qilgan deb belgilandi!`);

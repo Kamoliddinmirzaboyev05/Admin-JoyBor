@@ -4,7 +4,7 @@ import { useAppStore } from '../../stores/useAppStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiQueries } from '../../data/api';
+import { api } from '../../data/api';
 
 interface NavbarProps {
   handleSidebarToggle?: () => void;
@@ -21,28 +21,28 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
   // API dan yotoqxona ma'lumotlarini olish
   const { data: settings } = useQuery({
     queryKey: ['settings'],
-    queryFn: apiQueries.getSettings,
+    queryFn: api.getSettings,
     staleTime: 1000 * 60 * 5,
   });
 
   // API dan admin profil ma'lumotlarini olish
   const { data: adminProfile } = useQuery({
     queryKey: ['adminProfile'],
-    queryFn: apiQueries.getAdminProfile,
+    queryFn: api.getAdminProfile,
     staleTime: 1000 * 60 * 5,
   });
 
   // API dan bildirishnomalarni olish
   const { data: apiNotifications = [], isLoading: notificationsLoading, refetch: refetchNotifications } = useQuery({
     queryKey: ['notifications'],
-    queryFn: apiQueries.getNotifications,
+    queryFn: api.getNotifications,
     staleTime: 1000 * 60 * 2, // 2 daqiqa cache
     refetchInterval: 30000, // Auto-refresh every 30 seconds
   });
 
   // Umumiy bildirishnomani o'qilgan qilish uchun mutation
   const markReadMutation = useMutation({
-    mutationFn: (id: number) => apiQueries.markNotificationAsRead(id),
+    mutationFn: (id: number) => api.markNotificationAsRead(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
@@ -50,7 +50,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
 
   // Ariza bildirishnomani o'qilgan qilish uchun mutation
   const markApplicationReadMutation = useMutation({
-    mutationFn: (id: number) => apiQueries.markApplicationNotificationAsRead(id),
+    mutationFn: (id: number) => api.markNotificationAsRead(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
@@ -435,13 +435,15 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                                   
                                   // Agar ariza bildirishnomalari bo'lsa, barcha ariza bildirishnomalarini o'qilgan qilish
                                   if (applicationNotifications.length > 0) {
-                                    promises.push(apiQueries.markAllApplicationNotificationsAsRead());
+                                    applicationNotifications.forEach((n: any) => {
+                                      promises.push(api.markNotificationAsRead(n.id));
+                                    });
                                   }
                                   
                                   // Umumiy bildirishnomalarni alohida-alohida o'qilgan qilish
                                   generalNotifications.forEach((n: any) => {
                                     const notificationId = n.notification_id || n.id;
-                                    promises.push(apiQueries.markNotificationAsRead(notificationId));
+                                    promises.push(api.markNotificationAsRead(notificationId));
                                   });
                                   
                                   await Promise.all(promises);

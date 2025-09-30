@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { FileText, Users, Building2, CreditCard, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { get, apiQueries } from '../data/api';
+import { get, api } from '../data/api';
 import { link } from '../data/config';
 import { formatCurrency } from '../utils/formatters';
 
@@ -18,7 +18,7 @@ const Reports: React.FC = () => {
     isLoading: dashboardLoading 
   } = useQuery({
     queryKey: ['dashboard'],
-    queryFn: apiQueries.getDashboard,
+    queryFn: api.getDashboard,
     staleTime: 1000 * 60 * 5, // 5 daqiqa cache
   });
 

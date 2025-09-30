@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Edit, DollarSign, ListChecks, Wifi, BookOpen, WashingMachine, Tv, Coffee, Plus, Info, MapPin, User, School, FileImage, Phone, Send } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiQueries } from '../data/api';
+import { api } from '../data/api';
 import { toast } from 'sonner';
 import { useSEO } from '../hooks/useSEO';
 import { formatCurrency } from '../utils/formatters';
@@ -86,28 +86,28 @@ const Settings: React.FC = () => {
   const queryClient = useQueryClient();
   const { data: settings, isLoading, error } = useQuery<any>({
     queryKey: ['settings'],
-    queryFn: apiQueries.getSettings,
+    queryFn: api.getSettings,
     staleTime: 1000 * 60 * 5,
   });
 
   // Rules uchun alohida query
   const { data: rulesData } = useQuery<any[]>({
     queryKey: ['rules'],
-    queryFn: apiQueries.getRules,
+    queryFn: api.getRules,
     staleTime: 1000 * 60 * 5,
   });
 
   // Amenities uchun alohida query
   const { data: amenitiesData } = useQuery<any[]>({
     queryKey: ['amenities'],
-    queryFn: apiQueries.getAmenities,
+    queryFn: api.getAmenities,
     staleTime: 1000 * 60 * 5,
   });
 
   // Admin profil ma'lumotlarini olish
   const { data: adminProfile } = useQuery({
     queryKey: ['adminProfile'],
-    queryFn: apiQueries.getAdminProfile,
+    queryFn: api.getAdminProfile,
     staleTime: 1000 * 60 * 5,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -169,7 +169,7 @@ const Settings: React.FC = () => {
   };
 
   const updateSettingsMutation = useMutation({
-    mutationFn: (data: any) => apiQueries.updateSettings(data),
+    mutationFn: (data: any) => api.updateSettings(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       setEditSection(null);
@@ -181,7 +181,7 @@ const Settings: React.FC = () => {
   });
 
   const createRuleMutation = useMutation({
-    mutationFn: (data: { rule: string }) => apiQueries.createRule(data),
+    mutationFn: (data: { rule: string }) => api.createRule(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rules'] });
       toast.success('Qoida muvaffaqiyatli qo\'shildi!');
@@ -192,7 +192,7 @@ const Settings: React.FC = () => {
   });
 
   const updateRuleMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number, data: { rule: string } }) => apiQueries.updateRule(id, data),
+    mutationFn: ({ id, data }: { id: number, data: { rule: string } }) => api.updateRule(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rules'] });
       toast.success('Qoida muvaffaqiyatli yangilandi!');
@@ -203,7 +203,7 @@ const Settings: React.FC = () => {
   });
 
   const deleteRuleMutation = useMutation({
-    mutationFn: (id: number) => apiQueries.deleteRule(id),
+    mutationFn: (id: number) => api.deleteRule(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rules'] });
       toast.success('Qoida muvaffaqiyatli o\'chirildi!');
@@ -214,7 +214,7 @@ const Settings: React.FC = () => {
   });
 
   const updateAmenityMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number, data: { name: string; is_active: boolean } }) => apiQueries.updateAmenity(id, data),
+    mutationFn: ({ id, data }: { id: number, data: { name: string; is_active: boolean } }) => api.updateAmenity(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['amenities'] });
       toast.success('Qulaylik muvaffaqiyatli yangilandi!');
@@ -226,7 +226,7 @@ const Settings: React.FC = () => {
 
   // Bulk amenities update (optimize API: send only active amenity IDs)
   const bulkUpdateAmenitiesMutation = useMutation({
-    mutationFn: (data: { amenities: number[] }) => apiQueries.patchMyDormitory(data),
+    mutationFn: (data: { amenities: number[] }) => api.patchMyDormitory(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       queryClient.invalidateQueries({ queryKey: ['amenities'] });
@@ -243,7 +243,7 @@ const Settings: React.FC = () => {
       const formData = new FormData();
       formData.append('phone', data.phone);
       formData.append('telegram', data.telegram);
-      return apiQueries.updateAdminProfile(formData);
+      return api.updateAdminProfile(formData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminProfile'] });
@@ -483,7 +483,7 @@ const Settings: React.FC = () => {
         admin: settings.admin?.id,
         university: settings.university?.id,
       };
-      await apiQueries.patchMyDormitory(updateData);
+      await api.patchMyDormitory(updateData);
       toast.success('Yotoqxona maʼlumotlari yangilandi!');
       setEditDormCard(false);
       // Barcha bog'liq cache larni yangilash
@@ -507,7 +507,7 @@ const Settings: React.FC = () => {
         admin: settings.admin?.id,
         university: settings.university?.id,
       };
-      await apiQueries.patchMyDormitory(updateData);
+      await api.patchMyDormitory(updateData);
       toast.success('Narx ma\'lumotlari yangilandi!');
       setEditPricesCard(false);
       // Barcha bog'liq cache larni yangilash
@@ -534,7 +534,7 @@ const Settings: React.FC = () => {
         admin: settings.admin?.id,
         university: settings.university?.id,
       };
-      await apiQueries.patchMyDormitory(updateData);
+      await api.patchMyDormitory(updateData);
       toast.success('Tavsif muvaffaqiyatli yangilandi!');
       setEditDescription(false);
       // Barcha bog'liq cache larni yangilash
@@ -556,7 +556,7 @@ const Settings: React.FC = () => {
         toast.error('Avtorizatsiya talab qilinadi!');
         return;
       }
-      const res = await fetch(`https://joyboryangi.pythonanywhere.com/dormitory_images/${imageId}/`, {
+      const res = await fetch(`https://joyborv1.pythonanywhere.com/dormitory_images/${imageId}/`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -983,7 +983,7 @@ const Settings: React.FC = () => {
                 }
                 const formData = new FormData();
                 formData.append('image', file);
-                const res = await fetch('https://joyboryangi.pythonanywhere.com/dormitory_image_create', {
+                const res = await fetch('https://joyborv1.pythonanywhere.com/dormitory_image_create', {
                   method: 'POST',
                   headers: { 'Authorization': `Bearer ${token}` },
                   body: formData,

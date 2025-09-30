@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import BackButton from '../components/UI/BackButton';
 import { BadgeCheck, Calendar, Trash2 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiQueries } from '../data/api';
+import api from '../data/api';
 import { link } from '../data/config';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -130,7 +130,7 @@ const StudentProfile: React.FC = () => {
     refetch
   } = useQuery({
     queryKey: ['studentProfile', studentId],
-    queryFn: () => apiQueries.getStudentProfile(studentId!),
+    queryFn: api.getProfile,
     enabled: !!studentId,
     staleTime: 1000 * 60 * 5,
   });
@@ -224,7 +224,7 @@ const StudentProfile: React.FC = () => {
 
     const token = sessionStorage.getItem("access");
     const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
-    fetch(`https://joyboryangi.pythonanywhere.com/available-rooms/?floor=${floorId}`, { headers })
+    fetch(`https://joyborv1.pythonanywhere.com/available-rooms/?floor=${floorId}`, { headers })
       .then(res => {
         if (!res.ok) throw new Error("Xonalarni yuklashda xatolik");
         return res.json();

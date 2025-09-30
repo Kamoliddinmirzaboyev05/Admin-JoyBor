@@ -1,5 +1,5 @@
 // Universal API helper for authenticated requests
-export const BASE_URL = 'https://joyboryangi.pythonanywhere.com';
+export const BASE_URL = 'https://joyborv1.pythonanywhere.com';
 
 export async function apiFetch(url: string, options: RequestInit = {}) {
   const token = sessionStorage.getItem('access');
@@ -51,32 +51,68 @@ export async function apiFetch(url: string, options: RequestInit = {}) {
   }
 }
 
-export function get(url: string) {
-  return apiFetch(url, { method: 'GET' });
-}
-export function post(url: string, body?: Record<string, unknown>) {
-  return apiFetch(url, { method: 'POST', body: JSON.stringify(body) });
-}
-export function put(url: string, body?: Record<string, unknown>) {
-  return apiFetch(url, { method: 'PUT', body: JSON.stringify(body) });
-}
-export function del(url: string) {
-  return apiFetch(url, { method: 'DELETE' });
-}
-export function patch(url: string, body?: Record<string, unknown>) {
-  return apiFetch(url, { method: 'PATCH', body: JSON.stringify(body) });
-}
+// Generic API methods
+export const get = (url: string) => apiFetch(url, { method: 'GET' });
+export const post = (url: string, data?: any) => apiFetch(url, {
+  method: 'POST',
+  body: data ? JSON.stringify(data) : undefined,
+});
+export const put = (url: string, data?: any) => apiFetch(url, {
+  method: 'PUT',
+  body: data ? JSON.stringify(data) : undefined,
+});
+export const patch = (url: string, data?: any) => apiFetch(url, {
+  method: 'PATCH',
+  body: data ? JSON.stringify(data) : undefined,
+});
+export const del = (url: string) => apiFetch(url, { method: 'DELETE' });
 
-// React Query uchun API funksiyalar
-export const apiQueries = {
-  // Students
-  getStudents: () => get('/students/'),
+// API endpoints
+export const api = {
+  // Auth
+  login: (data: { username: string; password: string }) => post('/auth/login/', data),
+  logout: () => post('/auth/logout/'),
+  refreshToken: (refresh: string) => post('/auth/refresh/', { refresh }),
   
-  // Rooms
+  // Profile
+  getProfile: () => get('/profile/'),
+  updateProfile: (data: any) => patch('/profile/', data),
+  
+  // Students
+  getStudents: (params?: {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    floor?: number;
+    room?: number;
+    faculty?: string;
+    course?: number;
+    group?: string;
+    status?: string;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', params.page.toString());
+    if (params?.page_size) searchParams.append('page_size', params.page_size.toString());
+    if (params?.search) searchParams.append('search', params.search);
+    if (params?.floor) searchParams.append('floor', params.floor.toString());
+    if (params?.room) searchParams.append('room', params.room.toString());
+    if (params?.faculty) searchParams.append('faculty', params.faculty);
+    if (params?.course) searchParams.append('course', params.course.toString());
+    if (params?.group) searchParams.append('group', params.group);
+    if (params?.status) searchParams.append('status', params.status);
+    
+    const queryString = searchParams.toString();
+    return get(`/students/${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  createStudent: (data: any) => post('/student/create/', data),
+  updateStudent: (id: number, data: any) => patch(`/students/${id}/`, data),
+  deleteStudent: (id: number) => del(`/students/${id}/`),
+  
+  // Floors and Rooms
   getFloors: () => get('/floors/'),
-  getAvailableFloors: () => get('/available-floors/'),
   getRooms: (floorId?: number) => get(`/rooms/${floorId ? `?floor=${floorId}` : ''}`),
-  getAvailableRooms: (floorId?: number) => get(`/available-rooms/${floorId ? `?floor=${floorId}` : ''}`),
+  getAvailableRooms: (floorId: number) => get(`/available-rooms/?floor=${floorId}`),
   
   // Provinces and Districts
   getProvinces: () => get('/provinces/'),
@@ -118,87 +154,83 @@ export const apiQueries = {
     return get(`/attendance-sessions/${queryString ? `?${queryString}` : ''}`);
   },
   
-  // Student Profile
-  getStudentProfile: (id: string) => get(`/students/${id}/`),
-  updateStudent: (id: string, data: Record<string, unknown>) => patch(`/students/${id}/`, data),
-
-  // Settings (dormitory info)
-  getSettings: () => get('/my-dormitory/'),
-  updateSettings: (data: any) => patch('/my-dormitory/', data),
-  patchMyDormitory: (data: any) => {
-    // Handle FormData differently from regular objects
-    if (data instanceof FormData) {
-      const token = sessionStorage.getItem('access');
-      return fetch(`${BASE_URL}/my-dormitory-update/`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: data,
-      }).then(async (res) => {
-        const responseData = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          const error = new Error(responseData?.detail || responseData?.message || 'API xatolik');
-          (error as any).response = { data: responseData, status: res.status, statusText: res.statusText };
-          throw error;
-        }
-        return responseData;
-      });
-    }
-    return patch('/my-dormitory-update/', data);
+  createAttendanceSession: (data: {
+    floor: number;
+    date: string;
+    students: Array<{
+      student_id: number;
+      is_present: boolean;
+      reason?: string;
+    }>;
+  }) => post('/attendance-sessions/', data),
+  
+  updateAttendanceSession: (id: number, data: any) => patch(`/attendance-sessions/${id}/`, data),
+  deleteAttendanceSession: (id: number) => del(`/attendance-sessions/${id}/`),
+  
+  // Reports
+  getReports: (params?: {
+    start_date?: string;
+    end_date?: string;
+    floor?: number;
+    type?: string;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.start_date) searchParams.append('start_date', params.start_date);
+    if (params?.end_date) searchParams.append('end_date', params.end_date);
+    if (params?.floor) searchParams.append('floor', params.floor.toString());
+    if (params?.type) searchParams.append('type', params.type);
+    
+    const queryString = searchParams.toString();
+    return get(`/reports/${queryString ? `?${queryString}` : ''}`);
   },
-
+  
+  // Settings
+  getSettings: () => get('/settings/'),
+  updateSettings: (data: any) => patch('/settings/', data),
+  
   // Dashboard
   getDashboard: () => get('/dashboard/'),
-  // Admin Profile (updated to use absolute URL)
-  getAdminProfile: () => get('https://joyboryangi.pythonanywhere.com/profile/'),
-  updateAdminProfile: (data: {
-    username?: string;
-    first_name?: string;
-    last_name?: string;
-    email?: string;
-    bio?: string;
-    phone?: string;
-    birth_date?: string;
-    address?: string;
-    telegram?: string;
-    password?: string;
-  } | FormData) => {
-    // Handle FormData differently from regular objects
-    if (data instanceof FormData) {
-      const token = sessionStorage.getItem('access');
-      return fetch(`https://joyboryangi.pythonanywhere.com/profile/`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: data,
-      }).then(async (res) => {
-        const responseData = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          const error = new Error(responseData?.detail || responseData?.message || 'API xatolik');
-          (error as any).response = { data: responseData, status: res.status, statusText: res.statusText };
-          throw error;
-        }
-        return responseData;
-      });
-    }
-    return patch('https://joyboryangi.pythonanywhere.com/profile/', data);
-  },
   
-  // Rules
+  // Additional Notification Methods
+  markApplicationNotificationAsRead: (id: number) => patch(`/notifications/${id}/`, { is_read: true }),
+  markAllApplicationNotificationsAsRead: () => post('/notifications/mark-all-read/', {}),
+  
+  // Dormitory Management
+  patchMyDormitory: (data: any) => patch('/dormitory/', data),
+  
+  // Amenities Management
+  getAmenities: () => get('/amenities/'),
+  createAmenity: (data: { name: string; is_active: boolean }) => post('/amenities/', data),
+  updateAmenity: (id: number, data: { name: string; is_active: boolean }) => patch(`/amenities/${id}/`, data),
+  deleteAmenity: (id: number) => del(`/amenities/${id}/`),
+  
+  // Rules Management
   getRules: () => get('/rules/'),
   createRule: (data: { rule: string }) => post('/rules/', data),
-  updateRule: (id: number, data: { rule: string }) => put(`/rules/${id}/`, data),
+  updateRule: (id: number, data: { rule: string }) => patch(`/rules/${id}/`, data),
   deleteRule: (id: number) => del(`/rules/${id}/`),
   
-  // Notifications
+  // Dormitory Images
+  getDormitoryImages: () => get('/dormitory_images/'),
+  uploadDormitoryImage: (data: FormData) => {
+    const token = sessionStorage.getItem('access');
+    return fetch(`${BASE_URL}/dormitory_image_create`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: data,
+    }).then(res => res.json());
+  },
+  deleteDormitoryImage: (id: number) => del(`/dormitory_images/${id}/`),
+  
+  // Notifications - Fixed endpoint
   getNotifications: async () => {
     try {
       // Ikkita turdagi bildirishnomalarni olish
       const [generalNotifications, applicationNotifications] = await Promise.all([
         get('/notifications/my/').catch(() => []),
-        get('/application_notifications/').catch(() => [])
+        get('/notifications/').catch(() => []) // Fixed: removed application_notifications endpoint
       ]);
 
       const allNotifications = [];
@@ -210,158 +242,108 @@ export const apiQueries = {
           notification_id: item.notification?.id, // Original notification ID - o'qilgan qilish uchun
           title: item.notification?.title || 'Bildirishnoma',
           message: item.notification?.message || '',
-          type: (item.notification?.type || 'info') as 'info' | 'success' | 'warning' | 'error',
-          read: item.is_read,
-          is_read: item.is_read,
-          created_at: item.notification?.created_at || item.received_at,
-          received_at: item.received_at,
-          image: item.notification?.image,
-          image_url: item.notification?.image_url,
-          target_type: item.notification?.target_type,
-          target_user: item.notification?.target_user,
-          is_active: item.notification?.is_active,
-          category: 'general',
-          notification_type: 'general' as const
+          type: item.notification?.type || 'info',
+          is_read: item.is_read || false,
+          created_at: item.created_at || item.notification?.created_at,
+          category: 'general'
         }));
         allNotifications.push(...mappedGeneral);
       }
 
-      // Ariza bildirishnomalar
+      // Ariza bildirishnomalari
       if (Array.isArray(applicationNotifications)) {
-        const mappedApplications = applicationNotifications.map((item: any) => ({
+        const mappedApplication = applicationNotifications.map((item: any) => ({
           id: item.id,
-          notification_id: item.id, // Ariza bildirishnomalar uchun id bir xil
-          title: 'Yangi ariza',
+          notification_id: item.id,
+          title: item.title || 'Ariza bildirishnomasi',
           message: item.message || '',
-          type: 'info' as const,
-          read: item.is_read,
-          is_read: item.is_read,
+          type: item.type || 'application',
+          is_read: item.is_read || false,
           created_at: item.created_at,
-          received_at: item.created_at,
-          image: undefined,
-          image_url: undefined,
-          target_type: 'application',
-          target_user: item.user,
-          is_active: true,
-          category: 'application',
-          notification_type: 'application' as const
+          category: 'application'
         }));
-        allNotifications.push(...mappedApplications);
+        allNotifications.push(...mappedApplication);
       }
 
-      // Vaqt bo'yicha saralash (eng yangi tepada)
-      return allNotifications.sort((a, b) => {
-        const aDate = new Date(a.received_at || a.created_at).getTime();
-        const bDate = new Date(b.received_at || b.created_at).getTime();
-        return bDate - aDate;
-      });
+      // Vaqt bo'yicha saralash (eng yangi birinchi)
+      return allNotifications.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
     } catch (error) {
-      console.error('Get notifications error:', error);
+      console.error('Notifications fetch error:', error);
       return [];
     }
   },
+  
   markNotificationAsRead: async (id: number) => {
     try {
-      console.log('Trying to mark notification as read with ID:', id);
-      
-      // Birinchi urinish: POST endpoint
-      try {
-        console.log('Trying POST /notifications/mark-read/ with notification_id:', id);
-        return await post('/notifications/mark-read/', { notification_id: id });
-      } catch (e1: any) {
-        console.log('POST endpoint failed:', e1.message, 'trying PATCH...');
-        
-        // Ikkinchi urinish: PATCH endpoint
-        try {
-          console.log('Trying PATCH /notifications/' + id + '/');
-          return await patch(`/notifications/${id}/`, { is_read: true });
-        } catch (e2: any) {
-          console.log('PATCH endpoint failed:', e2.message, 'trying PUT...');
-          
-          // Uchinchi urinish: PUT endpoint
-          try {
-            console.log('Trying PUT /notifications/' + id + '/');
-            return await put(`/notifications/${id}/`, { is_read: true });
-          } catch (e3: any) {
-            console.log('PUT endpoint failed:', e3.message, 'trying application notifications...');
-            
-            // To'rtinchi urinish: Application notifications endpoint
-            try {
-              console.log('Trying PATCH /application_notifications/' + id + '/');
-              return await patch(`/application_notifications/${id}/`, { is_read: true });
-            } catch (e4: any) {
-              console.log('Application notifications failed:', e4.message, 'trying alternative endpoints...');
-              
-              // Beshinchi urinish: Alternative endpoints
-              try {
-                console.log('Trying POST /notifications/mark-as-read/');
-                return await post('/notifications/mark-as-read/', { notification_id: id });
-              } catch (e5: any) {
-                try {
-                  console.log('Trying POST /notifications/read/');
-                  return await post('/notifications/read/', { notification_id: id });
-                } catch (e6: any) {
-                  try {
-                    console.log('Trying PATCH /notifications/mark-read/' + id + '/');
-                    return await patch(`/notifications/mark-read/${id}/`, { is_read: true });
-                  } catch (e7: any) {
-                    try {
-                      console.log('Trying POST /notifications/mark-read/ with different body');
-                      return await post('/notifications/mark-read/', { id: id });
-                    } catch (e8: any) {
-                      try {
-                        console.log('Trying POST /notifications/mark-read/ with different body 2');
-                        return await post('/notifications/mark-read/', { notification: id });
-                      } catch (e9: any) {
-                        console.error('All endpoints failed:', { 
-                          e1: e1.message, 
-                          e2: e2.message, 
-                          e3: e3.message, 
-                          e4: e4.message,
-                          e5: e5.message,
-                          e6: e6.message,
-                          e7: e7.message,
-                          e8: e8.message,
-                          e9: e9.message
-                        });
-                        throw new Error('Barcha endpointlar ishlamayapti');
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch (error: any) {
+      console.log('Trying PATCH /notifications/' + id + '/');
+      return await patch(`/notifications/${id}/`, { is_read: true });
+    } catch (error) {
       console.error('Mark notification as read error:', error);
-      throw error;
+      // Fallback to alternative endpoint
+      try {
+        return await post('/notifications/mark-read/', { notification_id: id });
+      } catch (fallbackError) {
+        console.error('Fallback mark as read error:', fallbackError);
+        throw fallbackError;
+      }
     }
   },
-
-  // Ariza bildirishnomalari uchun maxsus funksiyalar
-  markApplicationNotificationAsRead: async (id: number) => {
+  
+  markAllNotificationsAsRead: async () => {
     try {
-      console.log('Marking application notification as read with ID:', id);
-      return await post('/application_notifications/mark-read/', { notification_id: id });
-    } catch (error: any) {
-      console.error('Mark application notification as read error:', error);
-      throw error;
-    }
-  },
-
-  markAllApplicationNotificationsAsRead: async () => {
-    try {
-      console.log('Marking all application notifications as read');
-      return await post('/application_notifications/mark-all-read/', {});
-    } catch (error: any) {
-      console.error('Mark all application notifications as read error:', error);
+      return await post('/notifications/mark-all-read/', {});
+    } catch (error) {
+      console.error('Mark all notifications as read error:', error);
       throw error;
     }
   },
   
-  // Amenities
-  getAmenities: () => get('/amenities/'),
-  updateAmenity: (id: number, data: { name: string; is_active: boolean }) => patch(`/amenities/${id}/update/`, data),
-}; 
+  // Export functions
+  exportStudents: () => {
+    const token = sessionStorage.getItem('access');
+    return fetch(`${BASE_URL}/export-student/`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+  },
+  
+  exportPayments: () => {
+    const token = sessionStorage.getItem('access');
+    return fetch(`${BASE_URL}/export-payment/`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+  },
+  
+  // Admin profile endpoints
+  getAdminProfile: () => get(`${BASE_URL}/profile/`),
+  
+  updateAdminProfile: async (data: any) => {
+    const token = sessionStorage.getItem('access');
+    if (!token) {
+      throw new Error('Avtorizatsiya talab qilinadi');
+    }
+    
+    return fetch(`${BASE_URL}/profile/`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    }).then(res => {
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      return res.json();
+    });
+  }
+};
+
+export default api;

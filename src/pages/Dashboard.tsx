@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 // useAppStore import removed as it's not used
 import StatsCard from '../components/UI/StatsCard';
 import { useEffect, useState } from 'react';
-import { get, del, put, apiQueries, post } from '../data/api';
+import { get, del, put, api, post } from '../data/api';
 import { useNavigate } from 'react-router-dom';
 import { link } from '../data/config';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -71,7 +71,7 @@ const Dashboard: React.FC = () => {
     error: dashboardError
   } = useQuery({
     queryKey: ['dashboard'],
-    queryFn: apiQueries.getDashboard,
+    queryFn: api.getDashboard,
     staleTime: 1000 * 60 * 5, // 5 daqiqa cache
     retry: 1
   });

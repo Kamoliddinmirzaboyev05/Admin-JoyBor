@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, UserPlus, User, Mail, Phone, Building, Lock, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiQueries } from '../../data/api';
+import { api } from '../../data/api';
 
 interface AddLeaderModalProps {
   isOpen: boolean;
@@ -39,7 +39,7 @@ const AddLeaderModal: React.FC<AddLeaderModalProps> = ({ isOpen, onClose, floors
 
   // Create leader mutation
   const createLeaderMutation = useMutation({
-    mutationFn: apiQueries.createLeader,
+    mutationFn: api.createLeader,
     onSuccess: () => {
       toast.success('Qavat sardori muvaffaqiyatli qo&apos;shildi!');
       queryClient.invalidateQueries({ queryKey: ['leaders'] });

@@ -8,7 +8,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import "../index.css";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiQueries } from "../data/api";
+import { api } from "../data/api";
 import { useLocation, Link } from "react-router-dom";
 import { formatCurrency, formatCurrencyDetailed } from "../utils/formatters";
 import { invalidatePaymentCaches } from "../utils/cacheUtils";
@@ -82,7 +82,7 @@ const Payments: React.FC = () => {
     refetch
   } = useQuery<Payment[]>({
     queryKey: ["payments"],
-    queryFn: apiQueries.getPayments,
+    queryFn: api.getPayments,
     staleTime: 1000 * 60 * 5, // 5 daqiqa cache
   });
 
@@ -92,7 +92,7 @@ const Payments: React.FC = () => {
     isLoading: studentsLoading
   } = useQuery<Student[]>({
     queryKey: ["students"],
-    queryFn: apiQueries.getStudents,
+    queryFn: api.getStudents,
     staleTime: 1000 * 60 * 10, // 10 daqiqa cache
   });
 
@@ -353,7 +353,7 @@ const Payments: React.FC = () => {
           throw new Error("Avtorizatsiya talab qilinadi");
         }
 
-        const response = await fetch(`https://joyboryangi.pythonanywhere.com/payments/${selectedPayment.id}/`, {
+        const response = await fetch(`https://joyborv1.pythonanywhere.com/payments/${selectedPayment.id}/`, {
           method: "PATCH",
           headers: {
             "Authorization": `Bearer ${token}`,
@@ -407,7 +407,7 @@ const Payments: React.FC = () => {
         emitPaymentUpdate({ action: 'updated', id: selectedPayment.id, data: updatedPayment });
       } else {
         // Yangi qoshish
-        const newPayment = await apiQueries.createPayment({
+        const newPayment = await api.createPayment({
           student: Number(form.studentId),
           amount: Number(form.amount),
           valid_until: form.validUntil,
@@ -548,7 +548,7 @@ const Payments: React.FC = () => {
 
       toast.info("Export boshlanmoqda...");
 
-      const response = await fetch("https://joyboryangi.pythonanywhere.com/export-payment/", {
+      const response = await fetch("https://joyborv1.pythonanywhere.com/export-payment/", {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,

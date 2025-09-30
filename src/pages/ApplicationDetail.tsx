@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import BackButton from '../components/UI/BackButton';
 import { BadgeCheck, Phone, MapPin, GraduationCap, Calendar, User, FileText, Image, Check, XCircle, UserPlus, Building, CreditCard, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -109,13 +109,13 @@ function ImageCard({ src, alt, label }: { src?: string | null; alt: string; labe
 
 const ApplicationDetail: React.FC = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { emitApplicationUpdate, emitStudentUpdate, subscribe } = useGlobalEvents();
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
+  const [convertingToStudent, setConvertingToStudent] = useState(false);
 
   // Fetch application details from API
   const {
@@ -164,39 +164,6 @@ const ApplicationDetail: React.FC = () => {
     } catch {
       return dateString;
     }
-  };
-
-  const prepareStudentDataFromApplication = () => {
-    if (!application) return null;
-    const firstName = application.name || '';
-    const lastName = application.last_name || '';
-    const fatherName = application.middle_name || '';
-
-    // Telefon raqamini to'g'ri formatda tayyorlash
-    let phone = application.phone ? application.phone.toString() : '';
-    if (phone.startsWith('+')) phone = phone.substring(1);
-
-    return {
-      firstName,
-      lastName,
-      fatherName,
-      phone,
-      direction: application.direction || '',
-      faculty: application.faculty || '',
-      group: application.group || '',
-      passport: application.passport || '',
-      course: application.course || '1-kurs',
-      gender: 'Erkak', // Default gender
-      isPrivileged: false,
-      // Province va district ID larini olish
-      province: application.province?.id ? String(application.province.id) : '',
-      district: application.district?.id ? String(application.district.id) : '',
-      // Rasm URL (keyin yuklab olish uchun)
-      imageUrl: application.user_image || null,
-      // Pasport rasmlari
-      passportImage1Base64: application.passport_image_first || null,
-      passportImage2Base64: application.passport_image_second || null,
-    };
   };
 
   const handleApprove = async () => {
@@ -293,13 +260,56 @@ const ApplicationDetail: React.FC = () => {
     }
   };
 
-  const handleAddToStudents = () => {
-    const studentData = prepareStudentDataFromApplication();
-    if (studentData) {
-      // Ma'lumotlarni sessionStorage ga saqlash
-      sessionStorage.setItem('pendingStudentData', JSON.stringify(studentData));
-      // Students sahifasiga o'tish va modalni ochish
-      navigate('/students?openModal=true');
+  // Convert application to student function - Updated with proper error handling
+  const handleConvertToStudent = async () => {
+    if (!application?.id) {
+      toast.error("Ariza ID topilmadi.");
+      return;
+    }
+    
+    setConvertingToStudent(true);
+    try {
+      const token = sessionStorage.getItem('access');
+      if (!token) {
+        throw new Error('Avtorizatsiya talab qilinadi');
+      }
+
+      // Create FormData with application_id
+      const formData = new FormData();
+      formData.append('application_id', String(application.id));
+
+      const response = await fetch(`${link}/student/create/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
+        }
+        throw new Error(errorData.message || errorData.detail || `Server xatoligi: ${response.status}`);
+      }
+
+      const result = await response.json();
+      toast.success('Ariza muvaffaqiyatli talabaga aylantirildi!');
+      
+      // Refresh application details
+      await refetch();
+      
+      // Emit global event for student update
+      emitStudentUpdate({ action: 'created', data: result });
+      
+    } catch (error: any) {
+      console.error('Convert application error:', error);
+      toast.error(error.message || 'Arizani talabaga aylantirishda xatolik yuz berdi');
+    } finally {
+      setConvertingToStudent(false);
     }
   };
 
@@ -327,9 +337,6 @@ const ApplicationDetail: React.FC = () => {
     );
   }
 
-  // Debug: Application ma'lumotlarini console ga chiqarish
-  console.log('Application data:', application);
-  console.log('Application status:', application.status, typeof application.status);
 
   return (
     <motion.div
@@ -557,11 +564,21 @@ const ApplicationDetail: React.FC = () => {
                 {String(application.status).toUpperCase() === 'APPROVED' && (
                   <div className="flex justify-center">
                     <button
-                      onClick={handleAddToStudents}
-                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center gap-2"
+                      onClick={handleConvertToStudent}
+                      disabled={convertingToStudent}
+                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <UserPlus className="w-5 h-5" />
-                      Talabalar ro'yxatiga qo'shish
+                      {convertingToStudent ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span>Qo'shilmoqda...</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-5 h-5" />
+                          <span>Talabalar ro'yxatiga qo'shish</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 )}

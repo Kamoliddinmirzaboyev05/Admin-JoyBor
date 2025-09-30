@@ -15,7 +15,7 @@ import { useAppStore } from '../stores/useAppStore';
 import StatsCard from '../components/UI/StatsCard';
 import AddLeaderModal from '../components/Modals/AddLeaderModal';
 import { useQuery } from '@tanstack/react-query';
-import { apiQueries } from '../data/api';
+import { api } from '../data/api';
 import type { AttendanceSession } from '../types/AttendanceSession';
 
 const Attendance: React.FC = () => {
@@ -37,7 +37,7 @@ const Attendance: React.FC = () => {
     refetch: refetchSessions
   } = useQuery<AttendanceSession[]>({
     queryKey: ['attendance-sessions', selectedDate],
-    queryFn: () => apiQueries.getAttendanceSessions({ date: selectedDate }),
+    queryFn: () => api.getAttendanceSessions({ date: selectedDate }),
     staleTime: 1000 * 60 * 5, // 5 daqiqa cache
   });
 
@@ -98,25 +98,25 @@ const Attendance: React.FC = () => {
           title="Jami talabalar"
           value={totalStudents.toString()}
           icon={Users}
-          color="blue"
+          color="primary"
         />
         <StatsCard
           title="Hozir"
           value={totalPresent.toString()}
           icon={UserCheck}
-          color="green"
+          color="accent"
         />
         <StatsCard
           title="Yo&apos;q"
           value={totalAbsent.toString()}
           icon={UserX}
-          color="red"
+          color="danger"
         />
         <StatsCard
           title="Davomat foizi"
           value={`${attendanceRate}%`}
           icon={TrendingUp}
-          color="purple"
+          color="secondary"
         />
       </div>
 

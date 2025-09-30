@@ -14,7 +14,7 @@ import { useAppStore } from '../../stores/useAppStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from './Navbar';
 import { useQuery } from '@tanstack/react-query';
-import { apiQueries } from '../../data/api';
+import { api } from '../../data/api';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -58,7 +58,7 @@ const Sidebar: React.FC = () => {
   // API: yotoqxona sozlamalari (nomi)
   const { data: settings } = useQuery({
     queryKey: ['settings'],
-    queryFn: apiQueries.getSettings,
+    queryFn: api.getSettings,
     staleTime: 1000 * 60 * 5,
   });
 

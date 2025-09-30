@@ -9,7 +9,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { link } from '../data/config';
 import Select from 'react-select';
-import { apiQueries } from '../data/api';
+import { api } from '../data/api';
 import { invalidateStudentCaches } from '../utils/cacheUtils';
 import { useGlobalEvents } from '../utils/globalEvents';
 
@@ -185,13 +185,13 @@ const FloorDetail: React.FC = () => {
   // Talaba qo'shish uchun kerakli ma'lumotlar
   const { data: provincesData = [] } = useQuery({
     queryKey: ['provinces'],
-    queryFn: apiQueries.getProvinces,
+    queryFn: api.getProvinces,
     staleTime: 1000 * 60 * 10,
   });
 
   const { data: districtsData = [] } = useQuery({
     queryKey: ['districts', formData.region],
-    queryFn: () => formData.region ? apiQueries.getDistricts(Number(formData.region)) : Promise.resolve([]),
+    queryFn: () => formData.region ? api.getDistricts(Number(formData.region)) : Promise.resolve([]),
     enabled: !!formData.region,
     staleTime: 1000 * 60 * 10,
   });
