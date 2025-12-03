@@ -14,8 +14,7 @@ import {
 import { useAppStore } from '../stores/useAppStore';
 import StatsCard from '../components/UI/StatsCard';
 import AddLeaderModal from '../components/Modals/AddLeaderModal';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../data/api';
+// API imports o'chirilgan - demo ma'lumotlar
 import type { AttendanceSession } from '../types/AttendanceSession';
 
 const Attendance: React.FC = () => {
@@ -29,17 +28,42 @@ const Attendance: React.FC = () => {
     updateFloorStats();
   }, [updateFloorStats]);
 
-  // Real API'dan attendance sessions olish
-  const { 
-    data: attendanceSessions = [], 
-    isLoading: sessionsLoading,
-    error: sessionsError,
-    refetch: refetchSessions
-  } = useQuery<AttendanceSession[]>({
-    queryKey: ['attendance-sessions', selectedDate],
-    queryFn: () => api.getAttendanceSessions({ date: selectedDate }),
-    staleTime: 1000 * 60 * 5, // 5 daqiqa cache
-  });
+  // Demo attendance sessions
+  const attendanceSessions: AttendanceSession[] = [
+    {
+      id: 1,
+      date: selectedDate,
+      floor: [{ id: 1, name: '1-qavat' }],
+      leader: { id: 1, user: 'Navbatchi 1', floor: '1' },
+      rooms: [
+        { room_id: 1, room_name: '101', students: [{ id: 1, student: { id: 1, name: 'Talaba', last_name: '1' } }] },
+        { room_id: 2, room_name: '102', students: [{ id: 2, student: { id: 2, name: 'Talaba', last_name: '2' } }] },
+      ],
+    },
+    {
+      id: 2,
+      date: selectedDate,
+      floor: [{ id: 2, name: '2-qavat' }],
+      leader: { id: 2, user: 'Navbatchi 2', floor: '2' },
+      rooms: [
+        { room_id: 3, room_name: '201', students: [{ id: 3, student: { id: 3, name: 'Talaba', last_name: '3' } }] },
+        { room_id: 4, room_name: '202', students: [{ id: 4, student: { id: 4, name: 'Talaba', last_name: '4' } }] },
+      ],
+    },
+    {
+      id: 3,
+      date: selectedDate,
+      floor: [{ id: 3, name: '3-qavat' }],
+      leader: { id: 3, user: 'Navbatchi 3', floor: '3' },
+      rooms: [
+        { room_id: 5, room_name: '301', students: [{ id: 5, student: { id: 5, name: 'Talaba', last_name: '5' } }] },
+        { room_id: 6, room_name: '302', students: [{ id: 6, student: { id: 6, name: 'Talaba', last_name: '6' } }] },
+      ],
+    },
+  ];
+  const sessionsLoading = false;
+  const sessionsError = null;
+  const refetchSessions = () => Promise.resolve();
 
   // Bugungi umumiy statistika
   const totalStudents = floors.reduce((sum, floor) => sum + floor.totalStudents, 0);

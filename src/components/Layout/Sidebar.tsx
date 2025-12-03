@@ -13,8 +13,7 @@ import {
 import { useAppStore } from '../../stores/useAppStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from './Navbar';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../../data/api';
+// API imports o'chirilgan - demo ma'lumotlar
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -55,12 +54,11 @@ const Sidebar: React.FC = () => {
     if (isMobile) setMobileOpen(false);
   };
 
-  // API: yotoqxona sozlamalari (nomi)
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: api.getSettings,
-    staleTime: 1000 * 60 * 5,
-  });
+  // Demo settings
+  const settings = {
+    name: 'JoyBor Yotoqxonasi',
+    logo: null,
+  };
 
   // Sidebar content
   const sidebarContent = (

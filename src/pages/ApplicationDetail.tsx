@@ -1,43 +1,27 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import BackButton from '../components/UI/BackButton';
-import { BadgeCheck, Phone, MapPin, GraduationCap, Calendar, User, FileText, Image, Check, XCircle, UserPlus, Building, CreditCard, MessageSquare } from 'lucide-react';
+import { MapPin, GraduationCap, User, FileText, Check, XCircle, MessageSquare, CreditCard, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { link } from '../data/config';
 import { toast } from 'sonner';
-import { invalidateApplicationCaches, invalidateStudentCaches } from '../utils/cacheUtils';
+import { invalidateApplicationCaches } from '../utils/cacheUtils';
 import { useGlobalEvents } from '../utils/globalEvents';
 
-// Application interface API ma'lumotlariga mos
 interface Application {
   id: number;
-  user: {
-    id: number;
-    username: string;
-  };
-  dormitory: {
-    id: number;
-    name: string;
-  };
   name: string;
   last_name: string;
   middle_name: string;
-  province: {
-    id: number;
-    name: string;
-  };
-  district: {
-    id: number;
-    name: string;
-    province: number;
-  };
+  province_name: string;
+  district_name: string;
   faculty: string;
-  direction: string | null;
+  direction: string;
   course: string;
-  group: string | null;
-  phone: number;
-  passport: string | null;
+  group: string;
+  phone: string;
+  passport: string;
   status: string;
   comment: string;
   admin_comment: string | null;
@@ -46,12 +30,17 @@ interface Application {
   passport_image_first: string | null;
   passport_image_second: string | null;
   created_at: string;
+  dormitory_name: string;
+  user: string;
+  dormitory: number;
+  province: number;
+  district: number;
 }
 
 const statusColors: Record<string, string> = {
-  'PENDING': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700',
-  'APPROVED': 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700',
-  'REJECTED': 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700',
+  'PENDING': 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+  'APPROVED': 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+  'REJECTED': 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
 };
 
 const statusLabels: Record<string, string> = {
@@ -60,10 +49,9 @@ const statusLabels: Record<string, string> = {
   'REJECTED': 'Rad etilgan',
 };
 
-// Status olish funksiyasi
 const getStatusColor = (status: string) => {
   const upperStatus = String(status).toUpperCase();
-  return statusColors[upperStatus] || 'bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700';
+  return statusColors[upperStatus] || 'bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300';
 };
 
 const getStatusLabel = (status: string) => {
@@ -71,59 +59,34 @@ const getStatusLabel = (status: string) => {
   return statusLabels[upperStatus] || status;
 };
 
-function InfoCard({ icon, label, value }: { icon: React.ReactNode; label: string; value?: string | number | null }) {
-  return (
-    <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-center gap-3">
-        <div className="text-blue-600 dark:text-blue-400">
-          {icon}
-        </div>
-        <div className="flex-1">
-          <div className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">{label}</div>
-          <div className="text-gray-900 dark:text-gray-100 font-semibold">
-            {value || '-'}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ImageCard({ src, alt, label }: { src?: string | null; alt: string; label: string }) {
-  if (!src) return null;
-
-  return (
-    <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <Image className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
-      </div>
-      <img
-        src={src}
-        alt={alt}
-        className="w-full h-48 object-cover rounded-lg border border-gray-200 dark:border-slate-600"
-      />
-    </div>
-  );
-}
-
 const ApplicationDetail: React.FC = () => {
   const { id } = useParams();
   const queryClient = useQueryClient();
-  const { emitApplicationUpdate, emitStudentUpdate, subscribe } = useGlobalEvents();
+  const { emitApplicationUpdate, emitStudentUpdate } = useGlobalEvents();
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
-  const [convertingToStudent, setConvertingToStudent] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedFloor, setSelectedFloor] = useState<number>(0);
+  const [selectedRoom, setSelectedRoom] = useState<number>(0);
+  
+  // Student form data
+  const [studentForm, setStudentForm] = useState({
+    name: '',
+    last_name: '',
+    middle_name: '',
+    passport: '',
+    faculty: '',
+    direction: '',
+    course: '',
+    group: '',
+    phone: '',
+    gender: 'Erkak',
+  });
 
-  // Fetch application details from API
-  const {
-    data: application,
-    isLoading,
-    error,
-    refetch
-  } = useQuery<Application>({
+  const { data: application, isLoading, error, refetch } = useQuery<Application>({
     queryKey: ['application', id],
     queryFn: async () => {
       const token = sessionStorage.getItem('access');
@@ -133,82 +96,79 @@ const ApplicationDetail: React.FC = () => {
           'Content-Type': 'application/json',
         },
       });
-      if (!response.ok) {
-        throw new Error('Ariza ma\'lumotlarini yuklashda xatolik');
-      }
+      if (!response.ok) throw new Error('Ariza ma\'lumotlarini yuklashda xatolik');
       return response.json();
     },
     enabled: !!id,
-    staleTime: 1000 * 60 * 5,
   });
 
-  // Listen for global application updates
-  React.useEffect(() => {
-    const unsubscribe = subscribe('application-updated', () => {
-      refetch();
-    });
-    return unsubscribe;
-  }, [subscribe, refetch]);
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '-';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('uz-UZ', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+  // Fetch floors
+  const { data: floorsData } = useQuery<{ results: Array<{ id: number; name: string }> }>({
+    queryKey: ['floors'],
+    queryFn: async () => {
+      const token = sessionStorage.getItem('access');
+      const response = await fetch(`${link}/floors/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
-    } catch {
-      return dateString;
-    }
-  };
+      if (!response.ok) throw new Error('Qavatlarni yuklashda xatolik');
+      return response.json();
+    },
+  });
+  const floors = floorsData?.results || [];
+
+  // Fetch rooms based on selected floor
+  const { data: roomsData } = useQuery<{ results: Array<{ id: number; name: string; capacity: number; current_occupancy: number; status: string }> }>({
+    queryKey: ['rooms', selectedFloor],
+    queryFn: async () => {
+      if (!selectedFloor) return { results: [] };
+      const token = sessionStorage.getItem('access');
+      const response = await fetch(`${link}/rooms/?floor=${selectedFloor}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) throw new Error('Xonalarni yuklashda xatolik');
+      return response.json();
+    },
+    enabled: !!selectedFloor,
+  });
+  const rooms = roomsData?.results || [];
 
   const handleApprove = async () => {
     setLoading(true);
     try {
       const token = sessionStorage.getItem('access');
-
-      const formData = new FormData();
-      formData.append('status', 'APPROVED');
-      if (comment.trim()) {
-        formData.append('admin_comment', comment.trim());
-      }
-
-      const response = await fetch(`${link}/applications/${id}/`, {
-        method: 'PATCH',
+      const response = await fetch(`${link}/applications/${id}/admin/`, {
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        body: formData,
+        body: JSON.stringify({
+          status: 'Approved',
+          admin_comment: comment.trim() || 'Qabul qilindi',
+        }),
       });
 
       if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch {
-          errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
-        }
-        throw new Error(errorData.message || errorData.detail || `Server xatoligi: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Xatolik yuz berdi');
       }
 
-      toast.success('Ariza muvaffaqiyatli qabul qilindi!');
+      toast.success('Ariza qabul qilindi!');
       setShowApproveModal(false);
       setComment('');
-
-      // Barcha bog'liq cache larni yangilash
-      await Promise.all([
-        invalidateApplicationCaches(queryClient),
-        invalidateStudentCaches(queryClient)
-      ]);
+      await invalidateApplicationCaches(queryClient);
       await refetch();
       emitApplicationUpdate({ action: 'approved', id });
       emitStudentUpdate({ action: 'created' });
-    } catch (error: any) {
-      toast.error(error.message || 'Arizani qabul qilishda xatolik yuz berdi!');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Xatolik yuz berdi!';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -216,377 +176,435 @@ const ApplicationDetail: React.FC = () => {
 
   const handleReject = async () => {
     if (!comment.trim()) {
-      toast.error('Iltimos, rad etish sababini yozing!');
+      toast.error('Rad etish sababini yozing!');
       return;
     }
 
     setLoading(true);
     try {
       const token = sessionStorage.getItem('access');
-
-      const formData = new FormData();
-      formData.append('status', 'REJECTED');
-      formData.append('admin_comment', comment.trim());
-
-      const response = await fetch(`${link}/applications/${id}/`, {
-        method: 'PATCH',
+      const response = await fetch(`${link}/applications/${id}/admin/`, {
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        body: formData,
+        body: JSON.stringify({
+          status: 'Rejected',
+          admin_comment: comment.trim(),
+        }),
       });
 
       if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch {
-          errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
-        }
-        throw new Error(errorData.message || errorData.detail || `Server xatoligi: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Xatolik yuz berdi');
       }
 
       toast.success('Ariza rad etildi!');
       setShowRejectModal(false);
       setComment('');
-
       await invalidateApplicationCaches(queryClient);
       await refetch();
       emitApplicationUpdate({ action: 'rejected', id });
-    } catch (error: any) {
-      toast.error(error.message || 'Arizani rad etishda xatolik yuz berdi!');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Xatolik yuz berdi!';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  // Convert application to student function - Updated with proper error handling
-  const handleConvertToStudent = async () => {
-    if (!application?.id) {
-      toast.error("Ariza ID topilmadi.");
+  const handleAddStudent = async () => {
+    if (!selectedFloor || !selectedRoom) {
+      toast.error('Qavat va xonani tanlang!');
       return;
     }
-    
-    setConvertingToStudent(true);
+
+    if (!application) return;
+
+    // Validate required fields
+    if (!studentForm.name || !studentForm.last_name || !studentForm.passport) {
+      toast.error('Ism, familiya va pasport majburiy!');
+      return;
+    }
+
+    setLoading(true);
     try {
       const token = sessionStorage.getItem('access');
-      if (!token) {
-        throw new Error('Avtorizatsiya talab qilinadi');
-      }
+      
+      // Generate random username and password
+      const randomUsername = `${application.user}_${Math.random().toString(36).substring(2, 8)}`;
+      const randomPassword = Math.random().toString(36).substring(2, 10);
 
-      // Create FormData with application_id
-      const formData = new FormData();
-      formData.append('application_id', String(application.id));
+      const studentData = {
+        user_info: {
+          username: randomUsername,
+          password: randomPassword,
+          role: 'student',
+          email: `${randomUsername}@example.com`,
+        },
+        name: studentForm.name,
+        last_name: studentForm.last_name,
+        middle_name: studentForm.middle_name,
+        faculty: studentForm.faculty,
+        direction: studentForm.direction,
+        passport: studentForm.passport,
+        group: studentForm.group,
+        course: studentForm.course,
+        gender: studentForm.gender,
+        phone: studentForm.phone,
+        privilege: false,
+        privilege_share: 0,
+        status: 'Tekshirilmaydi',
+        placement_status: 'Qabul qilindi',
+        user: application.id,
+        province: application.province,
+        district: application.district,
+        dormitory: application.dormitory,
+        floor: selectedFloor,
+        room: selectedRoom,
+      };
 
-      const response = await fetch(`${link}/student/create/`, {
+      const response = await fetch(`${link}/students/create/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        body: formData,
+        body: JSON.stringify(studentData),
       });
 
       if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch {
-          errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
-        }
-        throw new Error(errorData.message || errorData.detail || `Server xatoligi: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Student creation error:', errorData);
+        throw new Error(errorData.detail || errorData.message || `Xatolik: ${response.status}`);
       }
 
-      const result = await response.json();
-      toast.success('Ariza muvaffaqiyatli talabaga aylantirildi!');
-      
-      // Refresh application details
-      await refetch();
-      
-      // Emit global event for student update
-      emitStudentUpdate({ action: 'created', data: result });
-      
-    } catch (error: any) {
-      console.error('Convert application error:', error);
-      toast.error(error.message || 'Arizani talabaga aylantirishda xatolik yuz berdi');
+      toast.success('Talaba muvaffaqiyatli qo\'shildi!');
+      setShowAddStudentModal(false);
+      setSelectedFloor(0);
+      setSelectedRoom(0);
+      emitStudentUpdate({ action: 'created' });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Xatolik yuz berdi!';
+      toast.error(errorMessage);
     } finally {
-      setConvertingToStudent(false);
+      setLoading(false);
     }
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500"></div>
       </div>
     );
   }
 
-  if (error) {
+  if (error || !application) {
     return (
       <div className="text-center py-10 text-red-600 dark:text-red-400">
-        Ma'lumotlarni yuklashda xatolik yuz berdi.
+        Ariza topilmadi yoki yuklashda xatolik yuz berdi.
       </div>
     );
   }
-
-  if (!application) {
-    return (
-      <div className="p-8 text-center text-red-500 dark:text-red-400">
-        Ariza topilmadi. <BackButton label="Orqaga qaytish" className="mx-auto mt-4" />
-      </div>
-    );
-  }
-
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 40 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 40 }}
-      transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className="min-h-screen bg-gray-50 dark:bg-slate-900 py-8 px-4"
-    >
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <BackButton label="Orqaga" />
-          <span className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border ${getStatusColor(application.status)}`}>
-            <BadgeCheck className="w-4 h-4" />
-            {getStatusLabel(application.status)}
-          </span>
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+      <BackButton />
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 overflow-hidden mt-6"
+      >
+        {/* Header with Student Image */}
+        <div className="p-6 border-b border-gray-200 dark:border-slate-700">
+          <div className="flex flex-col sm:flex-row items-start gap-6">
+            {/* Student Image */}
+            {application.user_image && (
+              <div 
+                className="flex-shrink-0 cursor-pointer group"
+                onClick={() => setSelectedImage(application.user_image)}
+              >
+                <div className="relative w-32 h-32 rounded-lg overflow-hidden ring-2 ring-gray-200 dark:ring-slate-600 group-hover:ring-blue-500 transition">
+                  <img
+                    src={application.user_image}
+                    alt="Talaba"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center">
+                    <span className="text-white opacity-0 group-hover:opacity-100 transition text-xs font-medium">
+                      Ko'rish
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Student Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {application.last_name} {application.name}
+                  </h1>
+                  <p className="text-gray-600 dark:text-gray-400 mt-1">
+                    {application.middle_name}
+                  </p>
+                </div>
+                <div className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap ${getStatusColor(application.status)}`}>
+                  {getStatusLabel(application.status)}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Main Card */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
-          {/* Profile Section */}
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 p-6 text-white">
-            <div className="flex items-center gap-6">
-              {application.user_image ? (
-                <img
-                  src={application.user_image}
-                  alt={application.name}
-                  className="w-20 h-20 rounded-full border-4 border-white/20 object-cover"
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-full border-4 border-white/20 bg-white/10 flex items-center justify-center text-2xl font-bold">
-                  {(application.last_name?.charAt(0) || '') + (application.name?.charAt(0) || '') || 'A'}
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {/* Shaxsiy ma'lumotlar */}
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <User className="w-5 h-5 text-blue-600" />
+              Shaxsiy ma'lumotlar
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
+                  <CreditCard className="w-3 h-3" />
+                  Pasport seriyasi
                 </div>
-              )}
-              <div>
-                <h1 className="text-2xl font-bold mb-1">{application.last_name} {application.name}</h1>
-                <p className="text-blue-100 mb-2">{application.dormitory?.name || 'Yotoqxona'}</p>
-                <div className="flex items-center gap-4 text-sm text-blue-100">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    {formatDate(application.created_at)}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Phone className="w-4 h-4" />
-                    +{application.phone}
-                  </span>
+                <div className="text-gray-900 dark:text-white font-semibold">{application.passport}</div>
+              </div>
+              <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  Yashash manzili
+                </div>
+                <div className="text-gray-900 dark:text-white font-semibold text-sm">
+                  {application.province_name}, {application.district_name}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Details Section */}
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              <InfoCard
-                icon={<User className="w-5 h-5" />}
-                label="To'liq ism"
-                value={`${application.last_name} ${application.name} ${application.middle_name}`.trim()}
-              />
-              <InfoCard
-                icon={<Phone className="w-5 h-5" />}
-                label="Telefon raqam"
-                value={`+${application.phone}`}
-              />
-              <InfoCard
-                icon={<Building className="w-5 h-5" />}
-                label="Yotoqxona"
-                value={application.dormitory?.name}
-              />
-              <InfoCard
-                icon={<MapPin className="w-5 h-5" />}
-                label="Viloyat"
-                value={application.province?.name}
-              />
-              <InfoCard
-                icon={<MapPin className="w-5 h-5" />}
-                label="Tuman"
-                value={application.district?.name}
-              />
-              <InfoCard
-                icon={<GraduationCap className="w-5 h-5" />}
-                label="Fakultet"
-                value={application.faculty}
-              />
-              <InfoCard
-                icon={<GraduationCap className="w-5 h-5" />}
-                label="Yo'nalish"
-                value={application.direction}
-              />
-              <InfoCard
-                icon={<GraduationCap className="w-5 h-5" />}
-                label="Kurs"
-                value={application.course}
-              />
-              <InfoCard
-                icon={<GraduationCap className="w-5 h-5" />}
-                label="Guruh"
-                value={application.group}
-              />
-              <InfoCard
-                icon={<CreditCard className="w-5 h-5" />}
-                label="Pasport"
-                value={application.passport}
-              />
-              <InfoCard
-                icon={<User className="w-5 h-5" />}
-                label="Foydalanuvchi ID"
-                value={application.user?.id}
-              />
-              <InfoCard
-                icon={<User className="w-5 h-5" />}
-                label="Username"
-                value={application.user?.username}
-              />
+          {/* O'qish ma'lumotlari */}
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-blue-600" />
+              O'qish ma'lumotlari
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Fakultet</div>
+                <div className="text-gray-900 dark:text-white font-semibold">{application.faculty}</div>
+              </div>
+              <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Yo'nalish</div>
+                <div className="text-gray-900 dark:text-white font-semibold">{application.direction || '-'}</div>
+              </div>
+              <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Kurs</div>
+                <div className="text-gray-900 dark:text-white font-semibold">{application.course}</div>
+              </div>
+              <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Guruh</div>
+                <div className="text-gray-900 dark:text-white font-semibold">{application.group || '-'}</div>
+              </div>
             </div>
+          </div>
 
-            {/* Comment Section */}
-            {application.comment && (
-              <div className="bg-blue-50 dark:bg-slate-700/50 border border-blue-200 dark:border-slate-600 rounded-xl p-4 mb-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <MessageSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Talaba izohi</span>
-                </div>
+          {/* Talaba izohi */}
+          {application.comment && (
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-blue-600" />
+                Talaba izohi
+              </h2>
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
                 <p className="text-gray-700 dark:text-gray-300">{application.comment}</p>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Admin Comment Section */}
-            {application.admin_comment && (
-              <div className={`border rounded-xl p-4 mb-6 ${String(application.status).toUpperCase() === 'APPROVED'
-                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
-                : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
-                }`}>
-                <div className="flex items-center gap-2 mb-2">
-                  {String(application.status).toUpperCase() === 'APPROVED' ? (
-                    <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
-                  ) : (
-                    <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
-                  )}
-                  <span className={`text-sm font-medium ${String(application.status).toUpperCase() === 'APPROVED'
-                    ? 'text-green-700 dark:text-green-300'
-                    : 'text-red-700 dark:text-red-300'
-                    }`}>
-                    Admin javobi
+          {/* Pasport rasmlari */}
+          {(application.passport_image_first || application.passport_image_second) && (
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-blue-600" />
+                Pasport rasmlari
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {application.passport_image_first && (
+                  <div 
+                    className="group relative bg-gray-50 dark:bg-slate-700/50 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition"
+                    onClick={() => setSelectedImage(application.passport_image_first)}
+                  >
+                    <img
+                      src={application.passport_image_first}
+                      alt="Pasport old tomoni"
+                      className="w-full h-64 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-center justify-center">
+                      <span className="text-white opacity-0 group-hover:opacity-100 transition text-sm font-medium">
+                        Ko'rish
+                      </span>
+                    </div>
+                    <div className="p-3 bg-white dark:bg-slate-800">
+                      <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Pasport (old tomoni)</div>
+                    </div>
+                  </div>
+                )}
+                {application.passport_image_second && (
+                  <div 
+                    className="group relative bg-gray-50 dark:bg-slate-700/50 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition"
+                    onClick={() => setSelectedImage(application.passport_image_second)}
+                  >
+                    <img
+                      src={application.passport_image_second}
+                      alt="Pasport orqa tomoni"
+                      className="w-full h-64 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-center justify-center">
+                      <span className="text-white opacity-0 group-hover:opacity-100 transition text-sm font-medium">
+                        Ko'rish
+                      </span>
+                    </div>
+                    <div className="p-3 bg-white dark:bg-slate-800">
+                      <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Pasport (orqa tomoni)</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Qo'shimcha hujjat */}
+          {application.document && (
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-600" />
+                Qo'shimcha hujjat
+              </h2>
+              <div 
+                className="group relative bg-gray-50 dark:bg-slate-700/50 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition max-w-md"
+                onClick={() => setSelectedImage(application.document)}
+              >
+                <img
+                  src={application.document}
+                  alt="Qo'shimcha hujjat"
+                  className="w-full h-64 object-cover"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-center justify-center">
+                  <span className="text-white opacity-0 group-hover:opacity-100 transition text-sm font-medium">
+                    Ko'rish
                   </span>
                 </div>
+                <div className="p-3 bg-white dark:bg-slate-800">
+                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Qo'shimcha hujjat</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Admin izohi */}
+          {application.admin_comment && (
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-blue-600" />
+                Admin izohi
+              </h2>
+              <div className={`rounded-lg p-4 border ${
+                String(application.status).toUpperCase() === 'APPROVED'
+                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
+                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
+              }`}>
                 <p className="text-gray-700 dark:text-gray-300">{application.admin_comment}</p>
               </div>
-            )}
-
-            {/* Passport Images */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <ImageCard
-                src={application.passport_image_first}
-                alt="Pasport birinchi sahifa"
-                label="Pasport (birinchi sahifa)"
-              />
-              <ImageCard
-                src={application.passport_image_second}
-                alt="Pasport ikkinchi sahifa"
-                label="Pasport (ikkinchi sahifa)"
-              />
             </div>
+          )}
 
-            {/* Document */}
-            {application.document && (
-              <div className="bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl p-4 mb-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <FileText className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Hujjat</span>
-                </div>
-                <a
-                  href={application.document}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                  Hujjatni ko'rish
-                </a>
-              </div>
-            )}
-
-            {/* Action Buttons - Only show for pending applications */}
-            {String(application.status).toUpperCase() === 'PENDING' && (
-              <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-slate-700">
+          {/* Actions */}
+          <div className="pt-4 border-t border-gray-200 dark:border-slate-700">
+            {String(application.status).toUpperCase() === 'PENDING' ? (
+              <div className="flex gap-3">
                 <button
                   onClick={() => setShowApproveModal(true)}
-                  className="px-6 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-colors duration-200 flex items-center gap-2"
+                  className="flex-1 px-6 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition flex items-center justify-center gap-2"
                 >
-                  <BadgeCheck className="w-4 h-4" />
+                  <Check className="w-5 h-5" />
                   Qabul qilish
                 </button>
                 <button
                   onClick={() => setShowRejectModal(true)}
-                  className="px-6 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition-colors duration-200 flex items-center gap-2"
+                  className="flex-1 px-6 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition flex items-center justify-center gap-2"
                 >
-                  <XCircle className="w-4 h-4" />
+                  <XCircle className="w-5 h-5" />
                   Rad etish
                 </button>
               </div>
-            )}
-
-            {/* Status Message and Actions for processed applications */}
-            {String(application.status).toUpperCase() !== 'PENDING' && (
-              <div className="pt-4 border-t border-gray-200 dark:border-slate-700">
-                <div className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg mb-4 ${String(application.status).toUpperCase() === 'APPROVED'
-                  ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300'
-                  : 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300'
-                  }`}>
-                  {String(application.status).toUpperCase() === 'APPROVED' ? (
-                    <>
-                      <Check className="w-5 h-5" />
-                      <span className="font-medium">Bu ariza qabul qilingan</span>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-5 h-5" />
-                      <span className="font-medium">Bu ariza rad etilgan</span>
-                    </>
-                  )}
-                </div>
-
-                {/* Add Student Button for approved applications */}
-                {String(application.status).toUpperCase() === 'APPROVED' && (
-                  <div className="flex justify-center">
-                    <button
-                      onClick={handleConvertToStudent}
-                      disabled={convertingToStudent}
-                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {convertingToStudent ? (
-                        <>
-                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          <span>Qo'shilmoqda...</span>
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus className="w-5 h-5" />
-                          <span>Talabalar ro'yxatiga qo'shish</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-              </div>
+            ) : String(application.status).toUpperCase() === 'APPROVED' && (
+              <button
+                onClick={() => {
+                  if (application) {
+                    setStudentForm({
+                      name: application.name,
+                      last_name: application.last_name,
+                      middle_name: application.middle_name,
+                      passport: application.passport,
+                      faculty: application.faculty,
+                      direction: application.direction,
+                      course: application.course,
+                      group: application.group,
+                      phone: application.phone,
+                      gender: 'Erkak',
+                    });
+                  }
+                  setShowAddStudentModal(true);
+                }}
+                className="w-full px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition flex items-center justify-center gap-2"
+              >
+                <UserPlus className="w-5 h-5" />
+                Talabalar ro'yxatiga qo'shish
+              </button>
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
+
+      {/* Image Modal */}
+      <AnimatePresence>
+        {selectedImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setSelectedImage(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="relative max-w-4xl max-h-[90vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setSelectedImage(null)}
+                className="absolute -top-10 right-0 text-white hover:text-gray-300 transition"
+              >
+                <XCircle className="w-8 h-8" />
+              </button>
+              <img
+                src={selectedImage}
+                alt="Katta rasm"
+                className="max-w-full max-h-[90vh] object-contain rounded-lg"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Approve Modal */}
       <AnimatePresence>
@@ -599,54 +617,44 @@ const ApplicationDetail: React.FC = () => {
             onClick={() => setShowApproveModal(false)}
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 40 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 40 }}
-              className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-200 dark:border-slate-700"
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                  <Check className="w-6 h-6 text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Arizani qabul qilish</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Qabul qilish sababini yozing</p>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Qabul qilish sababi (ixtiyoriy)
-                </label>
-                <textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Masalan: Barcha talablar bajarilgan, hujjatlar to'liq..."
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                  rows={4}
-                />
-              </div>
-
-              <div className="flex gap-3 justify-end">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                Arizani qabul qilish
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Rostdan ham bu arizani qabul qilmoqchimisiz?
+              </p>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Izoh (ixtiyoriy)"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                rows={3}
+              />
+              <div className="flex gap-3 mt-4">
                 <button
                   onClick={() => {
                     setShowApproveModal(false);
                     setComment('');
                   }}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition"
                 >
                   Bekor qilish
                 </button>
                 <button
                   onClick={handleApprove}
                   disabled={loading}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Qabul qilinmoqda...
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Saqlanmoqda...
                     </>
                   ) : (
                     <>
@@ -672,55 +680,45 @@ const ApplicationDetail: React.FC = () => {
             onClick={() => setShowRejectModal(false)}
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 40 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 40 }}
-              className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-200 dark:border-slate-700"
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                  <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Arizani rad etish</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Rad etish sababini yozing</p>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Rad etish sababi *
-                </label>
-                <textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Masalan: Hujjatlar to'liq emas, talablar bajarilmagan..."
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
-                  rows={4}
-                  required
-                />
-              </div>
-
-              <div className="flex gap-3 justify-end">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                Arizani rad etish
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Rad etish sababini yozing:
+              </p>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Sabab..."
+                className="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                rows={3}
+                required
+              />
+              <div className="flex gap-3 mt-4">
                 <button
                   onClick={() => {
                     setShowRejectModal(false);
                     setComment('');
                   }}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition"
                 >
                   Bekor qilish
                 </button>
                 <button
                   onClick={handleReject}
                   disabled={loading || !comment.trim()}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Rad etilmoqda...
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Saqlanmoqda...
                     </>
                   ) : (
                     <>
@@ -734,7 +732,252 @@ const ApplicationDetail: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+
+      {/* Add Student Modal */}
+      <AnimatePresence>
+        {showAddStudentModal && application && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowAddStudentModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
+                Talabalar ro'yxatiga qo'shish
+              </h3>
+              
+              {/* Form */}
+              <div className="space-y-4">
+                {/* Shaxsiy ma'lumotlar */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Ism <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={studentForm.name}
+                      onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Ism"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Familiya <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={studentForm.last_name}
+                      onChange={(e) => setStudentForm({ ...studentForm, last_name: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Familiya"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Otasining ismi
+                    </label>
+                    <input
+                      type="text"
+                      value={studentForm.middle_name}
+                      onChange={(e) => setStudentForm({ ...studentForm, middle_name: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Otasining ismi"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Pasport <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={studentForm.passport}
+                      onChange={(e) => setStudentForm({ ...studentForm, passport: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="AA1234567"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Telefon
+                    </label>
+                    <input
+                      type="text"
+                      value={studentForm.phone}
+                      onChange={(e) => setStudentForm({ ...studentForm, phone: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="+998901234567"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Jinsi
+                    </label>
+                    <select
+                      value={studentForm.gender}
+                      onChange={(e) => setStudentForm({ ...studentForm, gender: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="Erkak">Erkak</option>
+                      <option value="Ayol">Ayol</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* O'qish ma'lumotlari */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Fakultet
+                    </label>
+                    <input
+                      type="text"
+                      value={studentForm.faculty}
+                      onChange={(e) => setStudentForm({ ...studentForm, faculty: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Fakultet"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Yo'nalish
+                    </label>
+                    <input
+                      type="text"
+                      value={studentForm.direction}
+                      onChange={(e) => setStudentForm({ ...studentForm, direction: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Yo'nalish"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Kurs
+                    </label>
+                    <select
+                      value={studentForm.course}
+                      onChange={(e) => setStudentForm({ ...studentForm, course: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Kursni tanlang</option>
+                      <option value="1-kurs">1-kurs</option>
+                      <option value="2-kurs">2-kurs</option>
+                      <option value="3-kurs">3-kurs</option>
+                      <option value="4-kurs">4-kurs</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Guruh
+                    </label>
+                    <input
+                      type="text"
+                      value={studentForm.group}
+                      onChange={(e) => setStudentForm({ ...studentForm, group: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Guruh"
+                    />
+                  </div>
+                </div>
+
+                {/* Qavat va xona */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-slate-700">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Qavat <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={selectedFloor}
+                      onChange={(e) => {
+                        setSelectedFloor(Number(e.target.value));
+                        setSelectedRoom(0);
+                      }}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value={0}>Qavatni tanlang</option>
+                      {floors.map((floor) => (
+                        <option key={floor.id} value={floor.id}>
+                          {floor.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Xona <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={selectedRoom}
+                      onChange={(e) => setSelectedRoom(Number(e.target.value))}
+                      disabled={!selectedFloor}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value={0}>Xonani tanlang</option>
+                      {rooms.map((room) => (
+                        <option key={room.id} value={room.id}>
+                          {room.name} ({room.current_occupancy}/{room.capacity})
+                        </option>
+                      ))}
+                    </select>
+                    {selectedFloor && rooms.length === 0 && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        Bu qavatda xonalar mavjud emas
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-slate-700">
+                <button
+                  onClick={() => {
+                    setShowAddStudentModal(false);
+                    setSelectedFloor(0);
+                    setSelectedRoom(0);
+                  }}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition font-medium"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  onClick={handleAddStudent}
+                  disabled={loading || !selectedFloor || !selectedRoom || !studentForm.name || !studentForm.last_name || !studentForm.passport}
+                  className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Qo'shilmoqda...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      Talaba qo'shish
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 

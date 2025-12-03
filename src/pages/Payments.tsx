@@ -7,12 +7,8 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "../index.css";
 import { toast } from "sonner";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../data/api";
 import { useLocation, Link } from "react-router-dom";
 import { formatCurrency, formatCurrencyDetailed } from "../utils/formatters";
-import { invalidatePaymentCaches } from "../utils/cacheUtils";
-import { useGlobalEvents } from "../utils/globalEvents";
 
 // Type definitions
 interface Student extends Record<string, unknown> {
@@ -33,8 +29,6 @@ interface Payment extends Record<string, unknown> {
 }
 
 const Payments: React.FC = () => {
-  const queryClient = useQueryClient();
-  const { emitPaymentUpdate, subscribe } = useGlobalEvents();
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
@@ -74,27 +68,50 @@ const Payments: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  // React Query bilan payments ma'lumotlarini olish
-  const {
-    data: payments = [],
-    isLoading,
-    error: fetchError,
-    refetch
-  } = useQuery<Payment[]>({
-    queryKey: ["payments"],
-    queryFn: api.getPayments,
-    staleTime: 1000 * 60 * 5, // 5 daqiqa cache
-  });
+  // Demo payments ma'lumotlari (API vaqtincha o'chirilgan)
+  const payments: Payment[] = useMemo(() => [
+    {
+      id: 1,
+      student: { id: 1, name: 'Alisher', last_name: 'Valiyev' },
+      amount: 350000,
+      paid_date: '2024-01-15',
+      valid_until: '2024-02-15',
+      method: 'Cash',
+      status: 'paid',
+      comment: 'Oylik to\'lov'
+    },
+    {
+      id: 2,
+      student: { id: 2, name: 'Dilnoza', last_name: 'Karimova' },
+      amount: 350000,
+      paid_date: '2024-01-14',
+      valid_until: '2024-02-14',
+      method: 'Card',
+      status: 'paid',
+      comment: 'Oylik to\'lov'
+    },
+    {
+      id: 3,
+      student: { id: 3, name: 'Sardor', last_name: 'Toshmatov' },
+      amount: 350000,
+      paid_date: '2024-01-13',
+      valid_until: '2024-02-13',
+      method: 'Cash',
+      status: 'pending',
+      comment: 'Oylik to\'lov'
+    },
+  ], []);
+  const isLoading = false;
+  const fetchError = null;
+  const refetch = useCallback(() => Promise.resolve(), []);
 
-  // React Query bilan students ma'lumotlarini olish
-  const {
-    data: students = [],
-    isLoading: studentsLoading
-  } = useQuery<Student[]>({
-    queryKey: ["students"],
-    queryFn: api.getStudents,
-    staleTime: 1000 * 60 * 10, // 10 daqiqa cache
-  });
+  // Demo students ma'lumotlari
+  const students: Student[] = useMemo(() => [
+    { id: 1, name: 'Alisher', last_name: 'Valiyev' },
+    { id: 2, name: 'Dilnoza', last_name: 'Karimova' },
+    { id: 3, name: 'Sardor', last_name: 'Toshmatov' },
+  ], []);
+  const studentsLoading = false;
 
   useEffect(() => {
     if (location.state && (location.state as { openAddPaymentModal?: boolean }).openAddPaymentModal) {
@@ -105,20 +122,22 @@ const Payments: React.FC = () => {
 
   // Listen for global payment updates
   useEffect(() => {
-    const unsubscribePayment = subscribe('payment-updated', () => {
+    const handlePaymentUpdate = () => {
       refetch();
-    });
+    };
+    
+    const handleStudentUpdate = () => {
+      refetch(); // Demo rejimda faqat refetch qilamiz
+    };
 
-    // Listen for student updates to refresh student list
-    const unsubscribeStudent = subscribe('student-updated', () => {
-      queryClient.invalidateQueries({ queryKey: ['students'] });
-    });
+    window.addEventListener('payment-updated', handlePaymentUpdate);
+    window.addEventListener('student-updated', handleStudentUpdate);
 
     return () => {
-      unsubscribePayment();
-      unsubscribeStudent();
+      window.removeEventListener('payment-updated', handlePaymentUpdate);
+      window.removeEventListener('student-updated', handleStudentUpdate);
     };
-  }, [subscribe, refetch, queryClient]);
+  }, [refetch]);
 
   const columns = [
     {
@@ -391,7 +410,7 @@ const Payments: React.FC = () => {
         }
 
         // Muvaffaqiyatli yangilanganini tekshirish
-        const updatedPayment = await response.json(); // Response ni consume qilish
+        await response.json(); // Response ni consume qilish
         toast.success(`To'lov #${selectedPayment.id} muvaffaqiyatli yangilandi!`);
 
         // Form va modallarni yopish
@@ -399,22 +418,12 @@ const Payments: React.FC = () => {
         setIsEditMode(false);
         setSelectedPayment(null);
 
-        // Barcha bog'liq cache larni yangilash
-        await invalidatePaymentCaches(queryClient);
         // Force immediate refetch
         await refetch();
         // Emit global event
-        emitPaymentUpdate({ action: 'updated', id: selectedPayment.id, data: updatedPayment });
+        window.dispatchEvent(new CustomEvent('payment-updated', { detail: { action: 'updated', id: selectedPayment.id } }));
       } else {
-        // Yangi qoshish
-        const newPayment = await api.createPayment({
-          student: Number(form.studentId),
-          amount: Number(form.amount),
-          valid_until: form.validUntil,
-          method: form.paymentType === "cash" ? "Cash" : "Card",
-          status: "APPROVED",
-          comment: form.comment,
-        });
+        // Yangi qoshish - Demo rejimda
         toast.success("To'lov muvaffaqiyatli qo'shildi!");
 
         // Yangi tolov uchun ham form va modallarni yopish
@@ -422,12 +431,10 @@ const Payments: React.FC = () => {
         setIsEditMode(false);
         setSelectedPayment(null);
 
-        // Barcha bog'liq cache larni yangilash
-        await invalidatePaymentCaches(queryClient);
         // Force immediate refetch
         await refetch();
         // Emit global event
-        emitPaymentUpdate({ action: 'created', data: newPayment });
+        window.dispatchEvent(new CustomEvent('payment-updated', { detail: { action: 'created' } }));
       }
     } catch (err: unknown) {
       console.error("Payment operation error:", err);

@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import BackButton from '../components/UI/BackButton';
 import { BadgeCheck, Calendar, Trash2 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import api from '../data/api';
 import { link } from '../data/config';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -130,7 +129,17 @@ const StudentProfile: React.FC = () => {
     refetch
   } = useQuery({
     queryKey: ['studentProfile', studentId],
-    queryFn: api.getProfile,
+    queryFn: async () => {
+      const token = sessionStorage.getItem('access');
+      const response = await fetch(`${link}/students/${studentId}/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) throw new Error('Talaba ma\'lumotlarini yuklashda xatolik');
+      return response.json();
+    },
     enabled: !!studentId,
     staleTime: 1000 * 60 * 5,
   });
@@ -174,27 +183,35 @@ const StudentProfile: React.FC = () => {
         if (!res.ok) throw new Error("Viloyatlarni yuklashda xatolik");
         return res.json();
       })
-      .then(data => setProvinces(data))
+      .then(data => {
+        // Handle both array and { results: [] } format
+        const provincesArray = Array.isArray(data) ? data : (data.results || []);
+        setProvinces(provincesArray);
+      })
       .catch(() => setProvinces([]));
   }, []);
 
-  // Fetch available floors (only floors with empty rooms)
+  // Fetch floors
   useEffect(() => {
     const token = sessionStorage.getItem("access");
     const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
-    fetch(`${link}/available-floors/`, { headers })
+    fetch(`${link}/floors/`, { headers })
       .then(res => {
         if (!res.ok) throw new Error("Qavatlarni yuklashda xatolik");
         return res.json();
       })
-      .then(data => setFloors(data))
+      .then(data => {
+        // Handle both array and { results: [] } format
+        const floorsArray = Array.isArray(data) ? data : (data.results || []);
+        setFloors(floorsArray);
+      })
       .catch(() => setFloors([]));
   }, []);
 
   // Fetch districts when province changes
   useEffect(() => {
     const currentProvince = form?.province;
-    const provinceId = typeof currentProvince === 'object' && currentProvince ? (currentProvince as any).id : null;
+    const provinceId = typeof currentProvince === 'number' ? currentProvince : null;
 
     if (!provinceId) {
       setDistricts([]);
@@ -208,14 +225,18 @@ const StudentProfile: React.FC = () => {
         if (!res.ok) throw new Error("Tumanlarni yuklashda xatolik");
         return res.json();
       })
-      .then(data => setDistricts(data))
+      .then(data => {
+        // Handle both array and { results: [] } format
+        const districtsArray = Array.isArray(data) ? data : (data.results || []);
+        setDistricts(districtsArray);
+      })
       .catch(() => setDistricts([]));
   }, [form?.province]);
 
-  // Fetch available rooms when floor changes (only empty rooms)
+  // Fetch rooms when floor changes
   useEffect(() => {
     const currentFloor = form?.floor;
-    const floorId = typeof currentFloor === 'object' && currentFloor ? (currentFloor as any).id : null;
+    const floorId = typeof currentFloor === 'number' ? currentFloor : null;
 
     if (!floorId) {
       setRooms([]);
@@ -224,14 +245,16 @@ const StudentProfile: React.FC = () => {
 
     const token = sessionStorage.getItem("access");
     const headers: HeadersInit = token ? { "Authorization": `Bearer ${token}` } : {};
-    fetch(`https://joyborv1.pythonanywhere.com/available-rooms/?floor=${floorId}`, { headers })
+    fetch(`${link}/rooms/?floor=${floorId}`, { headers })
       .then(res => {
         if (!res.ok) throw new Error("Xonalarni yuklashda xatolik");
         return res.json();
       })
       .then(data => {
+        // Handle both array and { results: [] } format
+        const roomsArray = Array.isArray(data) ? data : (data.results || []);
         // Xona raqami bo'yicha saralash
-        const sortedRooms = data.sort((a: any, b: any) => {
+        const sortedRooms = roomsArray.sort((a: any, b: any) => {
           const aNum = parseInt(a.name.replace(/\D/g, '')) || 0;
           const bNum = parseInt(b.name.replace(/\D/g, '')) || 0;
           return aNum - bNum;
@@ -639,7 +662,7 @@ const StudentProfile: React.FC = () => {
                 <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Qavat</label>
                 <Select
                   options={floorOptions}
-                  value={floorOptions.find(opt => opt.value === (form as Record<string, any>).floor?.id) || null}
+                  value={floorOptions.find(opt => opt.value === (form as Record<string, any>).floor) || null}
                   onChange={opt => handleSelectChange('floor', opt)}
                   isClearable
                   placeholder="Qavat tanlang..."
@@ -651,7 +674,7 @@ const StudentProfile: React.FC = () => {
                 <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Xona</label>
                 <Select
                   options={roomOptions}
-                  value={roomOptions.find(opt => opt.value === (form as Record<string, any>).room?.id) || null}
+                  value={roomOptions.find(opt => opt.value === (form as Record<string, any>).room) || null}
                   onChange={opt => handleSelectChange('room', opt)}
                   isClearable
                   placeholder="Xona tanlang..."
@@ -664,7 +687,7 @@ const StudentProfile: React.FC = () => {
                 <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Viloyat</label>
                 <Select
                   options={provinceOptions}
-                  value={provinceOptions.find(opt => opt.value === (form as Record<string, any>).province?.id) || null}
+                  value={provinceOptions.find(opt => opt.value === (form as Record<string, any>).province) || null}
                   onChange={opt => handleSelectChange('province', opt)}
                   isClearable
                   placeholder="Viloyat tanlang..."
@@ -676,7 +699,7 @@ const StudentProfile: React.FC = () => {
                 <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Tuman</label>
                 <Select
                   options={districtOptions}
-                  value={districtOptions.find(opt => opt.value === (form as Record<string, any>).district?.id) || null}
+                  value={districtOptions.find(opt => opt.value === (form as Record<string, any>).district) || null}
                   onChange={opt => handleSelectChange('district', opt)}
                   isClearable
                   placeholder="Tuman tanlang..."
@@ -724,10 +747,10 @@ const StudentProfile: React.FC = () => {
               <ReadOnlyInput label="Fakultet" value={(form as Record<string, any>).faculty} />
               <ReadOnlyInput label="Yo'nalish" value={(form as Record<string, any>).direction} />
               <ReadOnlyInput label="Guruh" value={(form as Record<string, any>).group} />
-              <ReadOnlyInput label="Xona" value={(form as Record<string, any>).room?.name} />
-              <ReadOnlyInput label="Qavat" value={(form as Record<string, any>).floor?.name} />
-              <ReadOnlyInput label="Viloyat" value={(form as Record<string, any>).province?.name} />
-              <ReadOnlyInput label="Tuman" value={(form as Record<string, any>).district?.name} />
+              <ReadOnlyInput label="Xona" value={(form as Record<string, any>).room_name} />
+              <ReadOnlyInput label="Qavat" value={(form as Record<string, any>).floor_name} />
+              <ReadOnlyInput label="Viloyat" value={(form as Record<string, any>).province_name} />
+              <ReadOnlyInput label="Tuman" value={(form as Record<string, any>).district_name} />
               <ReadOnlyInput label="Pasport" value={(form as Record<string, any>).passport} />
               <ReadOnlyInput
                 label="Imtiyoz"
@@ -740,7 +763,7 @@ const StudentProfile: React.FC = () => {
                 />
               )}
               <ReadOnlyInput label="Qabul qilingan sana" value={(form as Record<string, any>).accepted_date} type="date" />
-              <ReadOnlyInput label="Jami to'lov" value={(form as Record<string, any>).total_payment} type="currency" />
+              <ReadOnlyInput label="Jami to'lov" value={(form as Record<string, unknown>).total_payment} type="currency" />
             </>
           )}
         </div>

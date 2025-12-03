@@ -5,18 +5,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { IoManSharp, IoWomanSharp } from 'react-icons/io5';
 import { toast } from 'sonner';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { post, get } from '../data/api';
-import axios from 'axios';
-// import NProgress from 'nprogress';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../data/api';
 import FloorRooms from '../components/UI/FloorRooms';
-import { link } from '../data/config';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface Floor {
   id: number;
   name: string;
   gender: 'male' | 'female';
+  AVAILABLE_floors?: number;
+  AVAILABLE_rooms?: number;
 }
 
 interface Student {
@@ -44,7 +41,7 @@ const genderLabels: Record<string, { label: string; icon: React.ReactNode }> = {
 
 // Select styles for filters
 const selectStyles = {
-  control: (base: any, state: any) => ({
+  control: (base: Record<string, unknown>, state: { isFocused: boolean }) => ({
     ...base,
     backgroundColor: 'var(--tw-bg-opacity,1) #fff',
     borderColor: state.isFocused ? '#3b82f6' : '#d1d5db',
@@ -57,16 +54,16 @@ const selectStyles = {
       borderColor: state.isFocused ? '#60a5fa' : '#374151',
     })
   }),
-  menu: (base: any) => ({
+  menu: (base: Record<string, unknown>) => ({
     ...base,
     backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
     color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
   }),
-  singleValue: (base: any) => ({
+  singleValue: (base: Record<string, unknown>) => ({
     ...base,
     color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
   }),
-  option: (base: any, state: any) => ({
+  option: (base: Record<string, unknown>, state: { isSelected: boolean; isFocused: boolean }) => ({
     ...base,
     backgroundColor: state.isSelected
       ? (document.documentElement.classList.contains('dark') ? '#2563eb' : '#3b82f6')
@@ -110,17 +107,44 @@ const Rooms: React.FC = () => {
   const location = useLocation();
   const queryClient = useQueryClient();
 
-  const { 
-    data: floors = [] as Floor[], 
-    isLoading: floorsLoading, 
+  // API dan floors ma'lumotlarini olish
+  const {
+    data: floors = [],
+    isLoading: floorsLoading,
     error: floorsError,
-    refetch: refetchFloors 
-  } = useQuery({
+    refetch: refetchFloors
+  } = useQuery<Floor[]>({
     queryKey: ['floors'],
-    queryFn: api.getFloors,
-    staleTime: 1000 * 30, // Cache ni qisqartirdik
-    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      const token = sessionStorage.getItem('access');
+      if (!token) {
+        throw new Error('Avtorizatsiya talab qilinadi');
+      }
+
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/floors/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Qavatlarni yuklashda xatolik');
+      }
+
+      const data = await response.json();
+      console.log('Floors API response:', data);
+      // API returns paginated data with results array
+      if (data && data.results && Array.isArray(data.results)) {
+        console.log('Floors results:', data.results);
+        return data.results;
+      }
+      // Fallback for non-paginated response
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 0, // Always fetch fresh data
     refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   // Helper: check if all rooms for all floors are loaded
@@ -196,16 +220,44 @@ const Rooms: React.FC = () => {
         return;
       }
 
-      await post(`${link}/floor/create/`, { name: floorStr, gender: newFloorGender });
+      const token = sessionStorage.getItem('access');
+      if (!token) {
+        throw new Error('Avtorizatsiya talab qilinadi');
+      }
+
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/floors/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: floorStr,
+          gender: newFloorGender
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Qavat qo\'shishda xatolik');
+      }
+
       toast.success('Qavat muvaffaqiyatli qo\'shildi!');
       // Refresh floors from API
-      refetchFloors();
       setShowFloorModal(false);
       setNewFloor('');
       setNewFloorGender('male');
-    } catch (error: any) {
-      if (error?.response?.data?.detail) {
-        toast.error(error.response.data.detail);
+      // Invalidate and refetch
+      await queryClient.invalidateQueries({ queryKey: ['floors'] });
+      await refetchFloors();
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'response' in error) {
+        const err = error as { response?: { data?: { detail?: string } } };
+        if (err.response?.data?.detail) {
+          toast.error(err.response.data.detail);
+        } else {
+          toast.error('Qavat qo\'shishda xatolik!');
+        }
       } else {
         toast.error('Qavat qo\'shishda xatolik!');
       }
@@ -258,32 +310,37 @@ const Rooms: React.FC = () => {
         return;
       }
 
-      // Check if room already exists
-      const existingRooms = await get(`/rooms/?floor=${floorObj.id}`);
-      if (existingRooms && existingRooms.some((room: any) => room.name === roomStr)) {
-        toast.error('Bu xona allaqachon mavjud!');
-        setAddingRoom(false);
-        return;
+      const token = sessionStorage.getItem('access');
+      if (!token) {
+        throw new Error('Avtorizatsiya talab qilinadi');
       }
 
-      await post(`${link}/room/create/`, {
-        name: roomStr,
-        floor: floorObj.id,
-        capacity: capacity,
-        room_type: capacity <= 2 ? '2-Kishilik' : capacity <= 3 ? '3-Kishilik' : `${capacity}-Kishilik`,
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/rooms/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: roomStr,
+          capacity: capacity,
+          floor: floorObj.id,
+        }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Xona qo\'shishda xatolik');
+      }
+
       toast.success('Xona muvaffaqiyatli qo\'shildi!');
       setNewRoom('');
       setSelectedFloor('');
       setNewRoomCapacity('');
       setShowRoomModal(false);
-      // Force refetch for all rooms and this floor's rooms
+      // Refresh rooms and floors
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
-      queryClient.invalidateQueries({ queryKey: ['rooms', floorObj.id] });
       queryClient.invalidateQueries({ queryKey: ['floors'] });
-      
-      // Global refetch
-      queryClient.refetchQueries({ queryKey: ['rooms'] });
     } catch {
       toast.error('Xona qo\'shishda xatolik!');
     } finally {
@@ -305,16 +362,35 @@ const Rooms: React.FC = () => {
     setEditingFloor(true);
     try {
       const token = sessionStorage.getItem('access');
-      await axios.patch(
-        `${link}/floors/${editFloor.id}/`,
-        { name: editFloorName, gender: editFloorGender },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success('Qavat tahrirlandi!');
+      if (!token) {
+        throw new Error('Avtorizatsiya talab qilinadi');
+      }
+
+      const response = await fetch(`https://joyborv1.pythonanywhere.com/api/floors/${editFloor.id}/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: editFloorName,
+          gender: editFloorGender
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Qavat tahrirlashda xatolik');
+      }
+
+      toast.success('Qavat muvaffaqiyatli tahrirlandi!');
       setEditFloor(null);
-      refetchFloors();
-    } catch {
-      toast.error('Qavatni tahrirlashda xatolik!');
+      // Invalidate and refetch
+      await queryClient.invalidateQueries({ queryKey: ['floors'] });
+      await refetchFloors();
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Qavatni tahrirlashda xatolik!';
+      toast.error(errorMessage);
     } finally {
       setEditingFloor(false);
     }
@@ -331,47 +407,71 @@ const Rooms: React.FC = () => {
     setDeletingFloor(true);
     try {
       const token = sessionStorage.getItem('access');
-      await axios.delete(
-        `${link}/floors/${deleteFloorId}/`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      toast.success("Qavat o'chirildi!");
+      if (!token) {
+        throw new Error('Avtorizatsiya talab qilinadi');
+      }
+
+      const response = await fetch(`https://joyborv1.pythonanywhere.com/api/floors/${deleteFloorId}/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || "Qavat o'chirishda xatolik");
+      }
+
+      toast.success("Qavat muvaffaqiyatli o'chirildi!");
       setDeleteFloorId(null);
-      refetchFloors();
-    } catch {
-      toast.error("Qavatni o'chirishda xatolik!");
+      // Invalidate and refetch
+      await queryClient.invalidateQueries({ queryKey: ['floors'] });
+      await refetchFloors();
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Qavatni o'chirishda xatolik!";
+      toast.error(errorMessage);
     } finally {
       setDeletingFloor(false);
     }
   };
 
-  const handleEditRoom = (room: Room) => {
-    setEditRoom(room);
-    setEditRoomName(room.name);
-    setEditRoomCapacity(String(room.capacity));
-    setEditRoomFloor(room.floor?.id || null);
-  };
   const handleEditRoomSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editRoom) return;
     setEditingRoom(true);
     try {
       const token = sessionStorage.getItem('access');
-      await axios.patch(
-        `${link}/rooms/${editRoom.id}/`,
-        { name: editRoomName, floor: editRoomFloor, capacity: Number(editRoomCapacity) },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success('Xona tahrirlandi!');
+      if (!token) {
+        throw new Error('Avtorizatsiya talab qilinadi');
+      }
+
+      const response = await fetch(`https://joyborv1.pythonanywhere.com/api/rooms/${editRoom.id}/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: editRoomName,
+          floor: editRoomFloor,
+          capacity: Number(editRoomCapacity)
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Xona tahrirlashda xatolik');
+      }
+
+      toast.success('Xona muvaffaqiyatli tahrirlandi!');
       setEditRoom(null);
+      // Refresh rooms and floors
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
-      if (editRoomFloor) queryClient.invalidateQueries({ queryKey: ['rooms', editRoomFloor] });
-    } catch {
-      toast.error('Xonani tahrirlashda xatolik!');
+      queryClient.invalidateQueries({ queryKey: ['floors'] });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Xonani tahrirlashda xatolik!';
+      toast.error(errorMessage);
     } finally {
       setEditingRoom(false);
     }
@@ -381,16 +481,30 @@ const Rooms: React.FC = () => {
     setDeletingRoom(true);
     try {
       const token = sessionStorage.getItem('access');
-      await axios.delete(
-        `${link}/rooms/${deleteRoom.id}/`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success('Xona o\'chirildi!');
+      if (!token) {
+        throw new Error('Avtorizatsiya talab qilinadi');
+      }
+
+      const response = await fetch(`https://joyborv1.pythonanywhere.com/api/rooms/${deleteRoom.id}/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Xona o\'chirishda xatolik');
+      }
+
+      toast.success('Xona muvaffaqiyatli o\'chirildi!');
       setDeleteRoom(null);
+      // Refresh rooms and floors
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
-      if (deleteRoom.floor?.id) queryClient.invalidateQueries({ queryKey: ['rooms', deleteRoom.floor.id] });
-    } catch {
-      toast.error('Xonani o\'chirishda xatolik!');
+      queryClient.invalidateQueries({ queryKey: ['floors'] });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Xonani o\'chirishda xatolik!';
+      toast.error(errorMessage);
     } finally {
       setDeletingRoom(false);
     }

@@ -1,8 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Edit, DollarSign, ListChecks, Wifi, BookOpen, WashingMachine, Tv, Coffee, Plus, Info, MapPin, User, School, FileImage, Phone, Send } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../data/api';
+// API imports o'chirilgan - faqat demo ma'lumotlar
 import { toast } from 'sonner';
 import { useSEO } from '../hooks/useSEO';
 import { formatCurrency } from '../utils/formatters';
@@ -82,34 +81,63 @@ const Settings: React.FC = () => {
   // SEO
   useSEO('settings');
 
-  // All hooks at the top!
-  const queryClient = useQueryClient();
-  const { data: settings, isLoading, error } = useQuery<any>({
-    queryKey: ['settings'],
-    queryFn: api.getSettings,
-    staleTime: 1000 * 60 * 5,
-  });
+  // Demo: queryClient o'chirilgan
+  
+  // Demo ma'lumotlar (API vaqtincha o'chirilgan)
+  const settings = React.useMemo(() => ({
+    id: 1,
+    name: 'JoyBor Yotoqxonasi',
+    address: 'Toshkent sh., Chilonzor tumani, Bunyodkor ko\'chasi 1-uy',
+    phone: '+998901234567',
+    telegram: '@joyboradmin',
+    month_price: 350000,
+    year_price: 3500000,
+    distance_to_university: 2.5,
+    description: 'Zamonaviy yotoqxona, barcha qulayliklar mavjud',
+    university: { id: 1, name: 'Toshkent Davlat Texnika Universiteti', address: 'Toshkent sh.' },
+    admin: { id: 1, username: 'superadmin' },
+    logo: null,
+    total_floors: 4,
+    total_rooms: 48,
+    total_capacity: 192,
+    images: [
+      { id: 1, image: 'https://via.placeholder.com/400x300?text=Yotoqxona+1' },
+      { id: 2, image: 'https://via.placeholder.com/400x300?text=Yotoqxona+2' },
+      { id: 3, image: 'https://via.placeholder.com/400x300?text=Yotoqxona+3' },
+    ],
+  }), []);
+  const isLoading = false;
+  const error = null;
 
-  // Rules uchun alohida query
-  const { data: rulesData } = useQuery<any[]>({
-    queryKey: ['rules'],
-    queryFn: api.getRules,
-    staleTime: 1000 * 60 * 5,
-  });
+  // Demo rules ma'lumotlari
+  const rulesData = React.useMemo(() => [
+    { id: 1, rule: 'Yotoqxonada tartib-intizomni saqlash' },
+    { id: 2, rule: 'Xonalarni toza saqlash' },
+    { id: 3, rule: 'Shovqin qilmaslik (22:00 dan keyin)' },
+    { id: 4, rule: 'Begona shaxslarni kiritmaslik' },
+  ], []);
 
-  // Amenities uchun alohida query
-  const { data: amenitiesData } = useQuery<any[]>({
-    queryKey: ['amenities'],
-    queryFn: api.getAmenities,
-    staleTime: 1000 * 60 * 5,
-  });
+  // Demo amenities ma'lumotlari
+  const amenitiesData = React.useMemo(() => [
+    { id: 1, name: 'Wi-Fi', is_active: true },
+    { id: 2, name: 'Kir yuvish mashinasi', is_active: true },
+    { id: 3, name: 'Televizor', is_active: true },
+    { id: 4, name: 'Oshxona', is_active: true },
+    { id: 5, name: 'Kutubxona', is_active: false },
+  ], []);
 
-  // Admin profil ma'lumotlarini olish
-  const { data: adminProfile } = useQuery({
-    queryKey: ['adminProfile'],
-    queryFn: api.getAdminProfile,
-    staleTime: 1000 * 60 * 5,
-  });
+  // Demo admin profil ma'lumotlari
+  const adminProfile = React.useMemo(() => ({
+    id: 1,
+    username: 'superadmin',
+    first_name: 'Admin',
+    last_name: 'Adminov',
+    email: 'admin@joybor.uz',
+    phone: '+998901234567',
+    telegram: '@joyboradmin',
+    bio: 'Yotoqxona administratori',
+    avatar: null,
+  }), []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editSection, setEditSection] = useState<string | null>(null);
   const [rules, setRules] = useState<{ id?: number, rule: string }[]>([]);
@@ -127,7 +155,10 @@ const Settings: React.FC = () => {
   });
   const [descriptionForm, setDescriptionForm] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-  const [localAmenities, setLocalAmenities] = useState<any[]>([]);
+  const [localAmenities, setLocalAmenities] = useState<Array<{ id: number; name: string; is_active: boolean }>>([]);
+
+  // Type definition for amenity
+  type Amenity = { id: number; name: string; is_active: boolean };
 
   // Telefon raqamini formatlash funksiyasi
   const formatPhoneNumber = (value: string) => {
@@ -168,92 +199,7 @@ const Settings: React.FC = () => {
     return value.replace(/\D/g, '');
   };
 
-  const updateSettingsMutation = useMutation({
-    mutationFn: (data: any) => api.updateSettings(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-      setEditSection(null);
-      toast.success('Sozlamalar muvaffaqiyatli saqlandi!');
-    },
-    onError: (err: any) => {
-      toast.error(err?.toString() || 'Xatolik yuz berdi!');
-    },
-  });
-
-  const createRuleMutation = useMutation({
-    mutationFn: (data: { rule: string }) => api.createRule(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['rules'] });
-      toast.success('Qoida muvaffaqiyatli qo\'shildi!');
-    },
-    onError: (err: any) => {
-      toast.error(err?.toString() || 'Qoida qo\'shishda xatolik yuz berdi!');
-    },
-  });
-
-  const updateRuleMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number, data: { rule: string } }) => api.updateRule(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['rules'] });
-      toast.success('Qoida muvaffaqiyatli yangilandi!');
-    },
-    onError: (err: any) => {
-      toast.error(err?.toString() || 'Qoida yangilashda xatolik yuz berdi!');
-    },
-  });
-
-  const deleteRuleMutation = useMutation({
-    mutationFn: (id: number) => api.deleteRule(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['rules'] });
-      toast.success('Qoida muvaffaqiyatli o\'chirildi!');
-    },
-    onError: (err: any) => {
-      toast.error(err?.toString() || 'Qoida o\'chirishda xatolik yuz berdi!');
-    },
-  });
-
-  const updateAmenityMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number, data: { name: string; is_active: boolean } }) => api.updateAmenity(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['amenities'] });
-      toast.success('Qulaylik muvaffaqiyatli yangilandi!');
-    },
-    onError: (err: any) => {
-      toast.error(err?.toString() || 'Qulaylik yangilashda xatolik yuz berdi!');
-    },
-  });
-
-  // Bulk amenities update (optimize API: send only active amenity IDs)
-  const bulkUpdateAmenitiesMutation = useMutation({
-    mutationFn: (data: { amenities: number[] }) => api.patchMyDormitory(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-      queryClient.invalidateQueries({ queryKey: ['amenities'] });
-      toast.success('Qulayliklar muvaffaqiyatli yangilandi!');
-    },
-    onError: (err: any) => {
-      toast.error(err?.toString() || 'Qulayliklarni saqlashda xatolik yuz berdi!');
-    },
-  });
-
-  const updateContactMutation = useMutation({
-    mutationFn: async (data: { phone: string; telegram: string }) => {
-      // FormData yaratish
-      const formData = new FormData();
-      formData.append('phone', data.phone);
-      formData.append('telegram', data.telegram);
-      return api.updateAdminProfile(formData);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adminProfile'] });
-      setEditSection(null);
-      toast.success('Aloqa ma\'lumotlari muvaffaqiyatli yangilandi!');
-    },
-    onError: (err: any) => {
-      toast.error(err?.toString() || err?.message || 'Aloqa ma\'lumotlarini yangilashda xatolik yuz berdi!');
-    },
-  });
+  // Demo: Barcha mutation lar o'chirilgan
 
   // All useEffect at the top
   React.useEffect(() => {
@@ -329,44 +275,20 @@ const Settings: React.FC = () => {
   };
 
   const handleRemoveRule = async (idx: number) => {
-    const rule = rules[idx];
-    if (rule.id) {
-      // API dan o'chirish
-      try {
-        await deleteRuleMutation.mutateAsync(rule.id);
-      } catch (error) {
-        // Error handling is done in mutation
-      }
-    } else {
-      // Local state dan o'chirish (yangi qo'shilgan, hali saqlanmagan)
-      setRules(rules => rules.filter((_, i) => i !== idx));
-    }
+    // Demo: Local state dan o'chirish
+    setRules(rules => rules.filter((_, i) => i !== idx));
+    toast.success('Qoida o\'chirildi! (Demo)');
   };
+  
   const handleSaveRules = async () => {
-    try {
-      for (const rule of rules) {
-        if (rule.rule.trim()) {
-          if (rule.id) {
-            // Mavjud qoidani yangilash
-            await updateRuleMutation.mutateAsync({
-              id: rule.id,
-              data: { rule: rule.rule.trim() }
-            });
-          } else {
-            // Yangi qoida qo'shish
-            await createRuleMutation.mutateAsync({ rule: rule.rule.trim() });
-          }
-        }
-      }
-
-      setEditSection(null);
-    } catch (err: any) {
-      // Error handling is done in the mutation
-    }
+    // Demo: Faqat console log
+    console.log('Demo: Rules saved', rules);
+    toast.success('Qoidalar saqlandi! (Demo)');
+    setEditSection(null);
   };
   // --- AMENITIES STATE ---
 
-  const handleAmenityChange = (amenity: any) => {
+  const handleAmenityChange = (amenity: Amenity) => {
     setLocalAmenities(prev =>
       prev.map(item =>
         item.id === amenity.id
@@ -377,54 +299,10 @@ const Settings: React.FC = () => {
   };
 
   const handleSaveAmenities = async () => {
-    try {
-      // Faqat o'zgargan amenities larni saqlash (ADMIN uchun granular patch)
-      const originalAmenities = amenitiesData || [];
-      const changedAmenities = localAmenities.filter(local => {
-        const original = originalAmenities.find((orig: any) => orig.id === local.id);
-        return original && original.is_active !== local.is_active;
-      });
-
-      for (const amenity of changedAmenities) {
-        await updateAmenityMutation.mutateAsync({
-          id: amenity.id,
-          data: {
-            name: amenity.name,
-            is_active: amenity.is_active
-          }
-        });
-      }
-
-      // Bulk sync: talaba sayti uchun faol ID larni yuborish
-      await handleSyncAmenities();
-
-      setEditSection(null);
-      // Bulk mutation already shows success toast
-    } catch (error) {
-      // Error handling is done in mutations
-    }
-  };
-
-  // Talaba sayti uchun: faol amenities ID larini array ko'rinishida yuborish
-  const handleSyncAmenities = async () => {
-    try {
-      const extractAmenityId = (item: any) => {
-        const raw = item?.id ?? item?.amenity ?? item?.amenity_id ?? item?.pk;
-        const num = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
-        return Number.isFinite(num) ? num : null;
-      };
-
-      const activeAmenityIds = Array.from(new Set(
-        (localAmenities || [])
-          .filter((a: any) => a && (a.is_active === true || a.is_active === 1 || a.is_active === 'true'))
-          .map(extractAmenityId)
-          .filter((id: number | null): id is number => id !== null)
-      ));
-
-      await bulkUpdateAmenitiesMutation.mutateAsync({ amenities: activeAmenityIds });
-    } catch (error) {
-      // Error handled in mutation
-    }
+    // Demo: Faqat console log
+    console.log('Demo: Amenities saved', localAmenities);
+    toast.success('Qulayliklar saqlandi! (Demo)');
+    setEditSection(null);
   };
   // --- CONTACT STATE ---
   // Telefon input handler
@@ -450,18 +328,14 @@ const Settings: React.FC = () => {
       return;
     }
 
-    try {
-      await updateContactMutation.mutateAsync({
-        phone: cleanedPhone, // Faqat raqamlarni yuborish
-        telegram: contactForm.telegram.trim()
-      });
-
-      // Saqlashdan keyin telefon raqamini formatlash
-      if (cleanedPhone) {
-        setContactForm(f => ({ ...f, phone: formatPhoneNumber(cleanedPhone) }));
-      }
-    } catch (error) {
-      // Error handling is done in mutation
+    // Demo: Faqat console log
+    console.log('Demo: Contact saved', { phone: cleanedPhone, telegram: contactForm.telegram });
+    toast.success('Aloqa ma\'lumotlari saqlandi! (Demo)');
+    setEditSection(null);
+    
+    // Saqlashdan keyin telefon raqamini formatlash
+    if (cleanedPhone) {
+      setContactForm(f => ({ ...f, phone: formatPhoneNumber(cleanedPhone) }));
     }
   };
 
@@ -475,22 +349,10 @@ const Settings: React.FC = () => {
   const handleSaveDormCard = async () => {
     setDormLoading(true);
     try {
-      const updateData = {
-        name: dormCardForm.name,
-        address: dormCardForm.address,
-        description: settings.description,
-        distance_to_university: parseFloat(dormCardForm.distance_to_university) || 0,
-        admin: settings.admin?.id,
-        university: settings.university?.id,
-      };
-      await api.patchMyDormitory(updateData);
-      toast.success('Yotoqxona maʼlumotlari yangilandi!');
+      // Demo: API chaqiruvi o'chirilgan
+      console.log('Demo: Dormitory info updated', dormCardForm);
+      toast.success('Yotoqxona maʼlumotlari yangilandi! (Demo)');
       setEditDormCard(false);
-      // Barcha bog'liq cache larni yangilash
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['settings'] }),
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      ]);
     } catch (err: any) {
       toast.error(err?.toString() || 'Xatolik yuz berdi!');
     } finally {
@@ -500,22 +362,10 @@ const Settings: React.FC = () => {
   const handleSavePricesCard = async () => {
     setDormLoading(true);
     try {
-      const updateData = {
-        month_price: parseFloat(pricesCardForm.month_price) || 0,
-        year_price: parseFloat(pricesCardForm.year_price) || 0,
-        distance_to_university: settings.distance_to_university || 0,
-        admin: settings.admin?.id,
-        university: settings.university?.id,
-      };
-      await api.patchMyDormitory(updateData);
-      toast.success('Narx ma\'lumotlari yangilandi!');
+      // Demo: API chaqiruvi o'chirilgan
+      console.log('Demo: Prices updated', pricesCardForm);
+      toast.success('Narx ma\'lumotlari yangilandi! (Demo)');
       setEditPricesCard(false);
-      // Barcha bog'liq cache larni yangilash
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['settings'] }),
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
-        queryClient.invalidateQueries({ queryKey: ['monthlyRevenue'] })
-      ]);
     } catch (err: any) {
       toast.error(err?.toString() || 'Xatolik yuz berdi!');
     } finally {
@@ -526,23 +376,11 @@ const Settings: React.FC = () => {
   const handleSaveDescription = async () => {
     setDormLoading(true);
     try {
-      const updateData = {
-        name: settings.name,
-        address: settings.address,
-        description: descriptionForm,
-        distance_to_university: settings.distance_to_university || 0,
-        admin: settings.admin?.id,
-        university: settings.university?.id,
-      };
-      await api.patchMyDormitory(updateData);
-      toast.success('Tavsif muvaffaqiyatli yangilandi!');
+      // Demo: API chaqiruvi o'chirilgan
+      console.log('Demo: Description updated', descriptionForm);
+      toast.success('Tavsif muvaffaqiyatli yangilandi! (Demo)');
       setEditDescription(false);
-      // Barcha bog'liq cache larni yangilash
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['settings'] }),
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      ]);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err?.toString() || 'Xatolik yuz berdi!');
     } finally {
       setDormLoading(false);
@@ -551,21 +389,9 @@ const Settings: React.FC = () => {
 
   const handleDeleteImage = async (imageId: number) => {
     try {
-      const token = sessionStorage.getItem('access');
-      if (!token) {
-        toast.error('Avtorizatsiya talab qilinadi!');
-        return;
-      }
-      const res = await fetch(`https://joyborv1.pythonanywhere.com/dormitory_images/${imageId}/`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        toast.error('Rasmni o\'chirishda xatolik!');
-        return;
-      }
-      toast.success('Rasm o\'chirildi!');
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      // Demo: API chaqiruvi o'chirilgan
+      console.log('Demo: Image deleted', imageId);
+      toast.success('Rasm o\'chirildi! (Demo)');
     } catch (err) {
       toast.error('Rasmni o\'chirishda xatolik!');
     }
@@ -727,7 +553,7 @@ const Settings: React.FC = () => {
         >
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {localAmenities && localAmenities.length > 0 ? (
-              localAmenities.map((item: any) => (
+              localAmenities.map((item: Amenity) => (
                 <div
                   key={item.id}
                   className={`relative p-4 rounded-lg border transition-all duration-200 ${
@@ -797,11 +623,10 @@ const Settings: React.FC = () => {
               </p>
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
                   onClick={handleSaveAmenities}
-                  disabled={updateAmenityMutation.status === 'pending' || bulkUpdateAmenitiesMutation.status === 'pending'}
                 >
-                  {updateAmenityMutation.status === 'pending' || bulkUpdateAmenitiesMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
+                  Saqlash
                 </button>
                 <button
                   className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition"
@@ -809,7 +634,6 @@ const Settings: React.FC = () => {
                     setEditSection(null);
                     setLocalAmenities(amenitiesData || []);
                   }}
-                  disabled={updateAmenityMutation.status === 'pending' || bulkUpdateAmenitiesMutation.status === 'pending'}
                 >
                   Bekor qilish
                 </button>
@@ -846,11 +670,10 @@ const Settings: React.FC = () => {
                 />
                 <div className="flex flex-col sm:flex-row gap-2 mt-4">
                   <button
-                    className="px-4 sm:px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition disabled:opacity-50 text-sm sm:text-base"
+                    className="px-4 sm:px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm sm:text-base"
                     onClick={handleSaveContact}
-                    disabled={updateContactMutation.status === 'pending'}
                   >
-                    {updateContactMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
+                    Saqlash
                   </button>
                   <button
                     className="px-4 sm:px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm sm:text-base"
@@ -862,7 +685,6 @@ const Settings: React.FC = () => {
                         telegram: adminProfile?.telegram || ''
                       });
                     }}
-                    disabled={updateContactMutation.status === 'pending'}
                   >
                     Bekor qilish
                   </button>
@@ -935,9 +757,8 @@ const Settings: React.FC = () => {
               <button
                 className="px-4 sm:px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm sm:text-base"
                 onClick={handleSaveRules}
-                disabled={createRuleMutation.status === 'pending'}
               >
-                {createRuleMutation.status === 'pending' ? 'Saqlanmoqda...' : 'Saqlash'}
+                Saqlash
               </button>
             </div>
           )}
@@ -975,26 +796,13 @@ const Settings: React.FC = () => {
                 const file = e.target.files?.[0];
                 if (!file) return;
                 setIsUploading(true);
-                const token = sessionStorage.getItem('access');
-                if (!token) {
-                  toast.error('Avtorizatsiya talab qilinadi!');
+                
+                // Demo: API chaqiruvi o'chirilgan
+                setTimeout(() => {
+                  console.log('Demo: Image uploaded', file.name);
+                  toast.success('Rasm muvaffaqiyatli yuklandi! (Demo)');
                   setIsUploading(false);
-                  return;
-                }
-                const formData = new FormData();
-                formData.append('image', file);
-                const res = await fetch('https://joyborv1.pythonanywhere.com/dormitory_image_create', {
-                  method: 'POST',
-                  headers: { 'Authorization': `Bearer ${token}` },
-                  body: formData,
-                });
-                setIsUploading(false);
-                if (!res.ok) {
-                  toast.error('Rasm yuklashda xatolik!');
-                  return;
-                }
-                toast.success('Rasm muvaffaqiyatli yuklandi!');
-                queryClient.invalidateQueries({ queryKey: ['settings'] });
+                }, 1000);
               }}
             />
           </div>
@@ -1007,7 +815,7 @@ const Settings: React.FC = () => {
               scrollbarWidth: 'thin',
               scrollbarColor: '#cbd5e1 #f1f5f9'
             }}>
-              {settings.images.map((img: any, i: number) => (
+              {settings.images.map((img: { id: number; image: string }, i: number) => (
                 <div key={i} className="relative flex-shrink-0 group">
                   <img
                     src={img.image}

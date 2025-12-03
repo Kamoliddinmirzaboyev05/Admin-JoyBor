@@ -1,27 +1,12 @@
 import React from 'react';
-import { Users, Building2, CreditCard, FileText, AlertTriangle, CheckCircle2, Clock4, Plus, X, Edit2, Trash2, Activity } from 'lucide-react';
+import { Users, Building2, CreditCard, FileText, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-// useAppStore import removed as it's not used
 import StatsCard from '../components/UI/StatsCard';
 import { useEffect, useState } from 'react';
-import { get, del, put, api, post } from '../data/api';
-import { useNavigate } from 'react-router-dom';
-import { link } from '../data/config';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatCurrency } from '../utils/formatters';
-import { useGlobalEvents } from '../utils/globalEvents';
 
 const Dashboard: React.FC = () => {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { subscribe } = useGlobalEvents();
-  const [todoModalOpen, setTodoModalOpen] = useState(false);
-  const [newTodo, setNewTodo] = useState('');
-  const [todos, setTodos] = useState<{ id: number; description: string; status: string }[]>([]);
-  const [todoLoading, setTodoLoading] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [editValue, setEditValue] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Dark mode holatini kuzatish
@@ -42,134 +27,42 @@ const Dashboard: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  // Listen for global updates to refresh dashboard
-  useEffect(() => {
-    const unsubscribeStudent = subscribe('student-updated', () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-    });
+  // Demo: Global updates o'chirilgan
 
-    const unsubscribePayment = subscribe('payment-updated', () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['monthlyRevenue'] });
-    });
-
-    const unsubscribeApplication = subscribe('application-updated', () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-    });
-
-    return () => {
-      unsubscribeStudent();
-      unsubscribePayment();
-      unsubscribeApplication();
-    };
-  }, [subscribe, queryClient]);
-
-  // React Query bilan dashboard ma'lumotlarini olish
-  const {
-    data: dashboardData,
-    isLoading: dashboardLoading,
-    error: dashboardError
-  } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: api.getDashboard,
-    staleTime: 1000 * 60 * 5, // 5 daqiqa cache
-    retry: 1
-  });
-
-  // React Query bilan monthly revenue ma'lumotlarini olish
-  const {
-    data: monthlyRevenue = [],
-    isLoading: monthlyRevenueLoading
-  } = useQuery<any[]>({
-    queryKey: ['monthlyRevenue'],
-    queryFn: () => get(`${link}/monthly_revenue/`),
-    staleTime: 1000 * 60 * 10, // 10 daqiqa cache
-    retry: 1
-  });
-
-
-
-  // Fetch todos from backend
-  const fetchTodos = async () => {
-    setTodoLoading(true);
-    try {
-      const res = await get(`${link}/tasks/`);
-      setTodos(Array.isArray(res) ? res.map((t: any) => ({ id: t.id, description: t.description, status: t.status })) : []);
-    } catch (error: any) {
-      // Tasks fetch error logged
-      setTodos([]);
-    } finally {
-      setTodoLoading(false);
-    }
+  // Demo ma'lumotlar (API vaqtincha o'chirilgan)
+  const dashboardData = {
+    total_students: 245,
+    total_rooms: 48,
+    total_payments: 1250000,
+    pending_applications: 12,
+    occupied_rooms: 42,
+    available_rooms: 6,
+    monthly_revenue: 18500000,
+    payment_rate: 87.5,
+    recent_students: [
+      { id: 1, name: 'Alisher Valiyev', room: '201', floor: '2-qavat', joined_date: '2024-01-15' },
+      { id: 2, name: 'Dilnoza Karimova', room: '305', floor: '3-qavat', joined_date: '2024-01-14' },
+      { id: 3, name: 'Sardor Toshmatov', room: '102', floor: '1-qavat', joined_date: '2024-01-13' },
+    ],
+    recent_payments: [
+      { id: 1, student: 'Alisher Valiyev', amount: 350000, date: '2024-01-15', status: 'paid' },
+      { id: 2, student: 'Dilnoza Karimova', amount: 350000, date: '2024-01-14', status: 'paid' },
+      { id: 3, student: 'Sardor Toshmatov', amount: 350000, date: '2024-01-13', status: 'pending' },
+    ]
   };
-  useEffect(() => { fetchTodos(); }, []);
+  const dashboardLoading = false;
+  const dashboardError = null;
 
-  const handleAddTodo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newTodo.trim()) {
-      setTodoLoading(true);
-      try {
-        await post(`${link}/tasks/`, { title: 'Vazifa', description: newTodo.trim(), status: 'PENDING' });
-        setNewTodo('');
-        setTodoModalOpen(false);
-        fetchTodos();
-      } catch (err) {
-        // Add todo error logged
-        // Don't show alert for 403 errors, just log them
-        if ((err as any)?.response?.status !== 403) {
-          // Vazifa qo'shishda xatolik
-        }
-      } finally {
-        setTodoLoading(false);
-      }
-    }
-  };
-
-  const handleDeleteTodo = async (id: number) => {
-    setTodoLoading(true);
-    try {
-      await del(`${link}/tasks/${id}/`);
-      fetchTodos();
-    } finally {
-      setTodoLoading(false);
-    }
-  };
-
-  const handleEditTodo = (id: number, description: string) => {
-    setEditId(id);
-    setEditValue(description);
-  };
-
-  const handleEditSave = async (id: number) => {
-    setTodoLoading(true);
-    try {
-      await put(`${link}/tasks/${id}/`, { title: 'Vazifa', description: editValue, status: 'PENDING' });
-      setEditId(null);
-      setEditValue('');
-      fetchTodos();
-    } finally {
-      setTodoLoading(false);
-    }
-  };
-
-  const handleEditCancel = () => {
-    setEditId(null);
-    setEditValue('');
-  };
-
-  const handleToggleTodoStatus = async (todo: { id: number; status: string; description: string }) => {
-    setTodoLoading(true);
-    try {
-      await put(`${link}/tasks/${todo.id}/`, {
-        title: 'Vazifa',
-        description: todo.description,
-        status: todo.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED',
-      });
-      fetchTodos();
-    } finally {
-      setTodoLoading(false);
-    }
-  };
+  // Demo monthly revenue ma'lumotlari
+  const monthlyRevenue = [
+    { month: 'Yanvar', revenue: 15000000 },
+    { month: 'Fevral', revenue: 16500000 },
+    { month: 'Mart', revenue: 18000000 },
+    { month: 'Aprel', revenue: 17500000 },
+    { month: 'May', revenue: 19000000 },
+    { month: 'Iyun', revenue: 18500000 },
+  ];
+  const monthlyRevenueLoading = false;
 
   // Show only loading bar and spinner until data is loaded
   if (dashboardLoading) {
@@ -347,7 +240,7 @@ const Dashboard: React.FC = () => {
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthlyRevenue as any[]}>
+              <BarChart data={monthlyRevenue as unknown[]}>
                 <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid.stroke} strokeOpacity={0.3} />
                 <XAxis
                   dataKey="month"
@@ -496,205 +389,7 @@ const Dashboard: React.FC = () => {
         </motion.div>
       </div>
 
-      {/* Quick Actions and Recent Activity */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
-        {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-card p-6 border border-gray-200 dark:border-gray-700 min-w-0 flex-1"
-        >
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-            Tezkor Amallar
-          </h3>
-          <div className="space-y-3">
-            <button
-              className="w-full flex items-center space-x-3 p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors"
-              onClick={() => navigate('/students', { state: { openAddModal: true } })}
-            >
-              <Users className="w-5 h-5" />
-              <span>Yangi talaba qo'shish</span>
-            </button>
-            <button
-              className="w-full flex items-center space-x-3 p-3 rounded-lg bg-secondary-50 dark:bg-secondary-900/20 text-secondary-700 dark:text-secondary-300 hover:bg-secondary-100 dark:hover:bg-secondary-900/30 transition-colors"
-              onClick={() => navigate('/rooms', { state: { openAddRoomModal: true } })}
-            >
-              <Building2 className="w-5 h-5" />
-              <span>Xona tayinlash</span>
-            </button>
-            <button
-              className="w-full flex items-center space-x-3 p-3 rounded-lg bg-accent-50 dark:bg-accent-900/20 text-accent-700 dark:text-accent-300 hover:bg-accent-100 dark:hover:bg-accent-900/30 transition-colors"
-              onClick={() => navigate('/payments', { state: { openAddPaymentModal: true } })}
-            >
-              <CreditCard className="w-5 h-5" />
-              <span>To'lov qo'shish</span>
-            </button>
-          </div>
-        </motion.div>
 
-        {/* Recent Activities Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-card p-6 border border-gray-200 dark:border-gray-700 mb-8 md:mb-0 md:col-span-1 min-w-0"
-        >
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-            <Activity className="w-5 h-5 text-primary-500" /> Oxirgi Amallar
-          </h3>
-          <div className="space-y-3 max-h-[240px] overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin' }}>
-            {dashboardLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <svg className="animate-spin h-6 w-6 text-blue-500" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
-              </div>
-            ) : !dashboardData?.recent_applications || dashboardData.recent_applications.length === 0 ? (
-              <div className="text-gray-400 dark:text-gray-500 text-center py-4">Oxirgi amallar yo'q</div>
-            ) : (dashboardData.recent_applications.slice(0, 3)).map((app: any, idx: number) => (
-              <div key={idx} className="flex items-start space-x-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer border border-gray-100 dark:border-gray-600" onClick={() => navigate(`/applications/${app.id || idx}`)}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm ${app.status === 'APPROVED' ? 'bg-green-500' :
-                  app.status === 'REJECTED' ? 'bg-red-500' :
-                    'bg-blue-500'
-                  }`}>
-                  {app.status === 'APPROVED' && <CheckCircle2 className="w-4 h-4" />}
-                  {app.status === 'REJECTED' && <X className="w-4 h-4" />}
-                  {app.status === 'PENDING' && <Clock4 className="w-4 h-4" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{app.name}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {app.status === 'APPROVED' ? 'Ariza qabul qilindi' :
-                      app.status === 'REJECTED' ? 'Ariza rad etildi' :
-                        'Ariza kutilmoqda'}
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    {app.created_at ? new Date(app.created_at).toLocaleDateString('uz-UZ') : ''}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Tasks */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-card p-6 border border-gray-200 dark:border-gray-700 relative min-w-0 flex-1"
-        >
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center justify-between">
-            Bugungi Vazifalar
-            <button
-              className="ml-2 p-2 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800 transition"
-              onClick={() => setTodoModalOpen(true)}
-              title="Vazifa qo'shish"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
-          </h3>
-          {/* Zamonaviy modal */}
-          {todoModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setTodoModalOpen(false)}>
-              <div
-                className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 relative animate-fadeIn"
-                onClick={e => e.stopPropagation()}
-              >
-                <button
-                  className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded transition-colors"
-                  onClick={() => setTodoModalOpen(false)}
-                >
-                  <X size={22} />
-                </button>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Yangi vazifa qo'shish</h2>
-                <form onSubmit={handleAddTodo} className="flex flex-col gap-4">
-                  <input
-                    type="text"
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-                    placeholder="Vazifa matni..."
-                    value={newTodo}
-                    onChange={e => setNewTodo(e.target.value)}
-                    autoFocus
-                  />
-                  <button
-                    type="submit"
-                    className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition"
-                    disabled={todoLoading}
-                  >
-                    {todoLoading ? 'Yuklanmoqda...' : `Qo'shish`}
-                  </button>
-                </form>
-              </div>
-            </div>
-          )}
-          <div className="space-y-3 mb-4 max-h-52 overflow-y-auto pr-1">
-            {todoLoading ? (
-              <div className="flex items-center justify-center py-6">
-                <svg className="animate-spin h-6 w-6 text-blue-500" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
-              </div>
-            ) : todos.length > 0 ? todos.map((todo) => (
-              <div key={todo.id} className="flex items-center space-x-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-200">
-                {/* Custom round checkbox */}
-                <button
-                  type="button"
-                  className={`w-6 h-6 flex items-center justify-center rounded-full border-2 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-green-400 ${todo.status === 'COMPLETED' ? 'bg-green-500 border-green-500' : 'bg-white border-gray-300 dark:bg-gray-800 dark:border-gray-600'}`}
-                  onClick={() => handleToggleTodoStatus(todo)}
-                  aria-label="Bajarildi deb belgilash"
-                  style={{ minWidth: 24, minHeight: 24 }}
-                >
-                  {todo.status === 'COMPLETED' && (
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  )}
-                </button>
-                <CheckCircle2 className={`w-4 h-4 ${todo.status === 'COMPLETED' ? 'text-green-500 dark:text-green-400' : 'text-gray-300 dark:text-gray-600'}`} />
-                {editId === todo.id ? (
-                  <>
-                    <input
-                      className="flex-1 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      value={editValue}
-                      onChange={e => setEditValue(e.target.value)}
-                      autoFocus
-                    />
-                    <button
-                      className="p-1 rounded bg-green-500 hover:bg-green-600 text-white"
-                      onClick={() => handleEditSave(todo.id)}
-                      title="Saqlash"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      className="p-1 rounded bg-gray-300 hover:bg-gray-400 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
-                      onClick={handleEditCancel}
-                      title="Bekor qilish"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span className={`flex-1 ${todo.status === 'COMPLETED' ? 'line-through opacity-60' : ''}`}>{todo.description}</span>
-                    <button
-                      className="p-1 rounded bg-yellow-400 hover:bg-yellow-500 text-white"
-                      onClick={() => handleEditTodo(todo.id, todo.description)}
-                      title="Tahrirlash"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      className="p-1 rounded bg-red-500 hover:bg-red-600 text-white"
-                      onClick={() => handleDeleteTodo(todo.id)}
-                      title="O'chirish"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </>
-                )}
-              </div>
-            )) : (
-              <div className="text-gray-400 dark:text-gray-500 text-center py-4">Vazifalar yo'q</div>
-            )}
-          </div>
-        </motion.div>
-      </div>
     </div>
   );
 };

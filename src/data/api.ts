@@ -1,5 +1,6 @@
 // Universal API helper for authenticated requests
-export const BASE_URL = 'https://joyborv1.pythonanywhere.com';
+export const BASE_URL = 'https://joyborv1.pythonanywhere.com/api';
+export const link = 'https://joyborv1.pythonanywhere.com/api';
 
 export async function apiFetch(url: string, options: RequestInit = {}) {
   const token = sessionStorage.getItem('access');
@@ -35,8 +36,8 @@ export async function apiFetch(url: string, options: RequestInit = {}) {
     const data = await res.json().catch(() => ({}));
     
     if (!res.ok) {
-      const error = new Error(data?.detail || data?.message || `HTTP ${res.status}: ${res.statusText}`);
-      (error as any).response = { data, status: res.status, statusText: res.statusText };
+      const error = new Error(data?.detail || data?.message || `HTTP ${res.status}: ${res.statusText}`) as Error & { response?: { data: unknown; status: number; statusText: string } };
+      error.response = { data, status: res.status, statusText: res.statusText };
       throw error;
     }
     
@@ -53,15 +54,15 @@ export async function apiFetch(url: string, options: RequestInit = {}) {
 
 // Generic API methods
 export const get = (url: string) => apiFetch(url, { method: 'GET' });
-export const post = (url: string, data?: any) => apiFetch(url, {
+export const post = (url: string, data?: unknown) => apiFetch(url, {
   method: 'POST',
   body: data ? JSON.stringify(data) : undefined,
 });
-export const put = (url: string, data?: any) => apiFetch(url, {
+export const put = (url: string, data?: unknown) => apiFetch(url, {
   method: 'PUT',
   body: data ? JSON.stringify(data) : undefined,
 });
-export const patch = (url: string, data?: any) => apiFetch(url, {
+export const patch = (url: string, data?: unknown) => apiFetch(url, {
   method: 'PATCH',
   body: data ? JSON.stringify(data) : undefined,
 });
@@ -76,7 +77,7 @@ export const api = {
   
   // Profile
   getProfile: () => get('/profile/'),
-  updateProfile: (data: any) => patch('/profile/', data),
+  updateProfile: (data: Record<string, unknown>) => patch('/profile/', data),
   
   // Students
   getStudents: (params?: {
@@ -105,8 +106,8 @@ export const api = {
     return get(`/students/${queryString ? `?${queryString}` : ''}`);
   },
   
-  createStudent: (data: any) => post('/student/create/', data),
-  updateStudent: (id: number, data: any) => patch(`/students/${id}/`, data),
+  createStudent: (data: Record<string, unknown>) => post('/student/create/', data),
+  updateStudent: (id: number, data: Record<string, unknown>) => patch(`/students/${id}/`, data),
   deleteStudent: (id: number) => del(`/students/${id}/`),
   
   // Floors and Rooms
@@ -164,7 +165,7 @@ export const api = {
     }>;
   }) => post('/attendance-sessions/', data),
   
-  updateAttendanceSession: (id: number, data: any) => patch(`/attendance-sessions/${id}/`, data),
+  updateAttendanceSession: (id: number, data: Record<string, unknown>) => patch(`/attendance-sessions/${id}/`, data),
   deleteAttendanceSession: (id: number) => del(`/attendance-sessions/${id}/`),
   
   // Reports
@@ -186,7 +187,7 @@ export const api = {
   
   // Settings
   getSettings: () => get('/settings/'),
-  updateSettings: (data: any) => patch('/settings/', data),
+  updateSettings: (data: Record<string, unknown>) => patch('/settings/', data),
   
   // Dashboard
   getDashboard: () => get('/dashboard/'),
@@ -196,7 +197,7 @@ export const api = {
   markAllApplicationNotificationsAsRead: () => post('/notifications/mark-all-read/', {}),
   
   // Dormitory Management
-  patchMyDormitory: (data: any) => patch('/dormitory/', data),
+  patchMyDormitory: (data: Record<string, unknown>) => patch('/dormitory/', data),
   
   // Amenities Management
   getAmenities: () => get('/amenities/'),
@@ -237,29 +238,32 @@ export const api = {
 
       // Umumiy bildirishnomalar
       if (Array.isArray(generalNotifications)) {
-        const mappedGeneral = generalNotifications.map((item: any) => ({
-          id: item.id, // User notification ID
-          notification_id: item.notification?.id, // Original notification ID - o'qilgan qilish uchun
-          title: item.notification?.title || 'Bildirishnoma',
-          message: item.notification?.message || '',
-          type: item.notification?.type || 'info',
-          is_read: item.is_read || false,
-          created_at: item.created_at || item.notification?.created_at,
-          category: 'general'
-        }));
+        const mappedGeneral = generalNotifications.map((item: Record<string, unknown>) => {
+          const notification = item.notification as Record<string, unknown> | undefined;
+          return {
+            id: item.id as number,
+            notification_id: notification?.id as number,
+            title: (notification?.title as string) || 'Bildirishnoma',
+            message: (notification?.message as string) || '',
+            type: (notification?.type as string) || 'info',
+            is_read: (item.is_read as boolean) || false,
+            created_at: (item.created_at as string) || (notification?.created_at as string),
+            category: 'general'
+          };
+        });
         allNotifications.push(...mappedGeneral);
       }
 
       // Ariza bildirishnomalari
       if (Array.isArray(applicationNotifications)) {
-        const mappedApplication = applicationNotifications.map((item: any) => ({
-          id: item.id,
-          notification_id: item.id,
-          title: item.title || 'Ariza bildirishnomasi',
-          message: item.message || '',
-          type: item.type || 'application',
-          is_read: item.is_read || false,
-          created_at: item.created_at,
+        const mappedApplication = applicationNotifications.map((item: Record<string, unknown>) => ({
+          id: item.id as number,
+          notification_id: item.id as number,
+          title: (item.title as string) || 'Ariza bildirishnomasi',
+          message: (item.message as string) || '',
+          type: (item.type as string) || 'application',
+          is_read: (item.is_read as boolean) || false,
+          created_at: item.created_at as string,
           category: 'application'
         }));
         allNotifications.push(...mappedApplication);
@@ -324,7 +328,7 @@ export const api = {
   // Admin profile endpoints
   getAdminProfile: () => get(`${BASE_URL}/profile/`),
   
-  updateAdminProfile: async (data: any) => {
+  updateAdminProfile: async (data: unknown) => {
     const token = sessionStorage.getItem('access');
     if (!token) {
       throw new Error('Avtorizatsiya talab qilinadi');

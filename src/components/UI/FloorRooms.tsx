@@ -27,7 +27,17 @@ function useRoomsByFloor(floorId: number) {
     queryKey: ['rooms', floorId],
     queryFn: async () => {
       const res = await get(`/rooms/?floor=${floorId}`);
-      return (res || []).map((room: Record<string, unknown>) => {
+      console.log('Rooms API response for floor', floorId, ':', res);
+      
+      // API returns paginated data with results array
+      let roomsData = [];
+      if (res && res.results && Array.isArray(res.results)) {
+        roomsData = res.results;
+      } else if (Array.isArray(res)) {
+        roomsData = res;
+      }
+      
+      return roomsData.map((room: Record<string, unknown>) => {
         const students = Array.isArray(room.students) ? room.students : [];
         const capacity = typeof room.capacity === 'number' ? room.capacity : 0;
         const currentOccupancy = students.length;

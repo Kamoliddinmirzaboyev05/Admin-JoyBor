@@ -207,16 +207,28 @@ const FloorDetail: React.FC = () => {
     : [];
 
   const {
-    data: rooms = [],
+    data: roomsData,
     isLoading: roomsLoading,
     error: roomsError,
     refetch: refetchRooms
   } = useQuery({
     queryKey: ['rooms', floor?.id],
-    queryFn: () => floor ? get(`/rooms/?floor=${floor.id}`) : Promise.resolve([]),
+    queryFn: async () => {
+      if (!floor) return [];
+      const response = await get(`/rooms/?floor=${floor.id}`);
+      console.log('Rooms API response:', response);
+      // API returns paginated data with results array
+      if (response && response.results && Array.isArray(response.results)) {
+        return response.results;
+      }
+      // Fallback for non-paginated response
+      return Array.isArray(response) ? response : [];
+    },
     enabled: !!floor,
     staleTime: 1000 * 60 * 5,
   });
+
+  const rooms = Array.isArray(roomsData) ? roomsData : [];
 
   const roomStats = React.useMemo(() => {
     const stats = { total: rooms.length, empty: 0, partial: 0, full: 0 } as { total: number; empty: number; partial: number; full: number };

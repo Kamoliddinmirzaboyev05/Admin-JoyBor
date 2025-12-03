@@ -3,8 +3,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { LogOut, User, KeyRound, Phone, UserCog, CalendarCheck2, MapPin, MessageCircle } from 'lucide-react';
 import BackButton from '../components/UI/BackButton';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../data/api';
+// API imports o'chirilgan - demo ma'lumotlar
 import { useRef } from 'react';
 
 
@@ -26,12 +25,22 @@ function ProfileField({ icon, label, value, actionLabel, onAction }: { icon: Rea
 }
 
 const Profile: React.FC = () => {
-  const queryClient = useQueryClient();
-  const { data: admin, isLoading, error } = useQuery({
-    queryKey: ['adminProfile'],
-    queryFn: api.getAdminProfile,
-    staleTime: 1000 * 60 * 5,
-  });
+  // Demo admin data
+  const admin = {
+    id: 1,
+    username: 'superadmin',
+    first_name: 'Admin',
+    last_name: 'Adminov',
+    email: 'admin@joyбор.uz',
+    phone: '+998901234567',
+    telegram: '@joyboradmin',
+    bio: 'Yotoqxona administratori',
+    birth_date: '1990-01-01',
+    address: 'Toshkent sh.',
+    avatar: null,
+  };
+  const isLoading = false;
+  const error = null;
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');

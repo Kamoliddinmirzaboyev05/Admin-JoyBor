@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { link } from '../data/config';
 import { toast } from 'sonner';
 
 const Login: React.FC = () => {
@@ -14,32 +13,55 @@ const Login: React.FC = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
+    
+    console.log('🔐 Login attempt:', { username: login });
+    
     try {
-      const res = await fetch(`${link}/token/`, {
+      const res = await fetch('https://joyborv1.pythonanywhere.com/api/token/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: login, password }),
       });
+      
+      console.log('📡 Response status:', res.status, res.statusText);
+      
       const result = await res.json();
+      console.log('📥 Response data:', result);
       if (res.ok && result.access) {
-        // Role tekshiruvi qo'shish
-        if (result.role && result.role === 'admin') {
-          sessionStorage.setItem('access', result.access);
-          sessionStorage.setItem('isAuth', 'true');
-          sessionStorage.setItem('userRole', result.role);
-          window.location.href = '/';
-        } else {
-          // Admin emas bo'lsa xatolik ko'rsatish
-          toast.error('Bunday foydalanuvchi topilmadi yoki sizda admin huquqi yo\'q!');
-          setError('Bunday foydalanuvchi topilmadi yoki sizda admin huquqi yo\'q!');
-          setLoading(false);
+        // Token mavjud bo'lsa, sessionga saqlash va tizimga kirish
+        console.log('✅ Login successful! Saving token...');
+        sessionStorage.setItem('access', result.access);
+        sessionStorage.setItem('isAuth', 'true');
+        
+        // Agar refresh token ham kelsa, uni ham saqlash
+        if (result.refresh) {
+          sessionStorage.setItem('refresh', result.refresh);
         }
+        
+        // Agar role kelsa, uni ham saqlash
+        if (result.role) {
+          sessionStorage.setItem('userRole', result.role);
+        }
+        
+        console.log('🚀 Redirecting to dashboard...');
+        toast.success('Muvaffaqiyatli kirdingiz!');
+        
+        // Biroz kutib, keyin redirect qilish
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 500);
       } else {
-        setError(result.detail || 'Login yoki parol noto\'g\'ri!');
+        const errorMsg = result.detail || result.message || 'Login yoki parol noto\'g\'ri!';
+        console.error('❌ Login failed:', errorMsg);
+        setError(errorMsg);
+        toast.error(errorMsg);
         setLoading(false);
       }
-    } catch {
-      setError('Tarmoqda xatolik. Qayta urinib ko\'ring.');
+    } catch (err) {
+      console.error('❌ Network error:', err);
+      const errorMsg = 'Tarmoqda xatolik. Qayta urinib ko\'ring.';
+      setError(errorMsg);
+      toast.error(errorMsg);
       setLoading(false);
     }
   };

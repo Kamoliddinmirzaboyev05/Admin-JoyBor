@@ -1,1 +1,1 @@
-export const link = 'https://joyborv1.pythonanywhere.com'; 
+export const link = 'https://joyborv1.pythonanywhere.com/api'; 

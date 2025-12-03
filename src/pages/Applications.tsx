@@ -3,9 +3,8 @@ import { Link } from 'react-router-dom';
 import { ChevronRight, X, Filter, Search, ChevronDown, User, CheckCircle, XCircle, AlertCircle, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select, { SingleValue } from 'react-select';
-import { useQuery } from '@tanstack/react-query';
-import { useGlobalEvents } from '../utils/globalEvents';
 import { toast } from 'sonner';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 
 interface StatusColors {
@@ -26,11 +25,13 @@ interface Application {
     id: number;
     name: string;
   };
+  province_name?: string;
   district?: {
     id: number;
     name: string;
     province: number;
   };
+  district_name?: string;
   faculty?: string;
   direction?: string;
   course?: string;
@@ -42,10 +43,18 @@ interface Application {
     id: number;
     name: string;
   };
+  dormitory_name?: string;
   user_image?: string;
   passport_image_first?: string;
   passport_image_second?: string;
   document?: string;
+  user_info?: {
+    id: number;
+    username: string;
+    role: string;
+    email: string;
+  };
+  user?: number;
 }
 
 interface FormData {
@@ -148,7 +157,6 @@ const districtOptions: Record<string, { value: string; label: string }[]> = {
 };
 
 const Applications: React.FC = () => {
-  const { subscribe, emitStudentUpdate } = useGlobalEvents();
   const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [showModal, setShowModal] = useState<boolean>(false);
@@ -175,13 +183,10 @@ const Applications: React.FC = () => {
     type: 'Yotoqxona',
   });
 
-  // React Query bilan applications ma'lumotlarini olish
-  const {
-    data: applications = [],
-    isLoading,
-    error,
-    refetch
-  } = useQuery<Application[], Error>({
+  const queryClient = useQueryClient();
+
+  // API dan arizalarni olish
+  const { data: applicationsData, isLoading, error, refetch } = useQuery({
     queryKey: ['applications'],
     queryFn: async () => {
       const token = sessionStorage.getItem('access');
@@ -189,7 +194,7 @@ const Applications: React.FC = () => {
         throw new Error('Avtorizatsiya talab qilinadi');
       }
 
-      const response = await fetch('https://joyborv1.pythonanywhere.com/applications/', {
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/applications/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -197,24 +202,63 @@ const Applications: React.FC = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Arizalarni yuklashda xatolik yuz berdi');
+        throw new Error('Arizalarni yuklashda xatolik');
       }
 
       const data = await response.json();
+      console.log('Applications API response:', data);
+      
+      // API returns paginated data with results array
+      if (data && data.results && Array.isArray(data.results)) {
+        return data.results.map((app: Record<string, unknown>) => ({
+          id: app.id,
+          name: app.name,
+          last_name: app.last_name,
+          middle_name: app.middle_name,
+          phone: app.phone,
+          created_at: app.created_at,
+          status: app.status,
+          province_name: app.province_name,
+          district_name: app.district_name,
+          faculty: app.faculty,
+          direction: app.direction,
+          course: app.course,
+          group: app.group,
+          passport: app.passport,
+          comment: app.comment,
+          dormitory_name: app.dormitory_name,
+          user_image: app.user_image,
+          passport_image_first: app.passport_image_first,
+          passport_image_second: app.passport_image_second,
+          document: app.document,
+          user_info: app.user_info,
+          user: app.user,
+          dormitory: app.dormitory,
+          province: app.province,
+          district: app.district,
+        }));
+      }
+      
+      // Fallback for non-paginated response
       return Array.isArray(data) ? data : [];
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: 1,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
+
+  const applications: Application[] = applicationsData || [];
 
   // Listen for global application updates
   React.useEffect(() => {
-    const unsubscribe = subscribe('application-updated', () => {
+    const handleApplicationUpdate = () => {
       refetch();
-    });
-    return unsubscribe;
-  }, [subscribe, refetch]);
+    };
+    window.addEventListener('application-updated', handleApplicationUpdate);
+    return () => {
+      window.removeEventListener('application-updated', handleApplicationUpdate);
+    };
+  }, [refetch]);
 
   // Convert application to student function - Updated to use FormData
   const handleConvertToStudent = async (applicationId: string | number) => {
@@ -246,15 +290,18 @@ const Applications: React.FC = () => {
       const result = await response.json();
       toast.success('Ariza muvaffaqiyatli talabaga aylantirildi!');
       
-      // Refresh applications list
+      // Refresh applications and students list
+      await queryClient.invalidateQueries({ queryKey: ['applications'] });
+      await queryClient.invalidateQueries({ queryKey: ['students'] });
       await refetch();
       
       // Emit global event for student update
-      emitStudentUpdate({ action: 'created', data: result });
+      window.dispatchEvent(new CustomEvent('student-updated', { detail: { action: 'created', data: result } }));
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Convert application error:', error);
-      toast.error(error.message || 'Arizani talabaga aylantirishda xatolik yuz berdi');
+      const errorMessage = error instanceof Error ? error.message : 'Arizani talabaga aylantirishda xatolik yuz berdi';
+      toast.error(errorMessage);
     } finally {
       setConvertingApp(null);
     }
@@ -456,7 +503,7 @@ const Applications: React.FC = () => {
                   {/* Ma'lumotlar grid - faqat muhim ma'lumotlar */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Viloyat */}
-                    {(app.province?.name || app.city) && (
+                    {(app.province_name || app.province?.name || app.city) && (
                       <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                         <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                           <span className="text-green-600 dark:text-green-400 text-sm">🏙️</span>
@@ -464,7 +511,7 @@ const Applications: React.FC = () => {
                         <div>
                           <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Viloyat</p>
                           <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {app.province?.name || app.city}
+                            {app.province_name || app.province?.name || app.city}
                           </p>
                         </div>
                       </div>

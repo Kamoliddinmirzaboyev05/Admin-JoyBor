@@ -5,18 +5,12 @@ import DataTable from '../components/UI/DataTable';
 import { toast } from 'sonner';
 import Select from 'react-select';
 import { Link, useLocation } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../data/api';
-// import { useAppStore } from '../stores/useAppStore';
-import { link } from '../data/config';
-import axios from 'axios';
-import { formatCurrency } from '../utils/formatters';
-import { invalidateStudentCaches } from '../utils/cacheUtils';
-import { useGlobalEvents } from '../utils/globalEvents';
+// import { formatCurrency } from '../utils/formatters';
+import { link } from '../data/api';
 
 // react-select custom styles for dark mode
 const selectStyles = {
-  control: (base: any, state: any) => ({
+  control: (base: Record<string, unknown>, state: { isFocused: boolean }) => ({
     ...base,
     backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
     borderColor: state.isFocused ? (document.documentElement.classList.contains('dark') ? '#60a5fa' : '#3b82f6') : (document.documentElement.classList.contains('dark') ? '#374151' : '#d1d5db'),
@@ -24,24 +18,24 @@ const selectStyles = {
     minHeight: 40,
     fontSize: 15,
   }),
-  menu: (base: any) => ({
+  menu: (base: Record<string, unknown>) => ({
     ...base,
     backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
     color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
   }),
-  singleValue: (base: any) => ({
+  singleValue: (base: Record<string, unknown>) => ({
     ...base,
     color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
   }),
-  input: (base: any) => ({
+  input: (base: Record<string, unknown>) => ({
     ...base,
     color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
   }),
-  placeholder: (base: any) => ({
+  placeholder: (base: Record<string, unknown>) => ({
     ...base,
     color: document.documentElement.classList.contains('dark') ? '#d1d5db' : '#6b7280',
   }),
-  option: (base: any, state: any) => ({
+  option: (base: Record<string, unknown>, state: { isSelected: boolean; isFocused: boolean }) => ({
     ...base,
     backgroundColor: state.isSelected
       ? (document.documentElement.classList.contains('dark') ? '#2563eb' : '#3b82f6')
@@ -54,8 +48,6 @@ const selectStyles = {
 };
 
 const Students: React.FC = () => {
-  const queryClient = useQueryClient();
-  const { emitStudentUpdate, subscribe } = useGlobalEvents();
   const [showModal, setShowModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Record<string, unknown> | null>(null);
 
@@ -104,82 +96,114 @@ const Students: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
 
-  // Fetch provinces using React Query
-  const { data: provincesData = [] } = useQuery({
-    queryKey: ['provinces'],
-    queryFn: api.getProvinces,
-    staleTime: 1000 * 60 * 10, // 10 daqiqa cache
-  });
+  // Demo ma'lumotlar (API vaqtincha o'chirilgan)
+  const provincesData = [
+    { id: 1, name: 'Toshkent' },
+    { id: 2, name: 'Samarqand' },
+    { id: 3, name: 'Buxoro' },
+    { id: 4, name: 'Farg\'ona' },
+    { id: 5, name: 'Andijon' },
+  ];
 
-  // Fetch districts for selected province using React Query
-  const { data: districtsData = [] } = useQuery({
-    queryKey: ['districts', formData.region],
-    queryFn: () => formData.region ? api.getDistricts(Number(formData.region)) : Promise.resolve([]),
-    enabled: !!formData.region,
-    staleTime: 1000 * 60 * 10, // 10 daqiqa cache
-  });
+  const districtsData = formData.region ? [
+    { id: 1, name: 'Chilonzor', province: Number(formData.region) },
+    { id: 2, name: 'Yunusobod', province: Number(formData.region) },
+    { id: 3, name: 'Mirzo Ulug\'bek', province: Number(formData.region) },
+    { id: 4, name: 'Yakkasaroy', province: Number(formData.region) },
+  ] : [];
 
   const location = useLocation();
 
-  // React Query bilan students ma'lumotlarini olish
-  const {
-    data: students = [],
-    isLoading,
-    error,
-    refetch
-  } = useQuery({
-    queryKey: ['students'],
-    queryFn: api.getStudents,
-    staleTime: 1000 * 60 * 5, // 5 daqiqa cache
-  });
+  // Fetch students from API
+  const [students, setStudents] = useState<Array<Record<string, unknown>>>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch available floors using React Query
-  const { data: floorsData = [] } = useQuery({
-    queryKey: ['available-floors'],
-    queryFn: api.getAvailableFloors,
-    staleTime: 1000 * 60 * 5,
-  });
+  const fetchStudents = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const token = sessionStorage.getItem('access');
+      const response = await fetch(`${link}/students/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Talabalarni yuklashda xatolik');
+      }
+      
+      const data = await response.json();
+      // API returns { results: [...] } format
+      setStudents(Array.isArray(data.results) ? data.results : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Xatolik yuz berdi');
+      console.error('Students fetch error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  // Fetch available rooms for selected floor using React Query
-  const { data: roomsData = [] } = useQuery({
-    queryKey: ['available-rooms', formData.floor],
-    queryFn: () => formData.floor ? api.getAvailableRooms(Number(formData.floor)) : Promise.resolve([]),
-    enabled: !!formData.floor,
-    staleTime: 1000 * 60 * 5,
-  });
+  const refetch = () => {
+    return fetchStudents();
+  };
 
-  // Fetch all rooms for filter dropdown
-  const { data: allRoomsData = [] } = useQuery({
-    queryKey: ['all-rooms'],
-    queryFn: () => api.getRooms(),
-    staleTime: 1000 * 60 * 5,
-  });
+  // Initial fetch
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  // Demo floors ma'lumotlari
+  const floorsData = [
+    { id: 1, name: '1-qavat', available_rooms: 5 },
+    { id: 2, name: '2-qavat', available_rooms: 3 },
+    { id: 3, name: '3-qavat', available_rooms: 4 },
+    { id: 4, name: '4-qavat', available_rooms: 2 },
+  ];
+
+  // Demo rooms ma'lumotlari
+  const roomsData = formData.floor ? [
+    { id: 1, name: '101', capacity: 4, occupied_beds: 2, floor: Number(formData.floor) },
+    { id: 2, name: '102', capacity: 4, occupied_beds: 1, floor: Number(formData.floor) },
+    { id: 3, name: '103', capacity: 4, occupied_beds: 3, floor: Number(formData.floor) },
+    { id: 4, name: '104', capacity: 4, occupied_beds: 0, floor: Number(formData.floor) },
+  ] : [];
+
+  // Demo all rooms data
+  const allRoomsData = [
+    { id: 1, name: '101', floor: 1 },
+    { id: 2, name: '102', floor: 1 },
+    { id: 3, name: '201', floor: 2 },
+    { id: 4, name: '202', floor: 2 },
+  ];
 
   const regionOptions = Array.isArray(provincesData)
-    ? provincesData.map((p: any) => ({ value: String(p.id), label: p.name }))
+    ? provincesData.map((p) => ({ value: String(p.id), label: p.name }))
     : [];
   const districtOptions = Array.isArray(districtsData)
-    ? districtsData.map((d: any) => ({ value: String(d.id), label: d.name }))
+    ? districtsData.map((d) => ({ value: String(d.id), label: d.name }))
     : [];
   const floorOptions = Array.isArray(floorsData)
-    ? floorsData.map((f: any) => ({
+    ? floorsData.map((f) => ({
       value: String(f.id),
-      label: `${f.name.endsWith('-qavat') ? f.name : `${f.name}-qavat`} (${f.gender === 'male' ? 'Yigitlar' : 'Qizlar'})`
+      label: `${f.name.endsWith('-qavat') ? f.name : `${f.name}-qavat`} ${(f as { gender?: string }).gender === 'male' ? '(Yigitlar)' : '(Qizlar)'}`
     }))
     : [];
   const roomOptions = Array.isArray(roomsData)
     ? roomsData
-      .sort((a: any, b: any) => {
+      .sort((a, b) => {
         // Xona nomlarini raqam bo'yicha saralash
         const aNum = parseInt(a.name.replace(/\D/g, '')) || 0;
         const bNum = parseInt(b.name.replace(/\D/g, '')) || 0;
         return aNum - bNum;
       })
-      .map((r: any) => ({ value: String(r.id), label: r.name }))
+      .map((r) => ({ value: String(r.id), label: r.name }))
     : [];
 
   const allRoomOptions = Array.isArray(allRoomsData)
-    ? allRoomsData.map((r: any) => ({ value: String(r.id), label: r.name }))
+    ? allRoomsData.map((r) => ({ value: String(r.id), label: r.name }))
     : [];
 
   const columns = [
@@ -194,7 +218,7 @@ const Students: React.FC = () => {
       key: "fullName",
       title: "Familiya Ism",
       sortable: true,
-      render: (_: any, row: Record<string, unknown>) => (
+      render: (_: unknown, row: Record<string, unknown>) => (
         <Link to={`/studentprofile/${row.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">{String(row.last_name)} {String(row.name)}</Link>
       ) as React.ReactNode,
     },
@@ -204,14 +228,14 @@ const Students: React.FC = () => {
       render: (value: unknown) => <span className="text-sm text-gray-700 dark:text-gray-300">{value as string}</span>,
     },
     {
-      key: "room",
+      key: "room_name",
       title: "Xona",
-      render: (_: unknown, row: Record<string, unknown>) => <span className="px-2 py-1 bg-primary-100 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300 rounded-full text-sm font-medium">{row.room && typeof row.room === 'object' ? (row.room as any).name : "-"}</span>,
+      render: (value: unknown) => <span className="px-2 py-1 bg-primary-100 dark:bg-primary-900/20 text-primary-800 dark:text-primary-300 rounded-full text-sm font-medium">{value ? String(value) : "-"}</span>,
     },
     {
-      key: "total_payment",
-      title: "Umumiy to'lov",
-      render: (value: unknown) => <span className="font-semibold text-green-600 dark:text-green-400">{typeof value === 'number' ? formatCurrency(value) : '-'}</span>,
+      key: "floor_name",
+      title: "Qavat",
+      render: (value: unknown) => <span className="text-sm text-gray-700 dark:text-gray-300">{value ? String(value) : "-"}</span>,
     },
   ];
 
@@ -221,11 +245,11 @@ const Students: React.FC = () => {
     {
       key: 'actions',
       title: 'Amallar',
-      render: (_: unknown, row: Record<string, any>) => {
+      render: (_: unknown, row: Record<string, unknown>) => {
         return (
           <button
             className="px-3 py-1 rounded bg-yellow-500 text-white hover:bg-yellow-600 text-sm font-semibold"
-            onClick={() => handleEdit(row)}
+            onClick={() => handleEdit(row as Record<string, unknown>)}
           >
             Tahrirlash
           </button>
@@ -262,30 +286,35 @@ const Students: React.FC = () => {
   };
 
   // Edit handler
-  const handleEdit = (student: Record<string, any>) => {
+  const handleEdit = (student: Record<string, unknown>) => {
     setEditingStudent(student);
+    const room = student.room as { id: number } | undefined;
+    const province = student.province as { id: number } | undefined;
+    const district = student.district as { id: number } | undefined;
+    const floor = student.floor as { id: number } | undefined;
+    
     setFormData({
-      firstName: student.first_name || "",
-      lastName: student.last_name || "",
-      fatherName: student.father_name || "",
-      phone: student.phone || "",
-      room: student.room && typeof student.room === 'object' ? String(student.room.id) : "",
-      course: student.course || "1-kurs",
-      faculty: student.faculty || "",
-      group: student.group || "",
-      region: student.province && typeof student.province === 'object' ? String(student.province.id) : "",
-      district: student.district && typeof student.district === 'object' ? String(student.district.id) : "",
-      passport: student.passport || "",
+      firstName: String(student.first_name || ""),
+      lastName: String(student.last_name || ""),
+      fatherName: String(student.father_name || ""),
+      phone: String(student.phone || ""),
+      room: room?.id ? String(room.id) : "",
+      course: String(student.course || "1-kurs"),
+      faculty: String(student.faculty || ""),
+      group: String(student.group || ""),
+      region: province?.id ? String(province.id) : "",
+      district: district?.id ? String(district.id) : "",
+      passport: String(student.passport || ""),
       isPrivileged: Boolean(student.privilege),
-      privilegeShare: student.privilegeShare || "",
-      avatar: student.picture || "",
-      direction: student.direction || "",
-      floor: student.floor && typeof student.floor === 'object' ? String(student.floor.id) : "",
-      gender: student.gender || "",
+      privilegeShare: String(student.privilegeShare || ""),
+      avatar: String(student.picture || ""),
+      direction: String(student.direction || ""),
+      floor: floor?.id ? String(floor.id) : "",
+      gender: String(student.gender || ""),
       passportImage1: null,
       passportImage2: null,
     });
-    setAvatarPreview(student.picture || "");
+    setAvatarPreview(String(student.picture || ""));
     setShowModal(true);
   };
 
@@ -341,7 +370,7 @@ const Students: React.FC = () => {
     // Telefon raqami formatini tekshirish
     if (formData.phone.trim()) {
       const phoneRegex = /^(\+998|998|8)?[0-9]{9}$/;
-      const cleanPhone = formData.phone.replace(/[\s\-\(\)]/g, '');
+      const cleanPhone = formData.phone.replace(/[\s\-()]/g, '');
       if (!phoneRegex.test(cleanPhone)) {
         errors.push("Telefon raqami noto'g'ri formatda");
       }
@@ -376,7 +405,7 @@ const Students: React.FC = () => {
       try {
         const token = sessionStorage.getItem('access');
         // Prepare payload according to API documentation
-        const payload: any = {
+        const payload: Record<string, unknown> = {
           name: formData.firstName,
           last_name: formData.lastName,
           middle_name: formData.fatherName,
@@ -393,14 +422,15 @@ const Students: React.FC = () => {
           floor: formData.floor ? Number(formData.floor) : 0,
           room: formData.room ? Number(formData.room) : 0,
         };
-        await axios.patch(
+        await fetch(
           `${link}/students/${editingStudent.id}/`,
-          payload,
           {
+            method: 'PATCH',
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify(payload)
           }
         );
         toast.success('Talaba maʼlumotlari yangilandi!');
@@ -416,7 +446,8 @@ const Students: React.FC = () => {
     try {
       await addStudent();
       // addStudent already calls refetch and closes modal
-    } catch (error) {
+    } catch (err) {
+      console.error('Error in handleSubmit:', err);
       toast.error("Xatolik yuz berdi!");
     }
   };
@@ -473,10 +504,10 @@ const Students: React.FC = () => {
   // Debug: API dan kelayotgan ma'lumotlarni ko'rish
   React.useEffect(() => {
     if (students.length > 0) {
-      console.log('Students data sample:', students.slice(0, 2).map((s: Record<string, any>) => ({
+      console.log('Students data sample:', students.slice(0, 2).map((s) => ({
         name: s.name,
-        total_payment: s.total_payment,
-        tarif: s.tarif,
+        total_payment: (s as { total_payment?: unknown }).total_payment,
+        tarif: (s as { tarif?: unknown }).tarif,
         gender: s.gender
       })));
     }
@@ -484,7 +515,7 @@ const Students: React.FC = () => {
 
   // Filtering and sorting logic
   const filteredStudents = students
-    .filter((s: Record<string, any>) => {
+    .filter((s) => {
       // Gender filter validation
 
       // Gender filter - API dan kelayotgan qiymatlarni tekshirish
@@ -503,7 +534,7 @@ const Students: React.FC = () => {
           (studentGender === 'ж' && filterGender === 'female'); // Rus tilida
 
         // Debug gender filter
-        if (genderFilter && students.indexOf(s as Record<string, any>) < 3) {
+        if (genderFilter && students.indexOf(s) < 3) {
           console.log(`Gender filter debug for ${s.name}:`, {
             studentGender,
             filterGender,
@@ -517,16 +548,17 @@ const Students: React.FC = () => {
 
       if (paymentStatusFilter) {
         // Total payment ni olish
-        const totalPayment = Number(s.total_payment) || 0;
+        const totalPayment = Number((s as { total_payment?: unknown }).total_payment) || 0;
 
         // Tarif qiymatini olish
+        const tarifValue = (s as { tarif?: unknown }).tarif;
         let tarif = 0;
-        if (s.tarif !== undefined && s.tarif !== null) {
-          if (typeof s.tarif === 'number') {
-            tarif = s.tarif;
-          } else if (typeof s.tarif === 'string') {
+        if (tarifValue !== undefined && tarifValue !== null) {
+          if (typeof tarifValue === 'number') {
+            tarif = tarifValue;
+          } else if (typeof tarifValue === 'string') {
             // String dan barcha raqamlarni olish
-            const numStr = s.tarif.replace(/[^\d]/g, '');
+            const numStr = tarifValue.replace(/[^\d]/g, '');
             tarif = numStr ? Number(numStr) : 0;
           }
         }
@@ -548,9 +580,9 @@ const Students: React.FC = () => {
         }
 
         // Debug payment filter (faqat birinchi 3 ta talaba uchun)
-        if (paymentStatusFilter && students.indexOf(s as Record<string, any>) < 3) {
+        if (paymentStatusFilter && students.indexOf(s) < 3) {
           console.log(`Payment filter debug for ${s.name || s.last_name}:`, {
-            originalTarif: s.tarif,
+            originalTarif: tarifValue,
             parsedTarif: tarif,
             totalPayment,
             isHaqdor,
@@ -564,18 +596,14 @@ const Students: React.FC = () => {
       // Room filter
       let matchesRoom = true;
       if (roomFilter) {
-        const studentRoom = s.room;
-        if (studentRoom && typeof studentRoom === 'object' && studentRoom.id) {
-          matchesRoom = String(studentRoom.id) === roomFilter;
-        } else {
-          matchesRoom = false;
-        }
+        const studentRoomId = s.room as number | undefined;
+        matchesRoom = studentRoomId ? String(studentRoomId) === roomFilter : false;
       }
 
       const finalMatch = matchesGender && matchesPayment && matchesRoom;
 
       // Debug final filter result
-      if ((genderFilter || paymentStatusFilter || roomFilter) && students.indexOf(s as Record<string, any>) < 3) {
+      if ((genderFilter || paymentStatusFilter || roomFilter) && students.indexOf(s) < 3) {
         console.log(`Final filter result for ${s.name}:`, {
           matchesGender,
           matchesPayment,
@@ -586,10 +614,10 @@ const Students: React.FC = () => {
 
       return finalMatch;
     })
-    .sort((a: Record<string, any>, b: Record<string, any>) => {
+    .sort((a, b) => {
       // Familiya bo'yicha alifbo tartibida saralash
-      const lastNameA = (a.last_name || '').toLowerCase();
-      const lastNameB = (b.last_name || '').toLowerCase();
+      const lastNameA = String(a.last_name || '').toLowerCase();
+      const lastNameB = String(b.last_name || '').toLowerCase();
       return lastNameA.localeCompare(lastNameB, 'uz-UZ');
     });
 
@@ -599,11 +627,15 @@ const Students: React.FC = () => {
 
   // Listen for global student updates
   useEffect(() => {
-    const unsubscribe = subscribe('student-updated', () => {
-      refetch();
-    });
-    return unsubscribe;
-  }, [subscribe, refetch]);
+    // Event listener for student updates
+    const handleStudentUpdate = () => {
+      fetchStudents();
+    };
+    window.addEventListener('student-updated', handleStudentUpdate);
+    return () => {
+      window.removeEventListener('student-updated', handleStudentUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     // URL parametrlarini tekshirish
@@ -655,7 +687,7 @@ const Students: React.FC = () => {
     }
 
     // Eski location.state logikasi
-    if (location.state && (location.state as any).openAddModal) {
+    if (location.state && (location.state as { openAddModal?: boolean }).openAddModal) {
       setShowModal(true);
       window.history.replaceState({}, document.title);
     }
@@ -747,7 +779,7 @@ const Students: React.FC = () => {
         let result;
         try {
           result = await response.json();
-        } catch (e) {
+        } catch {
           result = {};
         }
         if (!response.ok) {
@@ -755,12 +787,10 @@ const Students: React.FC = () => {
           toast.error(result.detail || result.message || JSON.stringify(result) || "Xatolik yuz berdi");
           throw new Error(result.detail || result.message || JSON.stringify(result) || "Xatolik yuz berdi");
         }
-        // Barcha bog'liq cache larni yangilash
-        await invalidateStudentCaches(queryClient);
         // Force immediate refetch
         await refetch();
         // Emit global event
-        emitStudentUpdate({ action: 'created' });
+        window.dispatchEvent(new CustomEvent('student-updated', { detail: { action: 'created' } }));
         setShowModal(false);
         toast.success("Talaba muvaffaqiyatli qo'shildi!");
       })
@@ -928,7 +958,7 @@ const Students: React.FC = () => {
       {/* Data Table */}
       <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         <DataTable
-          data={filteredStudents.map((s: Record<string, any>, idx: number) => ({ ...s, _idx: idx }))}
+          data={filteredStudents.map((s, idx: number) => ({ ...s, _idx: idx }))}
           columns={columnsWithActions}
           actions={null}
           searchable={true}

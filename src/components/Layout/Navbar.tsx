@@ -3,8 +3,8 @@ import { Bell, Moon, Sun, User, LogOut, PanelLeft, CheckCircle, AlertCircle, Inf
 import { useAppStore } from '../../stores/useAppStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../data/api';
+import { useNotifications } from '../../hooks/useNotifications';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface NavbarProps {
   handleSidebarToggle?: () => void;
@@ -18,51 +18,36 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // API dan yotoqxona ma'lumotlarini olish
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: api.getSettings,
-    staleTime: 1000 * 60 * 5,
-  });
+  // Demo settings
+  const settings = {
+    name: 'JoyBor Yotoqxonasi',
+    logo: null,
+  };
 
-  // API dan admin profil ma'lumotlarini olish
-  const { data: adminProfile } = useQuery({
-    queryKey: ['adminProfile'],
-    queryFn: api.getAdminProfile,
-    staleTime: 1000 * 60 * 5,
-  });
+  // Demo admin profile
+  const adminProfile = {
+    username: 'superadmin',
+    first_name: 'Admin',
+    last_name: 'Adminov',
+    avatar: null,
+    bio: '',
+  };
 
-  // API dan bildirishnomalarni olish
-  const { data: apiNotifications = [], isLoading: notificationsLoading, refetch: refetchNotifications } = useQuery({
-    queryKey: ['notifications'],
-    queryFn: api.getNotifications,
-    staleTime: 1000 * 60 * 2, // 2 daqiqa cache
-    refetchInterval: 30000, // Auto-refresh every 30 seconds
-  });
-
-  // Umumiy bildirishnomani o'qilgan qilish uchun mutation
-  const markReadMutation = useMutation({
-    mutationFn: (id: number) => api.markNotificationAsRead(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    },
-  });
-
-  // Ariza bildirishnomani o'qilgan qilish uchun mutation
-  const markApplicationReadMutation = useMutation({
-    mutationFn: (id: number) => api.markNotificationAsRead(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    },
-  });
+  // Use notifications hook
+  const { 
+    notifications: apiNotifications, 
+    isLoading: notificationsLoading, 
+    refetch: refetchNotifications,
+    markAsRead 
+  } = useNotifications();
 
   // API dan kelgan notifications (store faqat demo uchun, navbar faqat API ga tayansin)
   const displayNotifications = Array.isArray(apiNotifications) ? apiNotifications : [];
   // O'qilmagan bildirishnomalar soni
-  const unreadCount = displayNotifications.filter((n: any) => !(n?.read || n?.is_read)).length;
+  const unreadCount = displayNotifications.filter((n) => !(n?.read || n?.is_read)).length;
 
   // Filtrlangan bildirishnomalar
-  const filteredNotifications = displayNotifications.filter((n: any) => {
+  const filteredNotifications = displayNotifications.filter((n) => {
     if (notificationFilter === 'unread') {
       return !(n?.read || n?.is_read);
     }
@@ -82,13 +67,8 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
         });
       });
 
-      // API orqali ham o'qilgan qilish - ariza bildirishnomalari uchun maxsus endpoint
-      if (notification.notification_type === 'application') {
-        markApplicationReadMutation.mutate(Number(notification.id));
-      } else {
-        const notificationId = notification.notification_id || notification.id;
-        markReadMutation.mutate(Number(notificationId));
-      }
+      // Demo: Mark as read
+      markAsRead(Number(notification.id));
     }
 
     // Ariza bildirishnomasi bo'lsa ariza sahifasiga o'tish
@@ -418,40 +398,18 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                             <button
                               onClick={async () => {
                                 // Mark all as read functionality
-                                const unreadNotifications = displayNotifications.filter((n: any) => !(n?.read || n?.is_read));
-                                
-                                // Ariza va umumiy bildirishnomalarni ajratish
-                                const applicationNotifications = unreadNotifications.filter((n: any) => n.notification_type === 'application');
-                                const generalNotifications = unreadNotifications.filter((n: any) => n.notification_type !== 'application');
-                                
                                 // Optimistik yangilash
                                 queryClient.setQueryData(['notifications'], (oldData: any) => {
                                   if (!Array.isArray(oldData)) return oldData;
-                                  return oldData.map((n: any) => ({ ...n, read: true, is_read: true }));
+                                  return oldData.map((n: unknown) => ({ ...n, read: true, is_read: true }));
                                 });
                                 
                                 try {
-                                  const promises = [];
-                                  
-                                  // Agar ariza bildirishnomalari bo'lsa, barcha ariza bildirishnomalarini o'qilgan qilish
-                                  if (applicationNotifications.length > 0) {
-                                    applicationNotifications.forEach((n: any) => {
-                                      promises.push(api.markNotificationAsRead(n.id));
-                                    });
-                                  }
-                                  
-                                  // Umumiy bildirishnomalarni alohida-alohida o'qilgan qilish
-                                  generalNotifications.forEach((n: any) => {
-                                    const notificationId = n.notification_id || n.id;
-                                    promises.push(api.markNotificationAsRead(notificationId));
-                                  });
-                                  
-                                  await Promise.all(promises);
-                                  queryClient.invalidateQueries({ queryKey: ['notifications'] });
+                                  // Demo: Mark all as read
+                                  console.log('Demo: Marking all notifications as read');
+                                  refetchNotifications();
                                 } catch (error) {
                                   console.error('Error marking all as read:', error);
-                                  // Xatolik bo'lsa, cache ni qaytarish
-                                  queryClient.invalidateQueries({ queryKey: ['notifications'] });
                                 }
                               }}
                               className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
@@ -476,9 +434,9 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                 className="flex items-center space-x-2 p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
                 <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-full flex items-center justify-center overflow-hidden">
-                  {adminProfile?.image ? (
+                  {adminProfile?.avatar ? (
                     <img 
-                      src={adminProfile.image} 
+                      src={adminProfile.avatar} 
                       alt="Admin" 
                       className="w-full h-full object-cover"
                     />
