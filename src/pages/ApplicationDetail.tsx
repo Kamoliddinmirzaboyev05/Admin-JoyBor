@@ -31,10 +31,12 @@ interface Application {
   passport_image_second: string | null;
   created_at: string;
   dormitory_name: string;
-  user: string;
+  user: string | number;
   dormitory: number;
   province: number;
   district: number;
+  gender?: string;
+  student_id?: number;
 }
 
 const statusColors: Record<string, string> = {
@@ -142,22 +144,35 @@ const ApplicationDetail: React.FC = () => {
     setLoading(true);
     try {
       const token = sessionStorage.getItem('access');
-      const response = await fetch(`${link}/applications/${id}/admin/`, {
-        method: 'PUT',
+      const payload = {
+        admin_comment: comment.trim() || 'Qabul qilindi',
+      };
+      
+      console.log('Approve request:', {
+        url: `${link}/applications/${id}/approve/`,
+        method: 'PATCH',
+        payload
+      });
+
+      const response = await fetch(`${link}/applications/${id}/approve/`, {
+        method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          status: 'Approved',
-          admin_comment: comment.trim() || 'Qabul qilindi',
-        }),
+        body: JSON.stringify(payload),
       });
+
+      console.log('Approve response status:', response.status);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Xatolik yuz berdi');
+        console.error('Approve error:', errorData);
+        throw new Error(errorData.detail || errorData.message || JSON.stringify(errorData) || 'Xatolik yuz berdi');
       }
+
+      const result = await response.json().catch(() => ({}));
+      console.log('Approve success:', result);
 
       toast.success('Ariza qabul qilindi!');
       setShowApproveModal(false);
@@ -167,6 +182,7 @@ const ApplicationDetail: React.FC = () => {
       emitApplicationUpdate({ action: 'approved', id });
       emitStudentUpdate({ action: 'created' });
     } catch (error) {
+      console.error('Approve catch error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Xatolik yuz berdi!';
       toast.error(errorMessage);
     } finally {
@@ -220,7 +236,10 @@ const ApplicationDetail: React.FC = () => {
       return;
     }
 
-    if (!application) return;
+    if (!application) {
+      toast.error('Ariza ma\'lumotlari topilmadi!');
+      return;
+    }
 
     // Validate required fields
     if (!studentForm.name || !studentForm.last_name || !studentForm.passport) {
@@ -232,58 +251,112 @@ const ApplicationDetail: React.FC = () => {
     try {
       const token = sessionStorage.getItem('access');
       
-      // Generate random username and password
-      const randomUsername = `${application.user}_${Math.random().toString(36).substring(2, 8)}`;
-      const randomPassword = Math.random().toString(36).substring(2, 10);
-
-      const studentData = {
-        user_info: {
-          username: randomUsername,
-          password: randomPassword,
-          role: 'student',
-          email: `${randomUsername}@example.com`,
-        },
-        name: studentForm.name,
-        last_name: studentForm.last_name,
-        middle_name: studentForm.middle_name,
-        faculty: studentForm.faculty,
-        direction: studentForm.direction,
-        passport: studentForm.passport,
-        group: studentForm.group,
-        course: studentForm.course,
-        gender: studentForm.gender,
-        phone: studentForm.phone,
-        privilege: false,
-        privilege_share: 0,
-        status: 'Tekshirilmaydi',
-        placement_status: 'Qabul qilindi',
-        user: application.id,
-        province: application.province,
-        district: application.district,
-        dormitory: application.dormitory,
-        floor: selectedFloor,
-        room: selectedRoom,
-      };
-
-      const response = await fetch(`${link}/students/create/`, {
-        method: 'POST',
+      // Parse user ID correctly
+      const userId = typeof application.user === 'number' 
+        ? application.user 
+        : (typeof application.user === 'string' ? parseInt(application.user) : 0);
+      
+      // Find student by user ID (more accurate than passport)
+      console.log('Searching for student with user ID:', userId);
+      const searchResponse = await fetch(`${link}/students/?user=${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(studentData),
+      });
+
+      if (!searchResponse.ok) {
+        throw new Error('Talabani qidirishda xatolik yuz berdi');
+      }
+
+      const searchData = await searchResponse.json();
+      console.log('Student search result:', searchData);
+
+      // Check if student exists
+      if (!searchData.results || searchData.results.length === 0) {
+        toast.error('User ID bo\'yicha talaba topilmadi! Avval arizani qabul qiling.');
+        return;
+      }
+
+      const studentId = searchData.results[0].id;
+      console.log('Found student ID:', studentId, 'for user:', userId);
+
+      // Update existing student with PATCH (only fields that need to be updated)
+      const updateData = {
+        name: studentForm.name || '',
+        last_name: studentForm.last_name || '',
+        middle_name: studentForm.middle_name || '',
+        faculty: studentForm.faculty || '',
+        direction: studentForm.direction || '',
+        group: studentForm.group || '',
+        course: studentForm.course || '1-kurs',
+        gender: studentForm.gender || 'Erkak',
+        phone: studentForm.phone || '',
+        placement_status: 'Qabul qilindi',
+        is_active: true,
+        floor: selectedFloor,
+        room: selectedRoom,
+      };
+
+      console.log('Updating student:', {
+        studentId: studentId,
+        url: `${link}/students/${studentId}/`,
+        data: updateData
+      });
+
+      const response = await fetch(`${link}/students/${studentId}/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Student creation error:', errorData);
-        throw new Error(errorData.detail || errorData.message || `Xatolik: ${response.status}`);
+        console.error('Student update error:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          sentData: updateData
+        });
+        
+        // Show detailed error message
+        let errorMessage = 'Xatolik yuz berdi';
+        if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (typeof errorData === 'object') {
+          // Show field-specific errors
+          const errors = Object.entries(errorData).map(([key, value]) => `${key}: ${value}`).join(', ');
+          if (errors) errorMessage = errors;
+        }
+        
+        throw new Error(errorMessage);
       }
 
-      toast.success('Talaba muvaffaqiyatli qo\'shildi!');
+      const result = await response.json();
+      console.log('Student update success:', result);
+
+      toast.success('Talaba muvaffaqiyatli yangilandi!');
       setShowAddStudentModal(false);
       setSelectedFloor(0);
       setSelectedRoom(0);
+      // Reset form
+      setStudentForm({
+        name: '',
+        last_name: '',
+        middle_name: '',
+        passport: '',
+        faculty: '',
+        direction: '',
+        course: '',
+        group: '',
+        phone: '',
+        gender: 'Erkak',
+      });
       emitStudentUpdate({ action: 'created' });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Xatolik yuz berdi!';
@@ -741,7 +814,24 @@ const ApplicationDetail: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowAddStudentModal(false)}
+            onClick={() => {
+              setShowAddStudentModal(false);
+              setSelectedFloor(0);
+              setSelectedRoom(0);
+              // Reset form
+              setStudentForm({
+                name: '',
+                last_name: '',
+                middle_name: '',
+                passport: '',
+                faculty: '',
+                direction: '',
+                course: '',
+                group: '',
+                phone: '',
+                gender: 'Erkak',
+              });
+            }}
           >
             <motion.div
               initial={{ scale: 0.95, y: 20 }}
@@ -950,6 +1040,19 @@ const ApplicationDetail: React.FC = () => {
                     setShowAddStudentModal(false);
                     setSelectedFloor(0);
                     setSelectedRoom(0);
+                    // Reset form
+                    setStudentForm({
+                      name: '',
+                      last_name: '',
+                      middle_name: '',
+                      passport: '',
+                      faculty: '',
+                      direction: '',
+                      course: '',
+                      group: '',
+                      phone: '',
+                      gender: 'Erkak',
+                    });
                   }}
                   className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition font-medium"
                 >

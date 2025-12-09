@@ -185,6 +185,19 @@ const Applications: React.FC = () => {
 
   const queryClient = useQueryClient();
 
+  // Listen for application updates
+  React.useEffect(() => {
+    const handleApplicationUpdate = () => {
+      queryClient.invalidateQueries({ queryKey: ['applications'] });
+    };
+    
+    window.addEventListener('application-updated', handleApplicationUpdate);
+    
+    return () => {
+      window.removeEventListener('application-updated', handleApplicationUpdate);
+    };
+  }, [queryClient]);
+
   // API dan arizalarni olish
   const { data: applicationsData, isLoading, error, refetch } = useQuery({
     queryKey: ['applications'],

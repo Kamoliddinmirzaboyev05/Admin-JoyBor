@@ -24,14 +24,31 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
     logo: null,
   };
 
-  // Demo admin profile
-  const adminProfile = {
-    username: 'superadmin',
-    first_name: 'Admin',
-    last_name: 'Adminov',
-    avatar: null,
-    bio: '',
-  };
+  // Fetch admin profile from API
+  const [adminProfile, setAdminProfile] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = sessionStorage.getItem('access');
+        const response = await fetch('https://joyborv1.pythonanywhere.com/api/me/', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setAdminProfile(data);
+        }
+      } catch (err) {
+        console.error('Profile fetch error:', err);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   // Use notifications hook
   const { 

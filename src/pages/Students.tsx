@@ -124,7 +124,7 @@ const Students: React.FC = () => {
     setError(null);
     try {
       const token = sessionStorage.getItem('access');
-      const response = await fetch(`${link}/students/`, {
+      const response = await fetch(`${link}/students/?is_active=true`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -137,7 +137,10 @@ const Students: React.FC = () => {
       
       const data = await response.json();
       // API returns { results: [...] } format
-      setStudents(Array.isArray(data.results) ? data.results : []);
+      // Filter only active students (is_active=true)
+      const allStudents = Array.isArray(data.results) ? data.results : [];
+      const activeStudents = allStudents.filter((student: Record<string, unknown>) => student.is_active !== false);
+      setStudents(activeStudents);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Xatolik yuz berdi');
       console.error('Students fetch error:', err);
@@ -225,7 +228,7 @@ const Students: React.FC = () => {
     {
       key: "direction",
       title: "Yo'nalish",
-      render: (value: unknown) => <span className="text-sm text-gray-700 dark:text-gray-300">{value as string}</span>,
+      render: (value: unknown) => <span className="text-sm text-gray-700 dark:text-gray-300">{value ? String(value) : '-'}</span>,
     },
     {
       key: "room_name",

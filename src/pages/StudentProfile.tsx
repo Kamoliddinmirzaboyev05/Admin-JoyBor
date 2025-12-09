@@ -767,6 +767,59 @@ const StudentProfile: React.FC = () => {
             </>
           )}
         </div>
+
+        {/* Hujjatlar bo'limi */}
+        {!editMode && form && (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-slate-700">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Hujjatlar</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Pasport old tomoni */}
+              {(form as Record<string, any>).passport_image_first && (
+                <div className="group relative bg-gray-50 dark:bg-slate-700/50 rounded-lg overflow-hidden">
+                  <img
+                    src={(form as Record<string, any>).passport_image_first}
+                    alt="Pasport old tomoni"
+                    className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition"
+                    onClick={() => window.open((form as Record<string, any>).passport_image_first, '_blank')}
+                  />
+                  <div className="p-3 bg-white dark:bg-slate-800">
+                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Pasport (old tomoni)</div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Pasport orqa tomoni */}
+              {(form as Record<string, any>).passport_image_second && (
+                <div className="group relative bg-gray-50 dark:bg-slate-700/50 rounded-lg overflow-hidden">
+                  <img
+                    src={(form as Record<string, any>).passport_image_second}
+                    alt="Pasport orqa tomoni"
+                    className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition"
+                    onClick={() => window.open((form as Record<string, any>).passport_image_second, '_blank')}
+                  />
+                  <div className="p-3 bg-white dark:bg-slate-800">
+                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Pasport (orqa tomoni)</div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Qo'shimcha hujjat */}
+              {(form as Record<string, any>).document && (
+                <div className="group relative bg-gray-50 dark:bg-slate-700/50 rounded-lg overflow-hidden">
+                  <img
+                    src={(form as Record<string, any>).document}
+                    alt="Qo'shimcha hujjat"
+                    className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition"
+                    onClick={() => window.open((form as Record<string, unknown>).document, '_blank')}
+                  />
+                  <div className="p-3 bg-white dark:bg-slate-800">
+                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Qo'shimcha hujjat</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* O'chirish modali */}

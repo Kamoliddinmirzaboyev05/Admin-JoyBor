@@ -29,29 +29,40 @@ const Dashboard: React.FC = () => {
 
   // Demo: Global updates o'chirilgan
 
-  // Demo ma'lumotlar (API vaqtincha o'chirilgan)
-  const dashboardData = {
-    total_students: 245,
-    total_rooms: 48,
-    total_payments: 1250000,
-    pending_applications: 12,
-    occupied_rooms: 42,
-    available_rooms: 6,
-    monthly_revenue: 18500000,
-    payment_rate: 87.5,
-    recent_students: [
-      { id: 1, name: 'Alisher Valiyev', room: '201', floor: '2-qavat', joined_date: '2024-01-15' },
-      { id: 2, name: 'Dilnoza Karimova', room: '305', floor: '3-qavat', joined_date: '2024-01-14' },
-      { id: 3, name: 'Sardor Toshmatov', room: '102', floor: '1-qavat', joined_date: '2024-01-13' },
-    ],
-    recent_payments: [
-      { id: 1, student: 'Alisher Valiyev', amount: 350000, date: '2024-01-15', status: 'paid' },
-      { id: 2, student: 'Dilnoza Karimova', amount: 350000, date: '2024-01-14', status: 'paid' },
-      { id: 3, student: 'Sardor Toshmatov', amount: 350000, date: '2024-01-13', status: 'pending' },
-    ]
-  };
-  const dashboardLoading = false;
-  const dashboardError = null;
+  // Fetch dashboard data from API
+  const [dashboardData, setDashboardData] = useState<unknown>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      setDashboardLoading(true);
+      setDashboardError(null);
+      try {
+        const token = sessionStorage.getItem('access');
+        const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/dashboard/', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error('Dashboard ma\'lumotlarini yuklashda xatolik');
+        }
+        
+        const data = await response.json();
+        setDashboardData(data);
+      } catch (err) {
+        setDashboardError(err instanceof Error ? err.message : 'Xatolik yuz berdi');
+        console.error('Dashboard fetch error:', err);
+      } finally {
+        setDashboardLoading(false);
+      }
+    };
+
+    fetchDashboard();
+  }, []);
 
   // Demo monthly revenue ma'lumotlari
   const monthlyRevenue = [
@@ -89,19 +100,19 @@ const Dashboard: React.FC = () => {
   }
 
   // Use real dashboard data with proper type checking
-  const students = (dashboardData as any)?.students || { total: 0, male: 0, female: 0 };
-  const rooms = (dashboardData as any)?.rooms || {
-    available_places_total: 0,
-    available_places_male: 0,
-    available_places_female: 0
+  const students = dashboardData?.students || { total: 0, male: 0, female: 0, active: 0, inactive: 0, by_course: {} };
+  const rooms = dashboardData?.rooms?.total || { rooms: 0, capacity: 0, occupied: 0, free: 0 };
+  // const roomsMale = dashboardData?.rooms?.male || { rooms: 0, capacity: 0, occupied: 0, free: 0 };
+  // const roomsFemale = dashboardData?.rooms?.female || { rooms: 0, capacity: 0, occupied: 0, free: 0 };
+  const payments = dashboardData?.payments || {
+    total: 0,
+    approved: 0,
+    cancelled: 0,
+    total_amount: 0,
+    paid_students: 0,
+    debtors: 0
   };
-  const payments = (dashboardData as any)?.payments || {
-    debtor_students_count: 0,
-    non_debtor_students_count: 0,
-    unplaced_students_count: 0,
-    total_payment: 0
-  };
-  const applications = (dashboardData as any)?.applications || { total: 0, approved: 0, rejected: 0 };
+  const applications = dashboardData?.applications || { total: 0, pending: 0, approved: 0, rejected: 0, cancelled: 0 };
 
   // Add this helper for Uzbek month names:
   const uzMonths = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
@@ -167,51 +178,54 @@ const Dashboard: React.FC = () => {
             trend={undefined}
             subStats={[
               { label: 'Jami', value: students.total },
-              { label: 'Yigitlar', value: students.male },
-              { label: 'Qizlar', value: students.female },
+              { label: 'Erkaklar', value: students.male },
+              { label: 'Ayollar', value: students.female },
+              { label: 'Faol', value: students.active },
             ]}
           />
           <StatsCard
-            title="Bo'sh joylar"
-            value={rooms.available_places_total}
-            change={`Yigitlar: ${rooms.available_places_male}, Qizlar: ${rooms.available_places_female}`}
+            title="Xonalar"
+            value={rooms.rooms}
+            change={`Bo'sh: ${rooms.free}, Band: ${rooms.occupied}`}
             changeType="neutral"
             icon={Building2}
             color="secondary"
             trend={undefined}
             subStats={[
-              { label: "Jami bo'sh", value: rooms.available_places_total },
-              { label: "Yigitlar uchun", value: rooms.available_places_male },
-              { label: "Qizlar uchun", value: rooms.available_places_female },
+              { label: "Jami xonalar", value: rooms.rooms },
+              { label: "Sig'im", value: rooms.capacity },
+              { label: "Band", value: rooms.occupied },
+              { label: "Bo'sh", value: rooms.free },
             ]}
           />
           <StatsCard
             title="To'lovlar"
-            value={formatCurrency(payments.total_payment)}
-            change={`Qarzdor: ${payments.debtor_students_count}, To'lagan: ${payments.non_debtor_students_count}`}
+            value={formatCurrency(payments.total_amount)}
+            change={`Qarzdor: ${payments.debtors}, To'lagan: ${payments.paid_students}`}
             changeType="increase"
             icon={CreditCard}
             color="accent"
             trend={undefined}
             subStats={[
-              { label: 'Qarzdor', value: payments.debtor_students_count },
-              { label: 'To\'lagan', value: payments.non_debtor_students_count },
-              { label: 'Joylashtirilmagan', value: payments.unplaced_students_count },
-              { label: 'Jami', value: formatCurrency(payments.total_payment) },
+              { label: 'Jami to\'lovlar', value: payments.total },
+              { label: 'Tasdiqlangan', value: payments.approved },
+              { label: 'Qarzdorlar', value: payments.debtors },
+              { label: 'To\'laganlar', value: payments.paid_students },
             ]}
           />
           <StatsCard
             title="Arizalar"
             value={applications.total}
-            change={`Tasdiqlangan: ${applications.approved}, Rad etilgan: ${applications.rejected}`}
+            change={`Kutilmoqda: ${applications.pending}`}
             changeType="neutral"
             icon={FileText}
             color="warning"
             trend={undefined}
             subStats={[
+              { label: 'Jami', value: applications.total },
+              { label: 'Kutilmoqda', value: applications.pending },
               { label: 'Tasdiqlangan', value: applications.approved },
               { label: 'Rad etilgan', value: applications.rejected },
-              { label: 'Jami', value: applications.total },
             ]}
           />
         </div>

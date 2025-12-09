@@ -83,48 +83,44 @@ const Settings: React.FC = () => {
 
   // Demo: queryClient o'chirilgan
   
-  // Demo ma'lumotlar (API vaqtincha o'chirilgan)
-  const settings = React.useMemo(() => ({
-    id: 1,
-    name: 'JoyBor Yotoqxonasi',
-    address: 'Toshkent sh., Chilonzor tumani, Bunyodkor ko\'chasi 1-uy',
-    phone: '+998901234567',
-    telegram: '@joyboradmin',
-    month_price: 350000,
-    year_price: 3500000,
-    distance_to_university: 2.5,
-    description: 'Zamonaviy yotoqxona, barcha qulayliklar mavjud',
-    university: { id: 1, name: 'Toshkent Davlat Texnika Universiteti', address: 'Toshkent sh.' },
-    admin: { id: 1, username: 'superadmin' },
-    logo: null,
-    total_floors: 4,
-    total_rooms: 48,
-    total_capacity: 192,
-    images: [
-      { id: 1, image: 'https://via.placeholder.com/400x300?text=Yotoqxona+1' },
-      { id: 2, image: 'https://via.placeholder.com/400x300?text=Yotoqxona+2' },
-      { id: 3, image: 'https://via.placeholder.com/400x300?text=Yotoqxona+3' },
-    ],
-  }), []);
-  const isLoading = false;
-  const error = null;
+  // Fetch dormitory settings from API
+  const [settings, setSettings] = React.useState<any>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
 
-  // Demo rules ma'lumotlari
-  const rulesData = React.useMemo(() => [
-    { id: 1, rule: 'Yotoqxonada tartib-intizomni saqlash' },
-    { id: 2, rule: 'Xonalarni toza saqlash' },
-    { id: 3, rule: 'Shovqin qilmaslik (22:00 dan keyin)' },
-    { id: 4, rule: 'Begona shaxslarni kiritmaslik' },
-  ], []);
+  React.useEffect(() => {
+    const fetchSettings = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const token = sessionStorage.getItem('access');
+        const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error('Sozlamalarni yuklashda xatolik');
+        }
+        
+        const data = await response.json();
+        setSettings(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Xatolik yuz berdi');
+        console.error('Settings fetch error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  // Demo amenities ma'lumotlari
-  const amenitiesData = React.useMemo(() => [
-    { id: 1, name: 'Wi-Fi', is_active: true },
-    { id: 2, name: 'Kir yuvish mashinasi', is_active: true },
-    { id: 3, name: 'Televizor', is_active: true },
-    { id: 4, name: 'Oshxona', is_active: true },
-    { id: 5, name: 'Kutubxona', is_active: false },
-  ], []);
+    fetchSettings();
+  }, []);
+
+  // Get amenities and rules from settings
+  const amenitiesData = React.useMemo(() => settings?.amenities_list || [], [settings]);
+  const rulesData = React.useMemo(() => settings?.rules || [], [settings]);
 
   // Demo admin profil ma'lumotlari
   const adminProfile = React.useMemo(() => ({
@@ -366,7 +362,7 @@ const Settings: React.FC = () => {
       console.log('Demo: Prices updated', pricesCardForm);
       toast.success('Narx ma\'lumotlari yangilandi! (Demo)');
       setEditPricesCard(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err?.toString() || 'Xatolik yuz berdi!');
     } finally {
       setDormLoading(false);
@@ -414,9 +410,9 @@ const Settings: React.FC = () => {
           <div className="flex-1 min-w-0">
             <div className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <School className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" /> 
-              <span className="truncate">{settings.university?.name}</span>
+              <span className="truncate">{settings.university_name || 'Universitet'}</span>
             </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">{settings.university?.address}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">{settings.address || ''}</div>
           </div>
         </div>
         <div className="flex-1" />
