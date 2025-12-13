@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import DataTable from "../components/UI/DataTable";
-import { CreditCard, Plus, X, Wallet, Eye, Edit, Calendar } from "lucide-react";
+import { CreditCard, Plus, X, Wallet, Eye, Edit } from "lucide-react";
 import Select from "react-select";
 import { motion, AnimatePresence } from "framer-motion";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import "../index.css";
 import { toast } from "sonner";
 import { useLocation, Link } from "react-router-dom";
@@ -17,9 +15,25 @@ interface Student extends Record<string, unknown> {
   last_name: string;
 }
 
+interface StudentInfo extends Record<string, unknown> {
+  id: number;
+  name: string;
+  last_name: string;
+  middle_name?: string;
+  faculty?: string;
+  direction?: string;
+  passport?: string;
+  group?: string;
+  course?: string;
+  gender?: string;
+  phone?: string;
+  picture?: string;
+}
+
 interface Payment extends Record<string, unknown> {
   id: number;
-  student: Student;
+  student?: Student;
+  student_info?: StudentInfo;
   amount: number;
   paid_date: string;
   valid_until: string;
@@ -68,50 +82,80 @@ const Payments: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  // Demo payments ma'lumotlari (API vaqtincha o'chirilgan)
-  const payments: Payment[] = useMemo(() => [
-    {
-      id: 1,
-      student: { id: 1, name: 'Alisher', last_name: 'Valiyev' },
-      amount: 350000,
-      paid_date: '2024-01-15',
-      valid_until: '2024-02-15',
-      method: 'Cash',
-      status: 'paid',
-      comment: 'Oylik to\'lov'
-    },
-    {
-      id: 2,
-      student: { id: 2, name: 'Dilnoza', last_name: 'Karimova' },
-      amount: 350000,
-      paid_date: '2024-01-14',
-      valid_until: '2024-02-14',
-      method: 'Card',
-      status: 'paid',
-      comment: 'Oylik to\'lov'
-    },
-    {
-      id: 3,
-      student: { id: 3, name: 'Sardor', last_name: 'Toshmatov' },
-      amount: 350000,
-      paid_date: '2024-01-13',
-      valid_until: '2024-02-13',
-      method: 'Cash',
-      status: 'pending',
-      comment: 'Oylik to\'lov'
-    },
-  ], []);
-  const isLoading = false;
-  const fetchError = null;
-  const refetch = useCallback(() => Promise.resolve(), []);
+  // Fetch payments from API
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  // Demo students ma'lumotlari
-  const students: Student[] = useMemo(() => [
-    { id: 1, name: 'Alisher', last_name: 'Valiyev' },
-    { id: 2, name: 'Dilnoza', last_name: 'Karimova' },
-    { id: 3, name: 'Sardor', last_name: 'Toshmatov' },
-  ], []);
-  const studentsLoading = false;
+  const fetchPayments = useCallback(async () => {
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      const token = sessionStorage.getItem('access');
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/payments/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('To\'lovlarni yuklashda xatolik');
+      }
+      
+      const data = await response.json();
+      const paymentsArray = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
+      setPayments(paymentsArray);
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : 'Xatolik yuz berdi');
+      console.error('Payments fetch error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const refetch = useCallback(() => {
+    return fetchPayments();
+  }, [fetchPayments]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchPayments();
+  }, [fetchPayments]);
+
+  // Fetch students from API
+  const [students, setStudents] = useState<Student[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStudents = async () => {
+      setStudentsLoading(true);
+      try {
+        const token = sessionStorage.getItem('access');
+        const response = await fetch('https://joyborv1.pythonanywhere.com/api/students/?is_active=true', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error('Talabalarni yuklashda xatolik');
+        }
+        
+        const data = await response.json();
+        const studentsArray = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
+        setStudents(studentsArray);
+      } catch (err) {
+        console.error('Students fetch error:', err);
+        toast.error('Talabalarni yuklashda xatolik');
+      } finally {
+        setStudentsLoading(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
 
   useEffect(() => {
     if (location.state && (location.state as { openAddPaymentModal?: boolean }).openAddPaymentModal) {
@@ -144,6 +188,19 @@ const Payments: React.FC = () => {
       key: "student",
       title: "Talaba",
       render: (_: unknown, row: Record<string, unknown>): React.ReactNode => {
+        // API dan student_info keladi
+        if (row.student_info && typeof row.student_info === "object") {
+          const studentInfo = row.student_info as { id: number; name: string; last_name: string };
+          return (
+            <Link
+              to={`/studentprofile/${studentInfo.id}`}
+              className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+            >
+              {`${studentInfo.last_name} ${studentInfo.name}`}
+            </Link>
+          );
+        }
+        // Fallback - eski format
         if (row.student && typeof row.student === "object") {
           const student = row.student as { id: number; name: string; last_name: string };
           return (
@@ -251,8 +308,11 @@ const Payments: React.FC = () => {
       }
     }
 
+    // student_info dan yoki student dan ID olish
+    const studentId = payment.student_info?.id || payment.student?.id;
+
     setForm({
-      studentId: payment.student?.id ? String(payment.student.id) : "",
+      studentId: studentId ? String(studentId) : "",
       amount: payment.amount ? String(payment.amount) : "",
       validUntil: validUntilDate,
       paymentType: payment.method?.toLowerCase() === "cash" ? "cash" : "card",
@@ -329,17 +389,7 @@ const Payments: React.FC = () => {
       }
     }
 
-    if (!form.validUntil.trim()) {
-      errors.push("To'lov amal qilish sanasini tanlang");
-    } else {
-      const selectedDate = new Date(form.validUntil);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
 
-      if (selectedDate < today) {
-        errors.push("To'lov sanasi bugungi kundan kechroq bo'lishi kerak");
-      }
-    }
 
     if (!form.paymentType.trim()) {
       errors.push("To'lov turini tanlang");
@@ -360,7 +410,6 @@ const Payments: React.FC = () => {
         const updateData = {
           student: Number(form.studentId),
           amount: Number(form.amount),
-          valid_until: form.validUntil,
           method: form.paymentType === "cash" ? "Cash" : "Card",
           status: selectedPayment.status || "APPROVED", // Mavjud statusni saqlash
           comment: form.comment || "",
@@ -423,10 +472,61 @@ const Payments: React.FC = () => {
         // Emit global event
         window.dispatchEvent(new CustomEvent('payment-updated', { detail: { action: 'updated', id: selectedPayment.id } }));
       } else {
-        // Yangi qoshish - Demo rejimda
+        // Yangi to'lov qo'shish
+        const createData = {
+          student: Number(form.studentId),
+          amount: Number(form.amount),
+          method: form.paymentType === "cash" ? "Cash" : "Card",
+          status: "APPROVED",
+          comment: form.comment || "",
+        };
+
+        console.log('Creating payment:', createData);
+
+        const token = sessionStorage.getItem("access");
+        if (!token) {
+          throw new Error("Avtorizatsiya talab qilinadi");
+        }
+
+        const response = await fetch('https://joyborv1.pythonanywhere.com/api/payments/create/', {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(createData),
+        });
+
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch {
+            errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
+          }
+
+          // Xatolik turini aniqlash
+          if (response.status === 400) {
+            const fieldErrors = [];
+            if (errorData.student) fieldErrors.push(`Talaba: ${errorData.student}`);
+            if (errorData.amount) fieldErrors.push(`Miqdor: ${errorData.amount}`);
+            if (errorData.valid_until) fieldErrors.push(`Sana: ${errorData.valid_until}`);
+            if (errorData.method) fieldErrors.push(`To'lov turi: ${errorData.method}`);
+
+            if (fieldErrors.length > 0) {
+              throw new Error(fieldErrors.join(', '));
+            }
+          }
+
+          throw new Error(errorData.detail || errorData.message || "To'lovni yaratishda xatolik");
+        }
+
+        const result = await response.json();
+        console.log('Payment created:', result);
+
         toast.success("To'lov muvaffaqiyatli qo'shildi!");
 
-        // Yangi tolov uchun ham form va modallarni yopish
+        // Form va modallarni yopish
         setShowModal(false);
         setIsEditMode(false);
         setSelectedPayment(null);
@@ -933,61 +1033,7 @@ const Payments: React.FC = () => {
                     Minimal: 100,000 som • Maksimal: 100,000,000 som
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">
-                    To'lov amal qilish sanasi
-                    {isEditMode && selectedPayment?.valid_until && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                        (Avvalgi: {selectedPayment.valid_until ? new Date(selectedPayment.valid_until).toLocaleDateString("uz-UZ") : '-'})
-                      </span>
-                    )}
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-300 pointer-events-none z-10">
-                      <Calendar className="w-5 h-5" />
-                    </span>
-                    <DatePicker
-                      selected={form.validUntil ? new Date(form.validUntil) : null}
-                      onChange={(date: Date | null) => {
-                        if (date) {
-                          // Tanlangan sanani tekshirish
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
 
-                          if (date < today) {
-                            toast.error("To'lov sanasi bugungi kundan kechroq bo'lishi kerak");
-                            return;
-                          }
-                        }
-                        setForm(f => ({ ...f, validUntil: date ? date.toISOString().slice(0, 10) : "" }));
-                      }}
-                      dateFormat="dd.MM.yyyy"
-                      placeholderText="Sanani tanlang..."
-                      minDate={new Date()} // Bugungi kundan oldingi sanalarni tanlash mumkin emas
-                      className="w-full pl-10 pr-3 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200"
-                      calendarClassName="shadow-xl border border-gray-200 dark:border-gray-700"
-                      dayClassName={(date: Date) => {
-                        const isSelected = form.validUntil && date.toISOString().slice(0, 10) === form.validUntil;
-                        const isToday = date.toDateString() === new Date().toDateString();
-
-                        let classes = "rounded-lg mx-1 transition-all duration-150 ";
-
-                        if (isSelected) {
-                          classes += "!bg-primary-600 !text-white font-semibold shadow-md";
-                        } else if (isToday) {
-                          classes += "!bg-primary-100 dark:!bg-primary-900/30 !text-primary-600 dark:!text-primary-400 font-medium";
-                        } else {
-                          classes += "!text-gray-700 dark:!text-gray-300 hover:!bg-primary-50 dark:hover:!bg-primary-900/20";
-                        }
-
-                        return classes;
-                      }}
-                      popperClassName="z-[9999]"
-                      showPopperArrow={false}
-                      popperPlacement="bottom-start"
-                    />
-                  </div>
-                </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-900 dark:text-gray-200">
                     To'lov turi
@@ -1068,7 +1114,9 @@ const Payments: React.FC = () => {
 
       {/* View Modal */}
       <AnimatePresence>
-        {showViewModal && selectedPayment && (
+        {showViewModal && selectedPayment && (() => {
+          const payment = selectedPayment as Payment;
+          return (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1102,7 +1150,7 @@ const Payments: React.FC = () => {
                   <CreditCard className="w-8 h-8 text-white" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">To'lov ma'lumotlari</h2>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">ID: #{selectedPayment.id}</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">ID: #{payment.id}</p>
               </div>
 
               {/* Content */}
@@ -1112,19 +1160,23 @@ const Payments: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
                       <span className="text-white font-semibold text-sm">
-                        {selectedPayment.student
-                          ? `${selectedPayment.student.name?.[0] || ""}${selectedPayment.student.last_name?.[0] || ""}`
+                        {payment.student_info
+                          ? `${payment.student_info.name?.[0] || ""}${payment.student_info.last_name?.[0] || ""}`
+                          : payment.student
+                          ? `${payment.student.name?.[0] || ""}${payment.student.last_name?.[0] || ""}`
                           : "?"}
                       </span>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500 dark:text-gray-400">Talaba</p>
                       <Link
-                        to={`/studentprofile/${selectedPayment.student?.id || ''}`}
+                        to={`/studentprofile/${payment.student_info?.id || payment.student?.id || ''}`}
                         className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                       >
-                        {selectedPayment.student
-                          ? `${selectedPayment.student.name || ''} ${selectedPayment.student.last_name || ''}`
+                        {payment.student_info
+                          ? `${payment.student_info.name || ''} ${payment.student_info.last_name || ''}`
+                          : payment.student
+                          ? `${payment.student.name || ''} ${payment.student.last_name || ''}`
                           : "-"}
                       </Link>
                     </div>
@@ -1135,7 +1187,7 @@ const Payments: React.FC = () => {
                 <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">To'lov miqdori</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {selectedPayment.amount ? formatCurrencyDetailed(selectedPayment.amount) : "-"}
+                    {payment.amount ? formatCurrencyDetailed(payment.amount) : "-"}
                   </p>
                 </div>
 
@@ -1144,39 +1196,39 @@ const Payments: React.FC = () => {
                   <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">To'lov sanasi</p>
                     <p className="font-semibold text-gray-900 dark:text-white">
-                      {selectedPayment.paid_date ? new Date(selectedPayment.paid_date).toLocaleDateString("uz-UZ") : "-"}
+                      {payment.paid_date ? new Date(payment.paid_date).toLocaleDateString("uz-UZ") : "-"}
                     </p>
                   </div>
 
                   <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">To'lov turi</p>
                     <div className="flex items-center gap-2">
-                      {selectedPayment.method === "Cash" ? (
+                      {payment.method === "Cash" ? (
                         <Wallet className="w-4 h-4 text-green-600" />
                       ) : (
                         <CreditCard className="w-4 h-4 text-blue-600" />
                       )}
                       <span className="font-semibold text-gray-900 dark:text-white">
-                        {selectedPayment.method === "Cash" ? "Naqd" : selectedPayment.method === "Card" ? "Karta orqali" : selectedPayment.method}
+                        {payment.method === "Cash" ? "Naqd" : payment.method === "Card" ? "Karta orqali" : payment.method}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Comment */}
-                {selectedPayment.comment && (
+                {payment.comment && (
                   <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Izoh</p>
-                    <p className="text-gray-900 dark:text-white">{selectedPayment.comment || '-'}</p>
+                    <p className="text-gray-900 dark:text-white">{payment.comment || '-'}</p>
                   </div>
                 )}
 
                 {/* Valid until */}
-                {selectedPayment.valid_until && (
+                {payment.valid_until && (
                   <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Amal qilish muddati</p>
                     <p className="font-semibold text-gray-900 dark:text-white">
-                      {selectedPayment.valid_until ? new Date(selectedPayment.valid_until).toLocaleDateString("uz-UZ") : '-'}
+                      {payment.valid_until ? new Date(payment.valid_until).toLocaleDateString("uz-UZ") : '-'}
                     </p>
                   </div>
                 )}
@@ -1193,7 +1245,8 @@ const Payments: React.FC = () => {
               </div>
             </motion.div>
           </motion.div>
-        )}
+          );
+        })()}
       </AnimatePresence>
     </div>
   );

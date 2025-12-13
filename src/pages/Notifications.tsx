@@ -292,18 +292,20 @@ const Notifications: React.FC = () => {
 
     // Agar ikkalasi ham bir xil holatda bo'lsa, sana bo'yicha saralash
     switch (sortBy) {
-      case 'date':
+      case 'date': {
         // received_at yoki created_at bo'yicha saralash
         const aDate = new Date(a.received_at || a.created_at).getTime();
         const bDate = new Date(b.received_at || b.created_at).getTime();
         return bDate - aDate; // Eng yangi tepada
+      }
       case 'type':
         return a.type.localeCompare(b.type);
-      default:
+      default: {
         // Default: received_at bo'yicha saralash
         const defaultADate = new Date(a.received_at || a.created_at).getTime();
         const defaultBDate = new Date(b.received_at || b.created_at).getTime();
         return defaultBDate - defaultADate;
+      }
     }
   });
 

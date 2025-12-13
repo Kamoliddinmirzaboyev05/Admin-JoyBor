@@ -256,9 +256,9 @@ const ApplicationDetail: React.FC = () => {
         ? application.user 
         : (typeof application.user === 'string' ? parseInt(application.user) : 0);
       
-      // Find student by user ID (more accurate than passport)
-      console.log('Searching for student with user ID:', userId);
-      const searchResponse = await fetch(`${link}/students/?user=${userId}`, {
+      // Find student from unassigned students by user ID
+      console.log('Searching for unassigned student with user ID:', userId);
+      const searchResponse = await fetch(`${link}/students/unassigned/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -266,20 +266,28 @@ const ApplicationDetail: React.FC = () => {
       });
 
       if (!searchResponse.ok) {
-        throw new Error('Talabani qidirishda xatolik yuz berdi');
+        throw new Error('Xona biriktirilmagan talabalarni yuklashda xatolik');
       }
 
       const searchData = await searchResponse.json();
-      console.log('Student search result:', searchData);
+      console.log('Unassigned students:', searchData);
 
-      // Check if student exists
-      if (!searchData.results || searchData.results.length === 0) {
-        toast.error('User ID bo\'yicha talaba topilmadi! Avval arizani qabul qiling.');
+      // Find student with matching user ID
+      const unassignedStudents = Array.isArray(searchData.results) ? searchData.results : (Array.isArray(searchData) ? searchData : []);
+      const matchingStudent = unassignedStudents.find((student: Record<string, unknown>) => {
+        const studentUserId = typeof student.user === 'number' 
+          ? student.user 
+          : (typeof student.user === 'string' ? parseInt(student.user as string) : 0);
+        return studentUserId === userId;
+      });
+
+      if (!matchingStudent) {
+        toast.error('Xona biriktirilmagan talabalar orasida bu ariza egasi topilmadi! Avval arizani qabul qiling yoki talaba allaqachon xonaga biriktirilgan.');
         return;
       }
 
-      const studentId = searchData.results[0].id;
-      console.log('Found student ID:', studentId, 'for user:', userId);
+      const studentId = matchingStudent.id as number;
+      console.log('Found unassigned student ID:', studentId, 'for user:', userId);
 
       // Update existing student with PATCH (only fields that need to be updated)
       const updateData = {

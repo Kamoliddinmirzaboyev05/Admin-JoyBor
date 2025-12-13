@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { Edit, DollarSign, ListChecks, Wifi, BookOpen, WashingMachine, Tv, Coffee, Plus, Info, MapPin, User, School, FileImage, Phone, Send } from 'lucide-react';
 import { motion } from 'framer-motion';
-// API imports o'chirilgan - faqat demo ma'lumotlar
 import { toast } from 'sonner';
 import { useSEO } from '../hooks/useSEO';
 import { formatCurrency } from '../utils/formatters';
+import api from '../data/api';
 
 // Icon mapping for amenities
 const getAmenityIcon = (name: string) => {
@@ -118,8 +118,30 @@ const Settings: React.FC = () => {
     fetchSettings();
   }, []);
 
-  // Get amenities and rules from settings
-  const amenitiesData = React.useMemo(() => settings?.amenities_list || [], [settings]);
+  // Fetch all amenities from API
+  const [allAmenities, setAllAmenities] = React.useState<Array<{ id: number; name: string; is_active: boolean }>>([]);
+  const [amenitiesLoading, setAmenitiesLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchAmenities = async () => {
+      setAmenitiesLoading(true);
+      try {
+        const data = await api.getAmenities();
+        // API paginated formatda qaytaradi: { count, next, previous, results }
+        const amenitiesList = data?.results || data || [];
+        setAllAmenities(Array.isArray(amenitiesList) ? amenitiesList : []);
+      } catch (err) {
+        console.error('Amenities fetch error:', err);
+        toast.error('Qulayliklarni yuklashda xatolik');
+      } finally {
+        setAmenitiesLoading(false);
+      }
+    };
+
+    fetchAmenities();
+  }, []);
+
+  // Get rules from settings
   const rulesData = React.useMemo(() => settings?.rules || [], [settings]);
 
   // Demo admin profil ma'lumotlari
@@ -226,11 +248,20 @@ const Settings: React.FC = () => {
   }, [rulesData]);
 
   // Amenities ma'lumotlarini local state ga yuklash
+  // Barcha qulayliklarni ko'rsatish, yotoqxonada mavjud bo'lganlarini belgilash
   React.useEffect(() => {
-    if (amenitiesData) {
-      setLocalAmenities(amenitiesData);
+    if (allAmenities.length > 0 && settings) {
+      const dormitoryAmenityIds = settings.amenities?.map((a: { id?: number } | number) => (typeof a === 'object' ? a.id : a)) || [];
+      
+      // Barcha qulayliklarni ko'rsatish, yotoqxonada mavjud bo'lganlarini is_active = true qilish
+      const mappedAmenities = allAmenities.map(amenity => ({
+        ...amenity,
+        is_active: dormitoryAmenityIds.includes(amenity.id)
+      }));
+      
+      setLocalAmenities(mappedAmenities);
     }
-  }, [amenitiesData]);
+  }, [allAmenities, settings]);
 
   // Contact form ni admin profil ma'lumotlari bilan to'ldirish
   React.useEffect(() => {
@@ -271,16 +302,57 @@ const Settings: React.FC = () => {
   };
 
   const handleRemoveRule = async (idx: number) => {
-    // Demo: Local state dan o'chirish
+    const ruleToRemove = rules[idx];
+    
+    // Agar rule ID ga ega bo'lsa, API dan o'chirish
+    if (ruleToRemove.id) {
+      try {
+        await api.deleteRule(ruleToRemove.id);
+        toast.success('Qoida o\'chirildi!');
+      } catch {
+        toast.error('Qoidani o\'chirishda xatolik!');
+        return;
+      }
+    }
+    
+    // Local state dan o'chirish
     setRules(rules => rules.filter((_, i) => i !== idx));
-    toast.success('Qoida o\'chirildi! (Demo)');
   };
   
   const handleSaveRules = async () => {
-    // Demo: Faqat console log
-    console.log('Demo: Rules saved', rules);
-    toast.success('Qoidalar saqlandi! (Demo)');
-    setEditSection(null);
+    setDormLoading(true);
+    try {
+      // Har bir qoidani saqlash yoki yangilash
+      for (const rule of rules) {
+        if (!rule.rule.trim()) continue; // Bo'sh qoidalarni o'tkazib yuborish
+        
+        if (rule.id) {
+          // Mavjud qoidani yangilash
+          await api.updateRule(rule.id, { rule: rule.rule });
+        } else {
+          // Yangi qoida qo'shish
+          await api.createRule({ rule: rule.rule });
+        }
+      }
+      
+      // Yangilangan ma'lumotlarni qayta yuklash
+      const token = sessionStorage.getItem('access');
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await response.json();
+      setSettings(data);
+      
+      toast.success('Qoidalar saqlandi!');
+      setEditSection(null);
+    } catch (err: any) {
+      toast.error(err?.message || 'Xatolik yuz berdi!');
+    } finally {
+      setDormLoading(false);
+    }
   };
   // --- AMENITIES STATE ---
 
@@ -295,10 +367,49 @@ const Settings: React.FC = () => {
   };
 
   const handleSaveAmenities = async () => {
-    // Demo: Faqat console log
-    console.log('Demo: Amenities saved', localAmenities);
-    toast.success('Qulayliklar saqlandi! (Demo)');
-    setEditSection(null);
+    setDormLoading(true);
+    try {
+      // Faqat faol (tanlangan) qulayliklar ID larini olish
+      const selectedAmenityIds = localAmenities
+        .filter(a => a.is_active)
+        .map(a => a.id);
+
+      const updateData = {
+        name: settings.name || '',
+        address: settings.address || '',
+        distance_to_university: settings.distance_to_university || 0,
+        description: settings.description || '',
+        month_price: settings.month_price || 0,
+        year_price: settings.year_price || 0,
+        latitude: settings.latitude || 0,
+        longitude: settings.longitude || 0,
+        rating: settings.rating || 5,
+        is_active: settings.is_active !== undefined ? settings.is_active : true,
+        university: settings.university?.id || settings.university || 0,
+        admin: settings.admin?.id || settings.admin || 0,
+        amenities: selectedAmenityIds
+      };
+      
+      await api.updateMyDormitory(updateData);
+      
+      // Yangilangan ma'lumotlarni qayta yuklash
+      const token = sessionStorage.getItem('access');
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await response.json();
+      setSettings(data);
+      
+      toast.success('Qulayliklar saqlandi!');
+      setEditSection(null);
+    } catch (err: any) {
+      toast.error(err?.message || 'Xatolik yuz berdi!');
+    } finally {
+      setDormLoading(false);
+    }
   };
   // --- CONTACT STATE ---
   // Telefon input handler
@@ -324,14 +435,26 @@ const Settings: React.FC = () => {
       return;
     }
 
-    // Demo: Faqat console log
-    console.log('Demo: Contact saved', { phone: cleanedPhone, telegram: contactForm.telegram });
-    toast.success('Aloqa ma\'lumotlari saqlandi! (Demo)');
-    setEditSection(null);
-    
-    // Saqlashdan keyin telefon raqamini formatlash
-    if (cleanedPhone) {
-      setContactForm(f => ({ ...f, phone: formatPhoneNumber(cleanedPhone) }));
+    setDormLoading(true);
+    try {
+      // Admin profil ma'lumotlarini yangilash
+      const updateData: any = {};
+      if (cleanedPhone) updateData.phone = cleanedPhone;
+      if (contactForm.telegram.trim()) updateData.telegram = contactForm.telegram;
+      
+      await api.updateAdminProfile(updateData);
+      
+      toast.success('Aloqa ma\'lumotlari saqlandi!');
+      setEditSection(null);
+      
+      // Saqlashdan keyin telefon raqamini formatlash
+      if (cleanedPhone) {
+        setContactForm(f => ({ ...f, phone: formatPhoneNumber(cleanedPhone) }));
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Xatolik yuz berdi!');
+    } finally {
+      setDormLoading(false);
     }
   };
 
@@ -345,12 +468,39 @@ const Settings: React.FC = () => {
   const handleSaveDormCard = async () => {
     setDormLoading(true);
     try {
-      // Demo: API chaqiruvi o'chirilgan
-      console.log('Demo: Dormitory info updated', dormCardForm);
-      toast.success('Yotoqxona maʼlumotlari yangilandi! (Demo)');
+      const updateData = {
+        name: dormCardForm.name,
+        address: dormCardForm.address,
+        distance_to_university: dormCardForm.distance_to_university ? parseFloat(dormCardForm.distance_to_university) : 0,
+        description: settings.description || '',
+        month_price: settings.month_price || 0,
+        year_price: settings.year_price || 0,
+        latitude: settings.latitude || 0,
+        longitude: settings.longitude || 0,
+        rating: settings.rating || 5,
+        is_active: settings.is_active !== undefined ? settings.is_active : true,
+        university: settings.university?.id || settings.university || 0,
+        admin: settings.admin?.id || settings.admin || 0,
+        amenities: settings.amenities?.map((a: { id?: number } | number) => (typeof a === 'object' ? a.id : a)) || []
+      };
+      
+      await api.updateMyDormitory(updateData);
+      
+      // Yangilangan ma'lumotlarni qayta yuklash
+      const token = sessionStorage.getItem('access');
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await response.json();
+      setSettings(data);
+      
+      toast.success('Yotoqxona maʼlumotlari yangilandi!');
       setEditDormCard(false);
     } catch (err: any) {
-      toast.error(err?.toString() || 'Xatolik yuz berdi!');
+      toast.error(err?.message || 'Xatolik yuz berdi!');
     } finally {
       setDormLoading(false);
     }
@@ -358,12 +508,39 @@ const Settings: React.FC = () => {
   const handleSavePricesCard = async () => {
     setDormLoading(true);
     try {
-      // Demo: API chaqiruvi o'chirilgan
-      console.log('Demo: Prices updated', pricesCardForm);
-      toast.success('Narx ma\'lumotlari yangilandi! (Demo)');
+      const updateData = {
+        name: settings.name || '',
+        address: settings.address || '',
+        distance_to_university: settings.distance_to_university || 0,
+        description: settings.description || '',
+        month_price: pricesCardForm.month_price ? parseFloat(pricesCardForm.month_price) : 0,
+        year_price: pricesCardForm.year_price ? parseFloat(pricesCardForm.year_price) : 0,
+        latitude: settings.latitude || 0,
+        longitude: settings.longitude || 0,
+        rating: settings.rating || 5,
+        is_active: settings.is_active !== undefined ? settings.is_active : true,
+        university: settings.university?.id || settings.university || 0,
+        admin: settings.admin?.id || settings.admin || 0,
+        amenities: settings.amenities?.map((a: { id?: number } | number) => (typeof a === 'object' ? a.id : a)) || []
+      };
+      
+      await api.updateMyDormitory(updateData);
+      
+      // Yangilangan ma'lumotlarni qayta yuklash
+      const token = sessionStorage.getItem('access');
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await response.json();
+      setSettings(data);
+      
+      toast.success('Narx ma\'lumotlari yangilandi!');
       setEditPricesCard(false);
-    } catch (err: unknown) {
-      toast.error(err?.toString() || 'Xatolik yuz berdi!');
+    } catch (err: any) {
+      toast.error(err?.message || 'Xatolik yuz berdi!');
     } finally {
       setDormLoading(false);
     }
@@ -372,12 +549,39 @@ const Settings: React.FC = () => {
   const handleSaveDescription = async () => {
     setDormLoading(true);
     try {
-      // Demo: API chaqiruvi o'chirilgan
-      console.log('Demo: Description updated', descriptionForm);
-      toast.success('Tavsif muvaffaqiyatli yangilandi! (Demo)');
+      const updateData = {
+        name: settings.name || '',
+        address: settings.address || '',
+        distance_to_university: settings.distance_to_university || 0,
+        description: descriptionForm,
+        month_price: settings.month_price || 0,
+        year_price: settings.year_price || 0,
+        latitude: settings.latitude || 0,
+        longitude: settings.longitude || 0,
+        rating: settings.rating || 5,
+        is_active: settings.is_active !== undefined ? settings.is_active : true,
+        university: settings.university?.id || settings.university || 0,
+        admin: settings.admin?.id || settings.admin || 0,
+        amenities: settings.amenities?.map((a: { id?: number } | number) => (typeof a === 'object' ? a.id : a)) || []
+      };
+      
+      await api.updateMyDormitory(updateData);
+      
+      // Yangilangan ma'lumotlarni qayta yuklash
+      const token = sessionStorage.getItem('access');
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await response.json();
+      setSettings(data);
+      
+      toast.success('Tavsif muvaffaqiyatli yangilandi!');
       setEditDescription(false);
-    } catch (err: unknown) {
-      toast.error(err?.toString() || 'Xatolik yuz berdi!');
+    } catch (err: any) {
+      toast.error(err?.message || 'Xatolik yuz berdi!');
     } finally {
       setDormLoading(false);
     }
@@ -385,11 +589,23 @@ const Settings: React.FC = () => {
 
   const handleDeleteImage = async (imageId: number) => {
     try {
-      // Demo: API chaqiruvi o'chirilgan
-      console.log('Demo: Image deleted', imageId);
-      toast.success('Rasm o\'chirildi! (Demo)');
-    } catch (err) {
-      toast.error('Rasmni o\'chirishda xatolik!');
+      await api.deleteDormitoryImage(imageId);
+      
+      // Yangilangan ma'lumotlarni qayta yuklash
+      const token = sessionStorage.getItem('access');
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await response.json();
+      setSettings(data);
+      
+      toast.success('Rasm o\'chirildi!');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Rasmni o\'chirishda xatolik!';
+      toast.error(errorMessage);
     }
   };
 
@@ -430,11 +646,11 @@ const Settings: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6 lg:mb-10">
         {/* Dormitory Info Card */}
         <SectionCard
-          icon={<Info className="w-8 h-8 text-blue-500" />}
-          title={((<span className="text-base sm:text-lg font-bold text-blue-700 dark:text-blue-300">Yotoqxona haqida</span>) as React.ReactNode)}
+          icon={<Info className="w-8 h-8 text-blue-600" />}
+          title={((<span className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">Yotoqxona haqida</span>) as React.ReactNode)}
           onEdit={() => setEditDormCard(true)}
         >
-          <div className="rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-800/30 p-4 flex flex-col gap-4 shadow-inner">
+          <div className="rounded-lg bg-gray-50 dark:bg-slate-700/50 p-4 flex flex-col gap-4 border border-gray-200 dark:border-slate-600">
             {editDormCard ? (
               <>
                 <EditableInput label="Nomi" value={dormCardForm.name} onChange={v => handleDormCardChange('name', v)} disabled={dormLoading} fullWidth />
@@ -447,18 +663,26 @@ const Settings: React.FC = () => {
               </>
             ) : (
               <>
-                <div className="flex items-center gap-3">
-                  <Info className="w-6 h-6 text-blue-500" />
-                  <span className="font-semibold text-gray-800 dark:text-gray-100">{settings.name}</span>
+                <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg">
+                  <Info className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Nomi</div>
+                    <span className="font-semibold text-gray-900 dark:text-white">{settings.name}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <MapPin className="w-5 h-5 text-indigo-500" />
-                  <span className="text-gray-700 dark:text-gray-200">{settings.address}</span>
+                <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg">
+                  <MapPin className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Manzil</div>
+                    <span className="text-gray-900 dark:text-white">{settings.address}</span>
+                  </div>
                 </div>
-
-                <div className="flex items-center gap-3">
-                  <School className="w-5 h-5 text-purple-500" />
-                  <span className="text-gray-700 dark:text-gray-200">Universitetgacha: {settings.distance_to_university} km</span>
+                <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg">
+                  <School className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Universitetgacha masofa</div>
+                    <span className="text-gray-900 dark:text-white">{settings.distance_to_university} km</span>
+                  </div>
                 </div>
               </>
             )}
@@ -469,8 +693,8 @@ const Settings: React.FC = () => {
         
         {/* Prices Card */}
         <SectionCard
-          icon={<DollarSign className="w-8 h-8 text-green-500" />}
-          title={((<span className="text-base sm:text-lg font-bold text-green-700 dark:text-green-300">Narx ma'lumotlari</span>) as React.ReactNode)}
+          icon={<DollarSign className="w-8 h-8 text-green-600" />}
+          title={((<span className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">Narx ma'lumotlari</span>) as React.ReactNode)}
           description={editPricesCard ? undefined : "Oylik va yillik narxlar"}
           onEdit={() => setEditPricesCard(true)}
         >
@@ -506,22 +730,23 @@ const Settings: React.FC = () => {
         </SectionCard>
         {/* Description Card */}
         <SectionCard
-          icon={<BookOpen className="w-8 h-8 text-purple-500" />}
-          title={((<span className="text-base sm:text-lg font-bold text-purple-700 dark:text-purple-300">Tavsif</span>) as React.ReactNode)}
+          icon={<BookOpen className="w-8 h-8 text-purple-600" />}
+          title={((<span className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">Tavsif</span>) as React.ReactNode)}
           description={editDescription ? undefined : "Yotoqxona haqida batafsil ma'lumot"}
           onEdit={() => setEditDescription(true)}
         >
-          <div className="rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/40 dark:to-purple-800/30 p-4 flex flex-col gap-4 shadow-inner">
+          <div className="rounded-lg bg-gray-50 dark:bg-slate-700/50 p-4 flex flex-col gap-4 border border-gray-200 dark:border-slate-600">
             {editDescription ? (
               <>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Tavsif</label>
                   <textarea
-                    className="bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-sm sm:text-base font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 min-h-[100px] sm:min-h-[120px] resize-vertical"
+                    className="bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white text-sm sm:text-base font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 min-h-[120px] max-h-[300px] resize-y"
                     value={descriptionForm}
                     onChange={e => setDescriptionForm(e.target.value)}
                     disabled={dormLoading}
                     placeholder="Yotoqxona haqida batafsil ma'lumot kiriting..."
+                    maxLength={1000}
                   />
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 mt-2">
@@ -530,9 +755,8 @@ const Settings: React.FC = () => {
                 </div>
               </>
             ) : (
-              <div className="flex items-start gap-3">
-                <BookOpen className="w-6 h-6 text-purple-500 mt-1 flex-shrink-0" />
-                <div className="text-gray-700 dark:text-gray-200 leading-relaxed">
+              <div className="p-3 bg-white dark:bg-slate-800 rounded-lg max-h-[200px] overflow-y-auto">
+                <div className="text-gray-900 dark:text-white leading-relaxed whitespace-pre-wrap break-words">
                   {settings.description || 'Tavsif kiritilmagan'}
                 </div>
               </div>
@@ -601,13 +825,22 @@ const Settings: React.FC = () => {
                   </div>
                 </div>
               ))
+            ) : amenitiesLoading ? (
+              <div className="col-span-full text-center py-8">
+                <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500"></div>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Qulayliklar yuklanmoqda...
+                </p>
+              </div>
             ) : (
               <div className="col-span-full text-center py-8">
                 <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
                   <ListChecks className="w-6 h-6 text-gray-400" />
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Qulayliklar yuklanmoqda...
+                  Qulayliklar topilmadi
                 </p>
               </div>
             )}
@@ -628,7 +861,15 @@ const Settings: React.FC = () => {
                   className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition"
                   onClick={() => {
                     setEditSection(null);
-                    setLocalAmenities(amenitiesData || []);
+                    // Bekor qilganda asl holatga qaytarish
+                    if (allAmenities.length > 0 && settings) {
+                      const dormitoryAmenityIds = settings.amenities?.map((a: unknown) => a.id || a) || [];
+                      const mappedAmenities = allAmenities.map(amenity => ({
+                        ...amenity,
+                        is_active: dormitoryAmenityIds.includes(amenity.id)
+                      }));
+                      setLocalAmenities(mappedAmenities);
+                    }
                   }}
                 >
                   Bekor qilish
@@ -688,19 +929,19 @@ const Settings: React.FC = () => {
               </>
             ) : (
               <>
-                <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                  <Phone className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-200 dark:border-slate-600">
+                  <Phone className="w-5 h-5 text-blue-600" />
                   <div>
-                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Telefon raqami</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Telefon raqami</div>
                     <div className="text-gray-900 dark:text-white font-semibold">
                       {adminProfile?.phone ? formatPhoneNumber(adminProfile.phone) : 'Kiritilmagan'}
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/30 rounded-lg">
-                  <Send className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-200 dark:border-slate-600">
+                  <Send className="w-5 h-5 text-blue-600" />
                   <div>
-                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Telegram</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Telegram</div>
                     <div className="text-gray-900 dark:text-white font-semibold">
                       {adminProfile?.telegram || 'Kiritilmagan'}
                     </div>
@@ -793,12 +1034,34 @@ const Settings: React.FC = () => {
                 if (!file) return;
                 setIsUploading(true);
                 
-                // Demo: API chaqiruvi o'chirilgan
-                setTimeout(() => {
-                  console.log('Demo: Image uploaded', file.name);
-                  toast.success('Rasm muvaffaqiyatli yuklandi! (Demo)');
+                try {
+                  const formData = new FormData();
+                  formData.append('image', file);
+                  
+                  await api.uploadDormitoryImage(formData);
+                  
+                  // Yangilangan ma'lumotlarni qayta yuklash
+                  const token = sessionStorage.getItem('access');
+                  const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                  });
+                  const data = await response.json();
+                  setSettings(data);
+                  
+                  toast.success('Rasm muvaffaqiyatli yuklandi!');
+                } catch (err: unknown) {
+                  const errorMessage = err?.message || 'Rasm yuklashda xatolik!';
+                  toast.error(errorMessage);
+                } finally {
                   setIsUploading(false);
-                }, 1000);
+                  // Input ni tozalash
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                  }
+                }
               }}
             />
           </div>

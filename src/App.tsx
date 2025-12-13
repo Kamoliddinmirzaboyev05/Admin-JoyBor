@@ -17,7 +17,6 @@ const Profile = React.lazy(() => import("./pages/Profile"));
 const Applications = React.lazy(() => import("./pages/Applications"));
 const ApplicationDetail = React.lazy(() => import("./pages/ApplicationDetail"));
 const Settings = React.lazy(() => import("./pages/Settings"));
-const Reports = React.lazy(() => import("./pages/Reports"));
 const Notifications = React.lazy(() => import("./pages/Notifications"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
 
@@ -105,11 +104,6 @@ function App() {
             <Route path="settings" element={
               <Suspense fallback={<LoadingSpinner />}>
                 <Settings />
-              </Suspense>
-            } />
-            <Route path="reports" element={
-              <Suspense fallback={<LoadingSpinner />}>
-                <Reports />
               </Suspense>
             } />
             <Route path="notifications" element={

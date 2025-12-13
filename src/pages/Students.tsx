@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
-import { motion } from 'framer-motion';
 import DataTable from '../components/UI/DataTable';
 import { toast } from 'sonner';
 import Select from 'react-select';
@@ -48,7 +46,6 @@ const selectStyles = {
 };
 
 const Students: React.FC = () => {
-  const [showModal, setShowModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Record<string, unknown> | null>(null);
 
   // formData'ga gender va course string maydonini qo'sh
@@ -261,32 +258,7 @@ const Students: React.FC = () => {
     },
   ];
 
-  const handleAdd = () => {
-    setEditingStudent(null);
-    setFormData({
-      firstName: "",
-      lastName: "",
-      fatherName: "",
-      phone: "",
-      room: "",
-      course: "1-kurs",
-      faculty: "",
-      group: "",
-      region: "",
-      district: "",
-      passport: "",
-      isPrivileged: false,
-      privilegeShare: "",
-      avatar: "",
-      direction: "",
-      floor: "",
-      gender: "",
-      passportImage1: null,
-      passportImage2: null,
-    });
-    setAvatarPreview("");
-    setShowModal(true);
-  };
+
 
   // Edit handler
   const handleEdit = (student: Record<string, unknown>) => {
@@ -318,7 +290,8 @@ const Students: React.FC = () => {
       passportImage2: null,
     });
     setAvatarPreview(String(student.picture || ""));
-    setShowModal(true);
+    // Note: Edit functionality moved to Student Profile page
+    toast.info("Tahrirlash uchun talaba profiliga o'ting");
   };
 
   // Validation funksiyasi
@@ -438,7 +411,6 @@ const Students: React.FC = () => {
         );
         toast.success('Talaba maʼlumotlari yangilandi!');
         refetch();
-        setShowModal(false);
       } catch {
         toast.error('Talaba maʼlumotlarini saqlashda xatolik!');
       } finally {
@@ -640,61 +612,7 @@ const Students: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    // URL parametrlarini tekshirish
-    const urlParams = new URLSearchParams(window.location.search);
-    const openModal = urlParams.get('openModal');
 
-    if (openModal === 'true') {
-      setShowModal(true);
-      // URL dan parametrni olib tashlash
-      window.history.replaceState({}, document.title, window.location.pathname);
-
-      // SessionStorage dan ma'lumotlarni olish
-      const pendingData = sessionStorage.getItem('pendingStudentData');
-      if (pendingData) {
-        try {
-          const studentData = JSON.parse(pendingData);
-          setFormData(prev => ({
-            ...prev,
-            firstName: studentData.firstName || '',
-            lastName: studentData.lastName || '',
-            fatherName: studentData.fatherName || '',
-            phone: studentData.phone || '',
-            direction: studentData.direction || '',
-            faculty: studentData.faculty || '',
-            group: studentData.group || '',
-            passport: studentData.passport || '',
-            course: studentData.course || '1-kurs',
-            gender: studentData.gender || 'Erkak',
-            isPrivileged: studentData.isPrivileged || false,
-            region: studentData.province || '',
-            district: studentData.district || '',
-            avatar: studentData.imageUrl || '',
-            passportImage1: studentData.passportImage1Base64 || null,
-            passportImage2: studentData.passportImage2Base64 || null,
-          }));
-          
-          // Avatar preview ni ham o'rnatish
-          if (studentData.imageUrl) {
-            setAvatarPreview(studentData.imageUrl);
-          }
-          // Ma'lumotlarni tozalash
-          sessionStorage.removeItem('pendingStudentData');
-          toast.success('Ariza ma\'lumotlari yuklandi! Qo\'shimcha ma\'lumotlarni to\'ldiring.');
-        } catch (error) {
-          console.error('Pending student data parse error:', error);
-          sessionStorage.removeItem('pendingStudentData');
-        }
-      }
-    }
-
-    // Eski location.state logikasi
-    if (location.state && (location.state as { openAddModal?: boolean }).openAddModal) {
-      setShowModal(true);
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state]);
 
   // Loading state
   if (isLoading) {
@@ -794,7 +712,6 @@ const Students: React.FC = () => {
         await refetch();
         // Emit global event
         window.dispatchEvent(new CustomEvent('student-updated', { detail: { action: 'created' } }));
-        setShowModal(false);
         toast.success("Talaba muvaffaqiyatli qo'shildi!");
       })
       .catch((error) => {
@@ -835,7 +752,7 @@ const Students: React.FC = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       toast.success('Talabalar ro\'yxati muvaffaqiyatli yuklandi!');
-    } catch (error) {
+    } catch {
       toast.error('Export xatolik yuz berdi!');
     }
   };
@@ -853,25 +770,6 @@ const Students: React.FC = () => {
               </span>
             )}
           </p>
-        </div>
-        <div className="mt-2 sm:mt-0">
-          <button
-            onClick={handleAdd}
-            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-base disabled:opacity-60"
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <svg className="animate-spin h-4 w-4 mr-1 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
-                <span>Qo'shilmoqda...</span>
-              </>
-            ) : (
-              <>
-                <Plus className="w-4 h-4" />
-                <span>Talaba qo'shish</span>
-              </>
-            )}
-          </button>
         </div>
       </div>
 
@@ -972,338 +870,6 @@ const Students: React.FC = () => {
         />
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur"
-          onClick={() => setShowModal(false)}
-        >
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0, y: 40 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 40 }}
-            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-xl p-0 overflow-hidden relative max-h-[90vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 pt-6 pb-2 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-900 z-10">
-              <div className="flex-1 flex items-center justify-center relative">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white text-center w-full">
-                  {editingStudent ? 'Talabani Tahrirlash' : 'Yangi Talaba Qo\'shish'}
-                </h2>
-                <button onClick={() => setShowModal(false)} className="absolute right-0 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded transition-colors">
-                  <span className="text-2xl">×</span>
-                </button>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-2 sm:px-8 py-6 sm:py-8 pb-40 space-y-6 sm:space-y-8">
-              {/* Profil rasmi */}
-              <div className="flex flex-col items-center gap-3 mb-4">
-                <label className="block text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200 mb-2">Profil rasmi</label>
-                <div className="relative w-24 h-24 group">
-                  {avatarPreview ? (
-                    <img
-                      src={avatarPreview}
-                      alt="Profil"
-                      className="w-24 h-24 rounded-xl object-cover border-2 border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-md transition-all duration-200"
-                    />
-                  ) : (
-                    <div className="w-24 h-24 rounded-xl flex items-center justify-center text-3xl font-bold text-white bg-gradient-to-br from-blue-500 to-indigo-500 shadow-md select-none">
-                      {formData.firstName?.[0] || ''} {formData.lastName?.[0] || ''}
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarChange}
-                    className="absolute inset-0 opacity-0 cursor-pointer z-20"
-                    title="Rasm yuklash"
-                    aria-label="Profil rasm yuklash"
-                  />
-                  {/* Overlay for hover */}
-                  <div className="absolute inset-0 bg-black/30 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10">
-                    <span className="text-white">📸</span>
-                  </div>
-                  {/* Remove button */}
-                  {avatarPreview && (
-                    <button
-                      type="button"
-                      onClick={() => { setFormData(prev => ({ ...prev, avatar: "" })); setAvatarPreview(""); }}
-                      className="absolute -top-2 -right-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-full p-1 shadow hover:bg-red-500 hover:text-white transition-colors z-30"
-                      aria-label="Rasmni olib tashlash"
-                    >
-                      <span className="text-2xl">×</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Shaxsiy ma'lumotlar */}
-              <div>
-                <div className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Shaxsiy ma'lumotlar</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Ism <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="Talabaning ismini kiriting"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Familiya <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="Talabaning familiyasini kiriting"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Otasining ismi <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="fatherName"
-                      value={formData.fatherName}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="Otasining ismini kiriting"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Telefon <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="+998901234567"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-              </div>
-              <hr className="my-2 border-gray-200 dark:border-gray-700" />
-
-              {/* Universitet ma'lumotlari */}
-              <div>
-                <div className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Universitet ma'lumotlari</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Fakultet <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="faculty"
-                      value={formData.faculty}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="Fakultet nomi"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Yo'nalish <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="direction"
-                      value={formData.direction}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="Yo'nalish nomi"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Guruh <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="group"
-                      value={formData.group}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="IF-21-01"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Kurs</label>
-                    <select name="course" value={formData.course} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                      <option value="1-kurs">1-kurs</option>
-                      <option value="2-kurs">2-kurs</option>
-                      <option value="3-kurs">3-kurs</option>
-                      <option value="4-kurs">4-kurs</option>
-                      <option value="5-kurs">5-kurs</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <hr className="my-2 border-gray-200 dark:border-gray-700" />
-
-              {/* Yashash ma'lumotlari */}
-              <div>
-                <div className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Yashash ma'lumotlari</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Qavat</label>
-                    <Select
-                      options={floorOptions}
-                      value={floorOptions.find(opt => String(opt.value) === String(formData.floor)) || null}
-                      onChange={opt => handleSelectChange('floor', opt)}
-                      isClearable
-                      placeholder="Qavat tanlang..."
-                      styles={selectStyles}
-                      classNamePrefix="react-select"
-                    />
-                    <span className="text-xs text-gray-500 mt-1">Qavat tanlang, keyin to'lmagan xonalar ko'rsatiladi</span>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona</label>
-                    <Select
-                      options={roomOptions}
-                      value={roomOptions.find(opt => String(opt.value) === String(formData.room)) || null}
-                      onChange={opt => handleSelectChange('room', opt)}
-                      isClearable
-                      placeholder="To'lmagan xona tanlang..."
-                      styles={selectStyles}
-                      classNamePrefix="react-select"
-                      isDisabled={!formData.floor}
-                    />
-                    {!formData.floor && (
-                      <span className="text-xs text-gray-500 mt-1">Avval qavat tanlang</span>
-                    )}
-                    {formData.floor && roomOptions.length === 0 && (
-                      <span className="text-xs text-orange-500 mt-1">Bu qavatda bo'sh xona yo'q</span>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Viloyat/Shahar</label>
-                    <Select
-                      options={regionOptions}
-                      value={regionOptions.find(opt => opt.value === String(formData.region)) || null}
-                      onChange={opt => handleSelectChange('region', opt)}
-                      isClearable
-                      placeholder="Viloyat tanlang..."
-                      styles={selectStyles}
-                      classNamePrefix="react-select"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tuman/Shaharcha</label>
-                    <Select
-                      options={districtOptions}
-                      value={districtOptions.find(opt => opt.value === String(formData.district)) || null}
-                      onChange={opt => handleSelectChange('district', opt)}
-                      isClearable
-                      placeholder="Tuman tanlang..."
-                      styles={selectStyles}
-                      classNamePrefix="react-select"
-                      isDisabled={!formData.region}
-                    />
-                  </div>
-                </div>
-              </div>
-              <hr className="my-2 border-gray-200 dark:border-gray-700" />
-
-              {/* Qo'shimcha */}
-              <div>
-                <div className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Qo'shimcha</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Passport ma'lumoti <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="passport"
-                      value={formData.passport}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="AB1234567"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2 mt-4 sm:mt-8">
-                    <input type="checkbox" name="isPrivileged" checked={formData.isPrivileged} onChange={handleCheckboxChange} className="form-checkbox h-5 w-5 text-primary-600" />
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Imtiyozli talaba</label>
-                  </div>
-                </div>
-                {/* Gender radio group */}
-                <div className="mt-4 mb-6">
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Jinsi</label>
-                  <div className="flex gap-4 sm:gap-6">
-                    <label className="inline-flex items-center cursor-pointer">
-                      <input
-                        type="radio"
-                        name="gender"
-                        value="Erkak"
-                        checked={formData.gender === "Erkak"}
-                        onChange={handleInputChange}
-                        className="form-radio h-5 w-5 text-blue-600 border-gray-300 focus:ring-blue-500"
-                      />
-                      <span className="ml-2 text-gray-700 dark:text-gray-200">Erkak</span>
-                    </label>
-                    <label className="inline-flex items-center cursor-pointer">
-                      <input
-                        type="radio"
-                        name="gender"
-                        value="Ayol"
-                        checked={formData.gender === "Ayol"}
-                        onChange={handleInputChange}
-                        className="form-radio h-5 w-5 text-pink-500 border-gray-300 focus:ring-pink-400"
-                      />
-                      <span className="ml-2 text-gray-700 dark:text-gray-200">Ayol</span>
-                    </label>
-                  </div>
-                </div>
-                {formData.isPrivileged && (
-                  <div className="mt-4 mb-6">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Imtiyoz ulushi (%)</label>
-                    <input type="number" name="privilegeShare" value={formData.privilegeShare} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" min={1} max={100} />
-                  </div>
-                )}
-              </div>
-              <div className="fixed left-0 right-0 bottom-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex justify-end pt-4 gap-2 px-2 sm:px-8 pb-6 z-20 max-w-xl mx-auto w-full" style={{ borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem' }}>
-                <button type="button" onClick={() => setShowModal(false)} className="px-3 sm:px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-sm sm:text-base">Bekor qilish</button>
-                <button type="submit" className="px-3 sm:px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors text-sm sm:text-base" disabled={loading}>
-                  {editingStudent ? 'Saqlash' : loading ? (
-                    <span className="flex items-center gap-2 justify-center">
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
-                      Qo'shilmoqda...
-                    </span>
-                  ) : "Qo'shish"}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </motion.div>
-      )}
     </div>
   );
 };

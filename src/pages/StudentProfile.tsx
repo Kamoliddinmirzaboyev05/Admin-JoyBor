@@ -85,7 +85,7 @@ function EditableInput({ label, value, onChange, type = 'text' }: { label: strin
       if (!isNaN(date.getTime())) {
         inputValue = date.toISOString().split('T')[0];
       }
-    } catch (e) {
+    } catch {
       // Keep original value if parsing fails
     }
   }
@@ -112,8 +112,8 @@ const StudentProfile: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // States for dropdown data
   const [provinces, setProvinces] = useState<{ id: number; name: string }[]>([]);
@@ -294,7 +294,6 @@ const StudentProfile: React.FC = () => {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedImage(file);
       const reader = new FileReader();
       reader.onload = () => {
         setImagePreview(reader.result as string);
@@ -304,7 +303,6 @@ const StudentProfile: React.FC = () => {
   };
 
   const removeImage = () => {
-    setSelectedImage(null);
     setImagePreview(null);
     setForm(f => f ? { ...f, picture: null } : f);
   };
@@ -331,83 +329,93 @@ const StudentProfile: React.FC = () => {
     
     setSaving(true);
 
-    // FormData yaratish (rasm yuklash uchun)
-    const formData = new FormData();
-
-    // Basic fields
-    if (form.name) formData.append('name', form.name as string);
-    if (form.last_name) formData.append('last_name', form.last_name as string);
-    if (form.middle_name) formData.append('middle_name', form.middle_name as string);
-    if (form.phone) formData.append('phone', form.phone as string);
-    if (form.faculty) formData.append('faculty', form.faculty as string);
-    if (form.direction) formData.append('direction', form.direction as string);
-    if (form.group) formData.append('group', form.group as string);
-    if (form.passport) formData.append('passport', form.passport as string);
-
-    // Imtiyoz va uning ulushi
-    if (form.privilege !== undefined) {
-      formData.append('privilege', form.privilege ? 'true' : 'false');
-    }
-    if (form.privilege_share) {
-      formData.append('privilege_share', form.privilege_share as string);
-    }
-
-    // Boolean and enum fields with defaults
-    formData.append('course', (form as any).course || '1-kurs');
-    formData.append('gender', (form as any).gender || 'Erkak');
-
-    // Rasm yuklash
-    if (selectedImage) {
-      formData.append('picture', selectedImage);
-    }
-
-    // Location fields - only if they have valid IDs
-    if (form.province && typeof form.province === 'object' && (form.province as any).id) {
-      formData.append('province', String((form.province as any).id));
-    }
-
-    if (form.district && typeof form.district === 'object' && (form.district as any).id) {
-      formData.append('district', String((form.district as any).id));
-    }
-
-    // Include room and floor if they are selected (using available endpoints ensures no capacity errors)
-    // Only include if they are different from original values to avoid unnecessary updates
-    const originalStudent = student as any;
-
-    if (form.floor && typeof form.floor === 'object' && (form.floor as any).id) {
-      const newFloorId = Number((form.floor as any).id);
-      const originalFloorId = originalStudent?.floor?.id;
-      if (newFloorId !== originalFloorId) {
-        formData.append('floor', String(newFloorId));
-
-      }
-    }
-
-    if (form.room && typeof form.room === 'object' && (form.room as any).id) {
-      const newRoomId = Number((form.room as any).id);
-      const originalRoomId = originalStudent?.room?.id;
-      if (newRoomId !== originalRoomId) {
-        formData.append('room', String(newRoomId));
-
-      }
-    }
-
     try {
       const token = sessionStorage.getItem('access');
-      const response = await axios.patch(
-        `${link}/students/${studentId}/`,
-        formData,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
-          }
+      
+      // Prepare JSON payload for PATCH request
+      const payload: Record<string, unknown> = {};
+
+      // Basic fields - only include if they exist
+      if (form.name) payload.name = form.name as string;
+      if (form.last_name) payload.last_name = form.last_name as string;
+      if (form.middle_name) payload.middle_name = form.middle_name as string;
+      if (form.phone) payload.phone = form.phone as string;
+      if (form.faculty) payload.faculty = form.faculty as string;
+      if (form.direction) payload.direction = form.direction as string;
+      if (form.group) payload.group = form.group as string;
+      if (form.passport) payload.passport = form.passport as string;
+
+      // Course and gender with defaults
+      payload.course = (form as any).course || '1-kurs';
+      payload.gender = (form as any).gender || 'Erkak';
+
+      // Placement status and active status
+      if (form.placement_status) payload.placement_status = form.placement_status as string;
+      if (form.is_active !== undefined) payload.is_active = form.is_active as boolean;
+
+      // Location fields - extract IDs from objects
+      if (form.province) {
+        const provinceId = typeof form.province === 'object' ? (form.province as any).id : form.province;
+        if (provinceId) payload.province = Number(provinceId);
+      }
+
+      if (form.district) {
+        const districtId = typeof form.district === 'object' ? (form.district as any).id : form.district;
+        if (districtId) payload.district = Number(districtId);
+      }
+
+      if (form.dormitory) {
+        const dormitoryId = typeof form.dormitory === 'object' ? (form.dormitory as any).id : form.dormitory;
+        if (dormitoryId) payload.dormitory = Number(dormitoryId);
+      }
+
+      // Floor and room - only if changed
+      const originalStudent = student as any;
+      
+      if (form.floor) {
+        const newFloorId = typeof form.floor === 'object' ? (form.floor as any).id : form.floor;
+        const originalFloorId = originalStudent?.floor?.id || originalStudent?.floor;
+        if (newFloorId && Number(newFloorId) !== Number(originalFloorId)) {
+          payload.floor = Number(newFloorId);
         }
-      );
+      }
+
+      if (form.room) {
+        const newRoomId = typeof form.room === 'object' ? (form.room as any).id : form.room;
+        const originalRoomId = originalStudent?.room?.id || originalStudent?.room;
+        if (newRoomId && Number(newRoomId) !== Number(originalRoomId)) {
+          payload.room = Number(newRoomId);
+        }
+      }
+
+      // User ID - if exists
+      if (form.user) {
+        const userId = typeof form.user === 'object' ? (form.user as any).id : form.user;
+        if (userId) payload.user = Number(userId);
+      }
+
+      console.log('Updating student with payload:', payload);
+
+      const response = await fetch(`${link}/students/${studentId}/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Update error:', errorData);
+        throw new Error(errorData.detail || errorData.message || 'Xatolik yuz berdi');
+      }
+
+      const result = await response.json();
+      console.log('Update success:', result);
 
       toast.success('Talaba maʼlumotlari saqlandi!');
       setEditMode(false);
-      setSelectedImage(null);
       setImagePreview(null);
 
       // Barcha bog'liq cache larni yangilash
@@ -417,100 +425,9 @@ const StudentProfile: React.FC = () => {
       // Emit global event
       emitStudentUpdate({ action: 'updated', id: studentId });
     } catch (error: any) {
-      // Try to get more details from server response
-      if (error.response?.data) {
-        if (typeof error.response.data === "string") {
-          // Handle string error response
-        }
-      }
-
-      let errorMessage = 'Noma\'lum xatolik';
-
-      if (error.response?.status === 500) {
-        // If 500 error and we included room/floor, try again without them
-        const hasRoomOrFloor = formData.has('room') || formData.has('floor');
-        if (hasRoomOrFloor) {
-          const retryFormData = new FormData();
-
-          // Copy all fields except room and floor
-          for (const [key, value] of formData.entries()) {
-            if (key !== 'room' && key !== 'floor') {
-              retryFormData.append(key, value);
-            }
-          }
-
-          try {
-            const token = sessionStorage.getItem('access');
-            const retryResponse = await axios.patch(
-              `${link}/students/${studentId}/`,
-              retryFormData,
-              {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'multipart/form-data'
-                }
-              }
-            );
-
-            toast.success('Talaba maʼlumotlari saqlandi! (Xona o\'zgartirilmadi)');
-            setEditMode(false);
-            setSelectedImage(null);
-            setImagePreview(null);
-            // Barcha bog'liq cache larni yangilash
-            await invalidateStudentCaches(queryClient);
-            // Force immediate refetch
-            await refetch();
-            // Emit global event
-            emitStudentUpdate({ action: 'updated', id: studentId });
-            return; // Exit early on success
-          } catch (retryError) {
-            errorMessage = 'Server xatoligi. Xona o\'zgartirishda muammo bo\'lishi mumkin.';
-          }
-        } else {
-          errorMessage = 'Server xatoligi. Iltimos, keyinroq qayta urinib ko\'ring.';
-        }
-      } else if (error.response?.data) {
-        const errorData = error.response.data;
-
-        // Check if response is HTML (server error page)
-        if (typeof errorData === "string" && errorData.includes("<html>")) {
-          errorMessage = 'Server xatoligi yuz berdi. Iltimos, admin bilan bog\'laning.';
-        } else if (errorData.non_field_errors && Array.isArray(errorData.non_field_errors)) {
-          const roomError = errorData.non_field_errors.find((err: string) =>
-            err.includes('xona to\'lgan') || err.includes('room is full')
-          );
-          if (roomError) {
-            errorMessage = roomError;
-          } else {
-            errorMessage = errorData.non_field_errors.join('; ');
-          }
-        } else if (typeof errorData === "string") {
-          errorMessage = errorData;
-        } else if (errorData.detail) {
-          errorMessage = errorData.detail;
-        } else if (errorData.message) {
-          errorMessage = errorData.message;
-        } else if (errorData.error) {
-          errorMessage = errorData.error;
-        } else {
-          // Show all field errors
-          const fieldErrors = [];
-          for (const [field, errors] of Object.entries(errorData)) {
-            if (Array.isArray(errors)) {
-              fieldErrors.push(`${field}: ${errors.join(', ')}`);
-            } else if (typeof errors === "string") {
-              fieldErrors.push(`${field}: ${errors}`);
-            }
-          }
-          if (fieldErrors.length > 0) {
-            errorMessage = fieldErrors.join('; ');
-          }
-        }
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      toast.error(`Xatolik: ${errorMessage}`);
+      console.error('Save error:', error);
+      const errorMessage = error.message || 'Xatolik yuz berdi!';
+      toast.error(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -522,7 +439,7 @@ const StudentProfile: React.FC = () => {
     setDeleting(true);
     try {
       const token = sessionStorage.getItem('access');
-      const response = await axios.delete(
+      await axios.delete(
         `${link}/students/${studentId}/`,
         {
           headers: {
@@ -569,7 +486,6 @@ const StudentProfile: React.FC = () => {
                 onClick={() => {
                   setEditMode(false);
                   setForm(student); // Reset form to original data
-                  setSelectedImage(null);
                   setImagePreview(null);
                 }}
               >
@@ -780,7 +696,7 @@ const StudentProfile: React.FC = () => {
                     src={(form as Record<string, any>).passport_image_first}
                     alt="Pasport old tomoni"
                     className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition"
-                    onClick={() => window.open((form as Record<string, any>).passport_image_first, '_blank')}
+                    onClick={() => setSelectedImage((form as Record<string, any>).passport_image_first)}
                   />
                   <div className="p-3 bg-white dark:bg-slate-800">
                     <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Pasport (old tomoni)</div>
@@ -795,7 +711,7 @@ const StudentProfile: React.FC = () => {
                     src={(form as Record<string, any>).passport_image_second}
                     alt="Pasport orqa tomoni"
                     className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition"
-                    onClick={() => window.open((form as Record<string, any>).passport_image_second, '_blank')}
+                    onClick={() => setSelectedImage((form as Record<string, any>).passport_image_second)}
                   />
                   <div className="p-3 bg-white dark:bg-slate-800">
                     <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Pasport (orqa tomoni)</div>
@@ -810,7 +726,7 @@ const StudentProfile: React.FC = () => {
                     src={(form as Record<string, any>).document}
                     alt="Qo'shimcha hujjat"
                     className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition"
-                    onClick={() => window.open((form as Record<string, unknown>).document, '_blank')}
+                    onClick={() => setSelectedImage((form as Record<string, any>).document)}
                   />
                   <div className="p-3 bg-white dark:bg-slate-800">
                     <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Qo'shimcha hujjat</div>
@@ -821,6 +737,29 @@ const StudentProfile: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Rasm modal */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-5xl max-h-[90vh] w-full">
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors"
+            >
+              <span className="text-4xl font-light">×</span>
+            </button>
+            <img
+              src={selectedImage}
+              alt="Katta rasm"
+              className="w-full h-full object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
 
       {/* O'chirish modali */}
       {showDeleteModal && (

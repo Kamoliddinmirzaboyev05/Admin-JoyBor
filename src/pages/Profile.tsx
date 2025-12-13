@@ -1,12 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { LogOut, User, KeyRound, Phone, UserCog, CalendarCheck2, MapPin, MessageCircle } from 'lucide-react';
-import BackButton from '../components/UI/BackButton';
-// API imports o'chirilgan - demo ma'lumotlar
-import { useRef } from 'react';
-
-
+import { get, patch } from '../data/api';
 
 function ProfileField({ icon, label, value, actionLabel, onAction }: { icon: React.ReactNode; label: string; value?: string; actionLabel?: string; onAction?: () => void }) {
   return (
@@ -25,22 +21,30 @@ function ProfileField({ icon, label, value, actionLabel, onAction }: { icon: Rea
 }
 
 const Profile: React.FC = () => {
-  // Demo admin data
-  const admin = {
-    id: 1,
-    username: 'superadmin',
-    first_name: 'Admin',
-    last_name: 'Adminov',
-    email: 'admin@joyбор.uz',
-    phone: '+998901234567',
-    telegram: '@joyboradmin',
-    bio: 'Yotoqxona administratori',
-    birth_date: '1990-01-01',
-    address: 'Toshkent sh.',
-    avatar: null,
-  };
-  const isLoading = false;
-  const error = null;
+  // API dan admin ma'lumotlarini olish
+  const [admin, setAdmin] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Admin profilni yuklash
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await get('/me/');
+        setAdmin(data);
+      } catch (err: any) {
+        setError(err?.message || 'Profil ma\'lumotlarini yuklashda xatolik');
+        console.error('Profile fetch error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -51,14 +55,11 @@ const Profile: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-
-
   // Edit form state
   const [editForm, setEditForm] = useState({
-    username: '',
+    email: '',
     first_name: '',
     last_name: '',
-    password: '',
     image: null as File | null,
     bio: '',
     phone: '',
@@ -66,13 +67,13 @@ const Profile: React.FC = () => {
     address: '',
     telegram: '',
   });
-  React.useEffect(() => {
+
+  useEffect(() => {
     if (admin) {
       setEditForm({
-        username: admin.username || '',
+        email: admin.email || '',
         first_name: admin.first_name || '',
         last_name: admin.last_name || '',
-        password: '',
         image: null,
         bio: admin.bio || '',
         phone: admin.phone || '',
@@ -93,23 +94,55 @@ const Profile: React.FC = () => {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const formData = new FormData();
-    Object.entries(editForm).forEach(([key, value]) => {
-      if (key === 'image' && !value) return;
-      if (key === 'password') return; // Parolni faqat alohida modal orqali o'zgartiramiz
-      if (key === 'username') return; // Username ni o'zgartirishga ruxsat bermaymiz
-      if (value) formData.append(key, value as any);
-    });
     setIsUpdating(true);
 
     try {
-      await api.updateAdminProfile(formData);
+      // Faqat o'zgargan maydonlarni yuborish
+      const updateData: any = {};
+      
+      if (editForm.email && editForm.email !== admin.email) updateData.email = editForm.email;
+      if (editForm.first_name && editForm.first_name !== admin.first_name) updateData.first_name = editForm.first_name;
+      if (editForm.last_name && editForm.last_name !== admin.last_name) updateData.last_name = editForm.last_name;
+      if (editForm.bio && editForm.bio !== admin.bio) updateData.bio = editForm.bio;
+      if (editForm.phone && editForm.phone !== admin.phone) updateData.phone = editForm.phone;
+      if (editForm.birth_date && editForm.birth_date !== admin.birth_date) updateData.birth_date = editForm.birth_date;
+      if (editForm.address && editForm.address !== admin.address) updateData.address = editForm.address;
+      if (editForm.telegram && editForm.telegram !== admin.telegram) updateData.telegram = editForm.telegram;
+      
+      // Agar rasm o'zgargan bo'lsa, FormData ishlatish kerak
+      if (editForm.image) {
+        const formData = new FormData();
+        Object.entries(updateData).forEach(([key, value]) => {
+          if (value) formData.append(key, value as string);
+        });
+        formData.append('image', editForm.image);
+        
+        // FormData uchun alohida fetch
+        const token = sessionStorage.getItem('access');
+        const response = await fetch('https://joyborv1.pythonanywhere.com/api/me/', {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: formData,
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || errorData.message || 'Profilni yangilashda xatolik');
+        }
+        
+        const updatedData = await response.json();
+        setAdmin(updatedData);
+      } else if (Object.keys(updateData).length > 0) {
+        // Oddiy JSON update - faqat o'zgargan maydonlar bo'lsa
+        const updatedData = await patch('/me/', updateData);
+        setAdmin(updatedData);
+      }
 
       setShowEditModal(false);
       toast.success('Profil muvaffaqiyatli yangilandi!');
-      // Query ni invalidate qilib, yangi ma'lumotlarni olish
-      queryClient.invalidateQueries({ queryKey: ['adminProfile'] }); // toast ko‘rinib ulgurishi uchun
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error('Xatolik: ' + (err?.detail || err?.message || 'Profilni yangilashda xatolik'));
     } finally {
       setIsUpdating(false);
@@ -127,7 +160,7 @@ const Profile: React.FC = () => {
     }
     setPasswordError('');
     setPasswordSuccess(true);
-    toast.success('Parol muvaffaqiyatli o‘zgartirildi!');
+    toast.success('Parol muvaffaqiyatli o\'zgartirildi!');
     setTimeout(() => setPasswordSuccess(false), 2000);
     setShowPasswordForm(false);
     setOldPassword('');
@@ -141,19 +174,16 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 px-2 py-8">
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 40 }}
-        transition={{ duration: 0.4, ease: 'easeInOut' }}
-        className="w-full max-w-4xl rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] overflow-hidden flex flex-col"
-      >
+    <motion.div
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 40 }}
+      transition={{ duration: 0.4, ease: 'easeInOut' }}
+      className="p-4 sm:p-6 max-w-5xl mx-auto w-full"
+    >
+      <div className="w-full rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="relative flex flex-col items-center justify-center pt-10 pb-6 px-8 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-[#1E293B] dark:to-gray-900">
-          <div className="absolute top-4 left-4 z-10">
-            <BackButton />
-          </div>
           <div className="relative w-32 h-32 mb-4">
             <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-2xl border-4 border-white dark:border-gray-800 overflow-hidden">
               {admin.image ? (
@@ -202,7 +232,6 @@ const Profile: React.FC = () => {
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">@{admin.username}</p>
           <p className="text-sm sm:text-base text-gray-500 dark:text-gray-300 mb-2">{admin.bio || 'Bio kiritilmagan'}</p>
-
         </div>
         {/* Main content */}
         <div className="px-2 sm:px-6 py-6 sm:py-8 flex flex-col gap-6">
@@ -211,7 +240,7 @@ const Profile: React.FC = () => {
               <ProfileField icon={<User className="w-5 h-5" />} label="Ism" value={admin.first_name} />
               <ProfileField icon={<User className="w-5 h-5" />} label="Familiya" value={admin.last_name} />
               <ProfileField icon={<Phone className="w-5 h-5" />} label="Telefon" value={admin.phone} />
-              <ProfileField icon={<CalendarCheck2 className="w-5 h-5" />} label="Tug‘ilgan sana" value={admin.birth_date} />
+              <ProfileField icon={<CalendarCheck2 className="w-5 h-5" />} label="Tug'ilgan sana" value={admin.birth_date} />
               <ProfileField icon={<MessageCircle className="w-5 h-5" />} label="Telegram" value={admin.telegram} />
               <ProfileField icon={<MapPin className="w-5 h-5" />} label="Manzil" value={admin.address} />
             </div>
@@ -226,7 +255,7 @@ const Profile: React.FC = () => {
                 className="flex-1 px-4 sm:px-6 py-2 sm:py-3 rounded-lg bg-[#1E293B] text-white font-semibold hover:bg-gray-900 transition flex items-center justify-center gap-2 shadow text-sm sm:text-base"
                 onClick={() => setShowPasswordForm(true)}
               >
-                <KeyRound className="w-5 h-5" /> Parolni o‘zgartirish
+                <KeyRound className="w-5 h-5" /> Parolni o'zgartirish
               </button>
               <button
                 className="flex-1 px-4 sm:px-6 py-2 sm:py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-[#1E293B] dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition flex items-center justify-center gap-2 shadow text-sm sm:text-base"
@@ -237,7 +266,7 @@ const Profile: React.FC = () => {
             </div>
           </div>
         </div>
-        {/* Parol o‘zgartirish modal */}
+        {/* Parol o'zgartirish modal */}
         {showPasswordForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowPasswordForm(false)}>
             <motion.div
@@ -248,7 +277,7 @@ const Profile: React.FC = () => {
               className="bg-white dark:bg-[#1E293B] rounded-2xl shadow-2xl p-8 w-full max-w-xs flex flex-col gap-4 border border-gray-200 dark:border-gray-700"
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold mb-2 text-[#1E293B] dark:text-white">Parolni o‘zgartirish</h3>
+              <h3 className="text-lg font-bold mb-2 text-[#1E293B] dark:text-white">Parolni o'zgartirish</h3>
               <form onSubmit={handlePasswordChange} className="flex flex-col gap-4">
                 <input
                   type="password"
@@ -286,7 +315,7 @@ const Profile: React.FC = () => {
                     className="flex-1 px-4 py-2 rounded-lg bg-[#1E293B] text-white font-semibold hover:bg-gray-900 transition"
                   >Saqlash</button>
                 </div>
-                {passwordSuccess && <div className="text-green-600 text-sm text-center">Parol muvaffaqiyatli o‘zgartirildi!</div>}
+                {passwordSuccess && <div className="text-green-600 text-sm text-center">Parol muvaffaqiyatli o'zgartirildi!</div>}
               </form>
             </motion.div>
           </div>
@@ -324,7 +353,7 @@ const Profile: React.FC = () => {
                       />
                     ) : (
                       <div className="w-24 h-24 rounded-xl flex items-center justify-center text-3xl font-bold text-white bg-gradient-to-br from-blue-500 to-indigo-500 shadow-md select-none">
-                        {editForm.username?.[0] || admin.username?.[0] || ''}
+                        {admin.username?.[0] || 'A'}
                       </div>
                     )}
                     <input
@@ -367,6 +396,10 @@ const Profile: React.FC = () => {
                       <input name="last_name" value={editForm.last_name} onChange={handleEditChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Familiya" />
                     </div>
                     <div>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
+                      <input name="email" type="email" value={editForm.email} onChange={handleEditChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Email" />
+                    </div>
+                    <div>
                       <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Telegram</label>
                       <input name="telegram" value={editForm.telegram} onChange={handleEditChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Telegram" maxLength={64} />
                     </div>
@@ -391,12 +424,8 @@ const Profile: React.FC = () => {
                       <input name="phone" value={editForm.phone} onChange={handleEditChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Telefon" maxLength={20} />
                     </div>
                     <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tug‘ilgan sana</label>
-                      <input name="birth_date" type="date" value={editForm.birth_date} onChange={handleEditChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Tug‘ilgan sana" />
-                    </div>
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Manzil</label>
-                      <input name="address" value={editForm.address} onChange={handleEditChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Manzil" maxLength={255} />
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tug'ilgan sana</label>
+                      <input name="birth_date" type="date" value={editForm.birth_date} onChange={handleEditChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Tug'ilgan sana" />
                     </div>
                   </div>
                 </div>
@@ -430,9 +459,9 @@ const Profile: React.FC = () => {
             </motion.div>
           </div>
         )}
-      </motion.div>
-    </div>
+      </div>
+    </motion.div>
   );
 };
 
-export default Profile; 
+export default Profile;

@@ -198,6 +198,7 @@ export const api = {
   
   // Dormitory Management
   patchMyDormitory: (data: Record<string, unknown>) => patch('/dormitory/', data),
+  updateMyDormitory: (data: Record<string, unknown>) => put('/admin/my-dormitory/', data),
   
   // Amenities Management
   getAmenities: () => get('/amenities/'),

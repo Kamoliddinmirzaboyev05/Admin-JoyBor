@@ -6,7 +6,6 @@ import {
   CreditCard,
   Building,
   FileText,
-  BarChart3,
   Settings,
   UserCheck,
 } from 'lucide-react';
@@ -22,7 +21,6 @@ const navigation = [
   { name: 'Yotoqxona', href: '/rooms', icon: Building },
   { name: 'Davomat', href: '/attendance', icon: UserCheck },
   { name: 'Arizalar', href: '/applications', icon: FileText },
-  { name: 'Hisobotlar', href: '/reports', icon: BarChart3 },
   { name: 'Sozlamalar', href: '/settings', icon: Settings },
 ];
 
