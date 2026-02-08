@@ -319,9 +319,8 @@ const StudentProfile: React.FC = () => {
       return;
     }
 
-    // Create object with id and name for consistency with existing data structure
-    const selectedValue = { id: option.value, name: option.label };
-    setForm(f => f ? { ...f, [field]: selectedValue } : f);
+    // For ID fields, store just the ID number
+    setForm(f => f ? { ...f, [field]: option.value } : f);
   };
 
   const handleSave = async () => {
@@ -332,67 +331,77 @@ const StudentProfile: React.FC = () => {
     try {
       const token = sessionStorage.getItem('access');
       
-      // Prepare JSON payload for PATCH request
+      // Prepare payload matching API structure
       const payload: Record<string, unknown> = {};
 
-      // Basic fields - only include if they exist
-      if (form.name) payload.name = form.name as string;
-      if (form.last_name) payload.last_name = form.last_name as string;
-      if (form.middle_name) payload.middle_name = form.middle_name as string;
-      if (form.phone) payload.phone = form.phone as string;
-      if (form.faculty) payload.faculty = form.faculty as string;
-      if (form.direction) payload.direction = form.direction as string;
-      if (form.group) payload.group = form.group as string;
-      if (form.passport) payload.passport = form.passport as string;
+      // Basic string fields
+      if (form.name !== undefined) payload.name = String(form.name || '');
+      if (form.last_name !== undefined) payload.last_name = String(form.last_name || '');
+      if (form.middle_name !== undefined) payload.middle_name = String(form.middle_name || '');
+      if (form.phone !== undefined) payload.phone = String(form.phone || '');
+      if (form.faculty !== undefined) payload.faculty = String(form.faculty || '');
+      if (form.direction !== undefined) payload.direction = String(form.direction || '');
+      if (form.group !== undefined) payload.group = String(form.group || '');
+      if (form.passport !== undefined) payload.passport = String(form.passport || '');
 
-      // Course and gender with defaults
-      payload.course = (form as any).course || '1-kurs';
-      payload.gender = (form as any).gender || 'Erkak';
-
-      // Placement status and active status
-      if (form.placement_status) payload.placement_status = form.placement_status as string;
-      if (form.is_active !== undefined) payload.is_active = form.is_active as boolean;
-
-      // Location fields - extract IDs from objects
-      if (form.province) {
-        const provinceId = typeof form.province === 'object' ? (form.province as any).id : form.province;
-        if (provinceId) payload.province = Number(provinceId);
+      // Course - must be one of: "1-kurs", "2-kurs", "3-kurs", "4-kurs", "5-kurs", "6-kurs"
+      if (form.course !== undefined) {
+        payload.course = String(form.course || '1-kurs');
       }
 
-      if (form.district) {
-        const districtId = typeof form.district === 'object' ? (form.district as any).id : form.district;
-        if (districtId) payload.district = Number(districtId);
+      // Gender - must be "Erkak" or "Ayol"
+      if (form.gender !== undefined) {
+        payload.gender = String(form.gender || 'Erkak');
       }
 
-      if (form.dormitory) {
-        const dormitoryId = typeof form.dormitory === 'object' ? (form.dormitory as any).id : form.dormitory;
-        if (dormitoryId) payload.dormitory = Number(dormitoryId);
+      // Boolean fields
+      if (form.privilege !== undefined) {
+        payload.privilege = Boolean(form.privilege);
       }
-
-      // Floor and room - only if changed
-      const originalStudent = student as any;
       
-      if (form.floor) {
-        const newFloorId = typeof form.floor === 'object' ? (form.floor as any).id : form.floor;
-        const originalFloorId = originalStudent?.floor?.id || originalStudent?.floor;
-        if (newFloorId && Number(newFloorId) !== Number(originalFloorId)) {
-          payload.floor = Number(newFloorId);
-        }
+      if (form.is_active !== undefined) {
+        payload.is_active = Boolean(form.is_active);
       }
 
-      if (form.room) {
-        const newRoomId = typeof form.room === 'object' ? (form.room as any).id : form.room;
-        const originalRoomId = originalStudent?.room?.id || originalStudent?.room;
-        if (newRoomId && Number(newRoomId) !== Number(originalRoomId)) {
-          payload.room = Number(newRoomId);
-        }
+      // Privilege share - only if privilege is true
+      if (form.privilege && form.privilege_share !== undefined) {
+        payload.privilege_share = Number(form.privilege_share) || 0;
       }
 
-      // User ID - if exists
-      if (form.user) {
-        const userId = typeof form.user === 'object' ? (form.user as any).id : form.user;
-        if (userId) payload.user = Number(userId);
+      // Status fields
+      if (form.status !== undefined) {
+        payload.status = String(form.status || 'Tekshirilmaydi');
       }
+      
+      if (form.placement_status !== undefined) {
+        payload.placement_status = String(form.placement_status || 'Qabul qilindi');
+      }
+
+      // ID fields - extract IDs from objects or use direct values
+      const extractId = (value: any): number | undefined => {
+        if (!value) return undefined;
+        if (typeof value === 'number') return value;
+        if (typeof value === 'object' && value.id) return Number(value.id);
+        return undefined;
+      };
+
+      const provinceId = extractId(form.province);
+      if (provinceId !== undefined) payload.province = provinceId;
+
+      const districtId = extractId(form.district);
+      if (districtId !== undefined) payload.district = districtId;
+
+      const dormitoryId = extractId(form.dormitory);
+      if (dormitoryId !== undefined) payload.dormitory = dormitoryId;
+
+      const floorId = extractId(form.floor);
+      if (floorId !== undefined) payload.floor = floorId;
+
+      const roomId = extractId(form.room);
+      if (roomId !== undefined) payload.room = roomId;
+
+      const userId = extractId(form.user);
+      if (userId !== undefined) payload.user = userId;
 
       console.log('Updating student with payload:', payload);
 
@@ -578,7 +587,11 @@ const StudentProfile: React.FC = () => {
                 <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Qavat</label>
                 <Select
                   options={floorOptions}
-                  value={floorOptions.find(opt => opt.value === (form as Record<string, any>).floor) || null}
+                  value={floorOptions.find(opt => {
+                    const floorValue = (form as Record<string, any>).floor;
+                    const floorId = typeof floorValue === 'object' ? floorValue?.id : floorValue;
+                    return opt.value === floorId;
+                  }) || null}
                   onChange={opt => handleSelectChange('floor', opt)}
                   isClearable
                   placeholder="Qavat tanlang..."
@@ -590,20 +603,28 @@ const StudentProfile: React.FC = () => {
                 <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Xona</label>
                 <Select
                   options={roomOptions}
-                  value={roomOptions.find(opt => opt.value === (form as Record<string, any>).room) || null}
+                  value={roomOptions.find(opt => {
+                    const roomValue = (form as Record<string, any>).room;
+                    const roomId = typeof roomValue === 'object' ? roomValue?.id : roomValue;
+                    return opt.value === roomId;
+                  }) || null}
                   onChange={opt => handleSelectChange('room', opt)}
                   isClearable
                   placeholder="Xona tanlang..."
                   styles={selectStyles}
                   classNamePrefix="react-select"
-                  isDisabled={!((form as Record<string, any>).floor?.id)}
+                  isDisabled={!(form as Record<string, any>).floor}
                 />
               </div>
               <div className="flex flex-col gap-1 w-full">
                 <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Viloyat</label>
                 <Select
                   options={provinceOptions}
-                  value={provinceOptions.find(opt => opt.value === (form as Record<string, any>).province) || null}
+                  value={provinceOptions.find(opt => {
+                    const provinceValue = (form as Record<string, any>).province;
+                    const provinceId = typeof provinceValue === 'object' ? provinceValue?.id : provinceValue;
+                    return opt.value === provinceId;
+                  }) || null}
                   onChange={opt => handleSelectChange('province', opt)}
                   isClearable
                   placeholder="Viloyat tanlang..."
@@ -615,13 +636,17 @@ const StudentProfile: React.FC = () => {
                 <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Tuman</label>
                 <Select
                   options={districtOptions}
-                  value={districtOptions.find(opt => opt.value === (form as Record<string, any>).district) || null}
+                  value={districtOptions.find(opt => {
+                    const districtValue = (form as Record<string, any>).district;
+                    const districtId = typeof districtValue === 'object' ? districtValue?.id : districtValue;
+                    return opt.value === districtId;
+                  }) || null}
                   onChange={opt => handleSelectChange('district', opt)}
                   isClearable
                   placeholder="Tuman tanlang..."
                   styles={selectStyles}
                   classNamePrefix="react-select"
-                  isDisabled={!((form as Record<string, any>).province?.id)}
+                  isDisabled={!(form as Record<string, any>).province}
                 />
               </div>
               <EditableInput label="Pasport" value={(form as Record<string, any>).passport || ''} onChange={v => handleChange('passport', v)} />
@@ -726,7 +751,7 @@ const StudentProfile: React.FC = () => {
                     src={(form as Record<string, any>).document}
                     alt="Qo'shimcha hujjat"
                     className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition"
-                    onClick={() => setSelectedImage((form as Record<string, any>).document)}
+                    onClick={() => setSelectedImage((form as Record<string, unknown>).document)}
                   />
                   <div className="p-3 bg-white dark:bg-slate-800">
                     <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Qo'shimcha hujjat</div>

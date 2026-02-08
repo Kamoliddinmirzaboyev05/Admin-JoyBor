@@ -84,7 +84,20 @@ const Settings: React.FC = () => {
   // Demo: queryClient o'chirilgan
   
   // Fetch dormitory settings from API
-  const [settings, setSettings] = React.useState<any>(null);
+  interface DormitorySettings {
+    name: string;
+    address: string;
+    distance_to_university: number;
+    description: string;
+    month_price: number;
+    year_price: number;
+    amenities: Array<{ id: number; name: string } | number>;
+    university_name?: string;
+    admin?: { username: string; id: number };
+    images?: Array<{ id: number; image: string }>;
+  }
+  
+  const [settings, setSettings] = React.useState<DormitorySettings | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -141,8 +154,31 @@ const Settings: React.FC = () => {
     fetchAmenities();
   }, []);
 
-  // Get rules from settings
-  const rulesData = React.useMemo(() => settings?.rules || [], [settings]);
+  // Fetch rules separately from /api/rules/
+  const [rulesData, setRulesData] = React.useState<Array<{ id: number; rule: string; dormitory: number }>>([]);
+  
+  React.useEffect(() => {
+    const fetchRules = async () => {
+      try {
+        const token = sessionStorage.getItem('access');
+        const response = await fetch('https://joyborv1.pythonanywhere.com/api/rules/', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        const data = await response.json();
+        // Handle paginated response
+        const rulesArray = data.results || data;
+        setRulesData(rulesArray);
+      } catch (error) {
+        console.error('Failed to fetch rules:', error);
+        setRulesData([]);
+      }
+    };
+    
+    fetchRules();
+  }, []);
 
   // Demo admin profil ma'lumotlari
   const adminProfile = React.useMemo(() => ({
@@ -166,14 +202,19 @@ const Settings: React.FC = () => {
   const [editDescription, setEditDescription] = useState(false);
 
   const [dormCardForm, setDormCardForm] = useState({
-    name: '', address: '', distance_to_university: '',
+    name: '', 
+    address: '', 
+    distance_to_university: '',
   });
   const [pricesCardForm, setPricesCardForm] = useState({
     month_price: '', year_price: '',
   });
   const [descriptionForm, setDescriptionForm] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [localAmenities, setLocalAmenities] = useState<Array<{ id: number; name: string; is_active: boolean }>>([]);
+  const [deleteImageModal, setDeleteImageModal] = useState<{ show: boolean; imageId: number | null; imageUrl: string | null }>({ show: false, imageId: null, imageUrl: null });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Type definition for amenity
   type Amenity = { id: number; name: string; is_active: boolean };
@@ -237,13 +278,9 @@ const Settings: React.FC = () => {
 
   // Rules ma'lumotlarini alohida useEffect da handle qilish
   React.useEffect(() => {
-    if (rulesData) {
+    if (rulesData && rulesData.length > 0) {
       // API dan kelgan rules ma'lumotlarini handle qilish
-      if (rulesData.length > 0 && typeof rulesData[0] === 'object' && rulesData[0].rule) {
-        setRules(rulesData.map((r: any) => ({ id: r.id, rule: r.rule })));
-      } else {
-        setRules(rulesData.map((r: any) => ({ rule: r })));
-      }
+      setRules(rulesData.map((r) => ({ id: r.id, rule: r.rule, dormitory: r.dormitory })));
     }
   }, [rulesData]);
 
@@ -251,7 +288,7 @@ const Settings: React.FC = () => {
   // Barcha qulayliklarni ko'rsatish, yotoqxonada mavjud bo'lganlarini belgilash
   React.useEffect(() => {
     if (allAmenities.length > 0 && settings) {
-      const dormitoryAmenityIds = settings.amenities?.map((a: { id?: number } | number) => (typeof a === 'object' ? a.id : a)) || [];
+      const dormitoryAmenityIds = (settings.amenities as Array<{ id?: number } | number>)?.map((a) => (typeof a === 'object' ? a.id : a)) || [];
       
       // Barcha qulayliklarni ko'rsatish, yotoqxonada mavjud bo'lganlarini is_active = true qilish
       const mappedAmenities = allAmenities.map(amenity => ({
@@ -275,13 +312,9 @@ const Settings: React.FC = () => {
 
   // Edit section o'zgarganida rules ni qayta yuklash
   React.useEffect(() => {
-    if (editSection === 'rules' && rulesData) {
+    if (editSection === 'rules' && rulesData && rulesData.length > 0) {
       // Rules edit mode ga kirganda API dan kelgan ma'lumotlarni qayta yuklash
-      if (rulesData.length > 0 && typeof rulesData[0] === 'object' && rulesData[0].rule) {
-        setRules(rulesData.map((r: any) => ({ id: r.id, rule: r.rule })));
-      } else {
-        setRules(rulesData.map((r: any) => ({ rule: r })));
-      }
+      setRules(rulesData.map((r) => ({ id: r.id, rule: r.rule, dormitory: r.dormitory })));
     }
   }, [editSection, rulesData]);
 
@@ -335,21 +368,22 @@ const Settings: React.FC = () => {
         }
       }
       
-      // Yangilangan ma'lumotlarni qayta yuklash
+      // Yangilangan qoidalarni qayta yuklash
       const token = sessionStorage.getItem('access');
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/rules/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
       const data = await response.json();
-      setSettings(data);
+      const rulesArray = data.results || data;
+      setRulesData(rulesArray);
       
       toast.success('Qoidalar saqlandi!');
       setEditSection(null);
-    } catch (err: any) {
-      toast.error(err?.message || 'Xatolik yuz berdi!');
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Xatolik yuz berdi!');
     } finally {
       setDormLoading(false);
     }
@@ -375,18 +409,12 @@ const Settings: React.FC = () => {
         .map(a => a.id);
 
       const updateData = {
-        name: settings.name || '',
-        address: settings.address || '',
-        distance_to_university: settings.distance_to_university || 0,
-        description: settings.description || '',
-        month_price: settings.month_price || 0,
-        year_price: settings.year_price || 0,
-        latitude: settings.latitude || 0,
-        longitude: settings.longitude || 0,
-        rating: settings.rating || 5,
-        is_active: settings.is_active !== undefined ? settings.is_active : true,
-        university: settings.university?.id || settings.university || 0,
-        admin: settings.admin?.id || settings.admin || 0,
+        name: (settings.name as string) || '',
+        address: (settings.address as string) || '',
+        distance_to_university: (settings.distance_to_university as number) || 0,
+        description: (settings.description as string) || '',
+        month_price: (settings.month_price as number) || 0,
+        year_price: (settings.year_price as number) || 0,
         amenities: selectedAmenityIds
       };
       
@@ -405,8 +433,8 @@ const Settings: React.FC = () => {
       
       toast.success('Qulayliklar saqlandi!');
       setEditSection(null);
-    } catch (err: any) {
-      toast.error(err?.message || 'Xatolik yuz berdi!');
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Xatolik yuz berdi!');
     } finally {
       setDormLoading(false);
     }
@@ -438,7 +466,7 @@ const Settings: React.FC = () => {
     setDormLoading(true);
     try {
       // Admin profil ma'lumotlarini yangilash
-      const updateData: any = {};
+      const updateData: Record<string, string> = {};
       if (cleanedPhone) updateData.phone = cleanedPhone;
       if (contactForm.telegram.trim()) updateData.telegram = contactForm.telegram;
       
@@ -451,8 +479,8 @@ const Settings: React.FC = () => {
       if (cleanedPhone) {
         setContactForm(f => ({ ...f, phone: formatPhoneNumber(cleanedPhone) }));
       }
-    } catch (err: any) {
-      toast.error(err?.message || 'Xatolik yuz berdi!');
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Xatolik yuz berdi!');
     } finally {
       setDormLoading(false);
     }
@@ -472,16 +500,10 @@ const Settings: React.FC = () => {
         name: dormCardForm.name,
         address: dormCardForm.address,
         distance_to_university: dormCardForm.distance_to_university ? parseFloat(dormCardForm.distance_to_university) : 0,
-        description: settings.description || '',
-        month_price: settings.month_price || 0,
-        year_price: settings.year_price || 0,
-        latitude: settings.latitude || 0,
-        longitude: settings.longitude || 0,
-        rating: settings.rating || 5,
-        is_active: settings.is_active !== undefined ? settings.is_active : true,
-        university: settings.university?.id || settings.university || 0,
-        admin: settings.admin?.id || settings.admin || 0,
-        amenities: settings.amenities?.map((a: { id?: number } | number) => (typeof a === 'object' ? a.id : a)) || []
+        description: (settings.description as string) || '',
+        month_price: (settings.month_price as number) || 0,
+        year_price: (settings.year_price as number) || 0,
+        amenities: (settings.amenities as Array<{ id?: number } | number>)?.map((a) => (typeof a === 'object' ? a.id : a)) || []
       };
       
       await api.updateMyDormitory(updateData);
@@ -499,8 +521,8 @@ const Settings: React.FC = () => {
       
       toast.success('Yotoqxona maʼlumotlari yangilandi!');
       setEditDormCard(false);
-    } catch (err: any) {
-      toast.error(err?.message || 'Xatolik yuz berdi!');
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Xatolik yuz berdi!');
     } finally {
       setDormLoading(false);
     }
@@ -509,19 +531,13 @@ const Settings: React.FC = () => {
     setDormLoading(true);
     try {
       const updateData = {
-        name: settings.name || '',
-        address: settings.address || '',
-        distance_to_university: settings.distance_to_university || 0,
-        description: settings.description || '',
+        name: (settings.name as string) || '',
+        address: (settings.address as string) || '',
+        distance_to_university: (settings.distance_to_university as number) || 0,
+        description: (settings.description as string) || '',
         month_price: pricesCardForm.month_price ? parseFloat(pricesCardForm.month_price) : 0,
         year_price: pricesCardForm.year_price ? parseFloat(pricesCardForm.year_price) : 0,
-        latitude: settings.latitude || 0,
-        longitude: settings.longitude || 0,
-        rating: settings.rating || 5,
-        is_active: settings.is_active !== undefined ? settings.is_active : true,
-        university: settings.university?.id || settings.university || 0,
-        admin: settings.admin?.id || settings.admin || 0,
-        amenities: settings.amenities?.map((a: { id?: number } | number) => (typeof a === 'object' ? a.id : a)) || []
+        amenities: (settings.amenities as Array<{ id?: number } | number>)?.map((a) => (typeof a === 'object' ? a.id : a)) || []
       };
       
       await api.updateMyDormitory(updateData);
@@ -539,8 +555,8 @@ const Settings: React.FC = () => {
       
       toast.success('Narx ma\'lumotlari yangilandi!');
       setEditPricesCard(false);
-    } catch (err: any) {
-      toast.error(err?.message || 'Xatolik yuz berdi!');
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Xatolik yuz berdi!');
     } finally {
       setDormLoading(false);
     }
@@ -550,19 +566,13 @@ const Settings: React.FC = () => {
     setDormLoading(true);
     try {
       const updateData = {
-        name: settings.name || '',
-        address: settings.address || '',
-        distance_to_university: settings.distance_to_university || 0,
+        name: (settings.name as string) || '',
+        address: (settings.address as string) || '',
+        distance_to_university: (settings.distance_to_university as number) || 0,
         description: descriptionForm,
-        month_price: settings.month_price || 0,
-        year_price: settings.year_price || 0,
-        latitude: settings.latitude || 0,
-        longitude: settings.longitude || 0,
-        rating: settings.rating || 5,
-        is_active: settings.is_active !== undefined ? settings.is_active : true,
-        university: settings.university?.id || settings.university || 0,
-        admin: settings.admin?.id || settings.admin || 0,
-        amenities: settings.amenities?.map((a: { id?: number } | number) => (typeof a === 'object' ? a.id : a)) || []
+        month_price: (settings.month_price as number) || 0,
+        year_price: (settings.year_price as number) || 0,
+        amenities: (settings.amenities as Array<{ id?: number } | number>)?.map((a) => (typeof a === 'object' ? a.id : a)) || []
       };
       
       await api.updateMyDormitory(updateData);
@@ -580,16 +590,19 @@ const Settings: React.FC = () => {
       
       toast.success('Tavsif muvaffaqiyatli yangilandi!');
       setEditDescription(false);
-    } catch (err: any) {
-      toast.error(err?.message || 'Xatolik yuz berdi!');
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Xatolik yuz berdi!');
     } finally {
       setDormLoading(false);
     }
   };
 
-  const handleDeleteImage = async (imageId: number) => {
+  const handleDeleteImage = async () => {
+    if (!deleteImageModal.imageId) return;
+    
+    setIsDeleting(true);
     try {
-      await api.deleteDormitoryImage(imageId);
+      await api.deleteDormitoryImage(deleteImageModal.imageId);
       
       // Yangilangan ma'lumotlarni qayta yuklash
       const token = sessionStorage.getItem('access');
@@ -603,9 +616,12 @@ const Settings: React.FC = () => {
       setSettings(data);
       
       toast.success('Rasm o\'chirildi!');
+      setDeleteImageModal({ show: false, imageId: null, imageUrl: null });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Rasmni o\'chirishda xatolik!';
       toast.error(errorMessage);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -751,7 +767,7 @@ const Settings: React.FC = () => {
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 mt-2">
                   <button className="px-4 sm:px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm sm:text-base" onClick={handleSaveDescription} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
-                  <button className="px-4 sm:px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm sm:text-base" onClick={() => { setEditDescription(false); setDescriptionForm(settings.description || ''); }} disabled={dormLoading}>Bekor qilish</button>
+                  <button className="px-4 sm:px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm sm:text-base" onClick={() => { setEditDescription(false); setDescriptionForm(settings?.description || ''); }} disabled={dormLoading}>Bekor qilish</button>
                 </div>
               </>
             ) : (
@@ -863,7 +879,7 @@ const Settings: React.FC = () => {
                     setEditSection(null);
                     // Bekor qilganda asl holatga qaytarish
                     if (allAmenities.length > 0 && settings) {
-                      const dormitoryAmenityIds = settings.amenities?.map((a: unknown) => a.id || a) || [];
+                      const dormitoryAmenityIds = (settings.amenities as Array<{ id?: number } | number>)?.map((a) => (typeof a === 'object' ? a.id : a)) || [];
                       const mappedAmenities = allAmenities.map(amenity => ({
                         ...amenity,
                         is_active: dormitoryAmenityIds.includes(amenity.id)
@@ -1012,18 +1028,28 @@ const Settings: React.FC = () => {
         {editSection === 'images' && (
           <div className="mb-4">
             <button
-              className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition mb-2 flex items-center gap-2 text-sm sm:text-base"
+              className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition mb-2 flex items-center gap-2 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
             >
-              {isUploading && (
-                <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                </svg>
-              )}
               {isUploading ? 'Yuklanmoqda...' : "+ Rasm qo'shish"}
             </button>
+            
+            {/* Progress bar - Telegram style */}
+            {isUploading && (
+              <div className="mt-3 bg-gray-100 dark:bg-slate-700 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-300">Yuklanmoqda...</span>
+                  <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-slate-600 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-blue-600 h-full rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
             <input
               type="file"
               accept="image/*"
@@ -1032,13 +1058,41 @@ const Settings: React.FC = () => {
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
+                
+                // Rasm hajmini tekshirish (max 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                  toast.error('Rasm hajmi 5MB dan oshmasligi kerak!');
+                  return;
+                }
+                
+                // Rasm formatini tekshirish
+                if (!file.type.startsWith('image/')) {
+                  toast.error('Faqat rasm fayllari yuklanadi!');
+                  return;
+                }
+                
                 setIsUploading(true);
+                setUploadProgress(0);
                 
                 try {
                   const formData = new FormData();
                   formData.append('image', file);
                   
+                  // Simulate progress for better UX
+                  const progressInterval = setInterval(() => {
+                    setUploadProgress(prev => {
+                      if (prev >= 90) {
+                        clearInterval(progressInterval);
+                        return 90;
+                      }
+                      return prev + 10;
+                    });
+                  }, 200);
+                  
                   await api.uploadDormitoryImage(formData);
+                  
+                  clearInterval(progressInterval);
+                  setUploadProgress(95);
                   
                   // Yangilangan ma'lumotlarni qayta yuklash
                   const token = sessionStorage.getItem('access');
@@ -1048,15 +1102,28 @@ const Settings: React.FC = () => {
                       'Content-Type': 'application/json',
                     },
                   });
+                  
+                  if (!response.ok) {
+                    throw new Error('Ma\'lumotlarni yangilashda xatolik');
+                  }
+                  
                   const data = await response.json();
                   setSettings(data);
                   
-                  toast.success('Rasm muvaffaqiyatli yuklandi!');
+                  setUploadProgress(100);
+                  
+                  setTimeout(() => {
+                    toast.success('Rasm muvaffaqiyatli yuklandi!');
+                  }, 300);
                 } catch (err: unknown) {
-                  const errorMessage = err?.message || 'Rasm yuklashda xatolik!';
+                  const errorMessage = (err as Error)?.message || 'Rasm yuklashda xatolik!';
                   toast.error(errorMessage);
+                  console.error('Image upload error:', err);
                 } finally {
-                  setIsUploading(false);
+                  setTimeout(() => {
+                    setIsUploading(false);
+                    setUploadProgress(0);
+                  }, 500);
                   // Input ni tozalash
                   if (fileInputRef.current) {
                     fileInputRef.current.value = '';
@@ -1068,13 +1135,13 @@ const Settings: React.FC = () => {
         )}
 
         {/* Rasmlar slider shaklida */}
-        {settings.images && settings.images.length > 0 ? (
+        {settings?.images && settings.images.length > 0 ? (
           <div className="relative">
             <div className="flex gap-4 overflow-x-auto pb-4" style={{
               scrollbarWidth: 'thin',
               scrollbarColor: '#cbd5e1 #f1f5f9'
             }}>
-              {settings.images.map((img: { id: number; image: string }, i: number) => (
+              {(settings?.images || []).map((img: { id: number; image: string }, i: number) => (
                 <div key={i} className="relative flex-shrink-0 group">
                   <img
                     src={img.image}
@@ -1084,7 +1151,7 @@ const Settings: React.FC = () => {
                   {/* O'chirish tugmasi faqat tahrirlash rejimida ko'rinadi */}
                   {editSection === 'images' && (
                     <button
-                      onClick={() => handleDeleteImage(img.id)}
+                      onClick={() => setDeleteImageModal({ show: true, imageId: img.id, imageUrl: img.image })}
                       className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg"
                       title="Rasmni o'chirish"
                     >
@@ -1093,7 +1160,7 @@ const Settings: React.FC = () => {
                   )}
                   {/* Rasm tartib raqami */}
                   <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
-                    {i + 1} / {settings.images.length}
+                    {i + 1} / {settings?.images?.length || 0}
                   </div>
                 </div>
               ))}
@@ -1109,6 +1176,72 @@ const Settings: React.FC = () => {
           </div>
         )}
       </SectionCard>
+
+      {/* Delete Image Modal */}
+      {deleteImageModal.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+          >
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-200 dark:border-slate-700">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Rasmni o'chirish</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Bu amalni bekor qilib bo'lmaydi</p>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              {deleteImageModal.imageUrl && (
+                <div className="mb-4">
+                  <img
+                    src={deleteImageModal.imageUrl}
+                    alt="O'chiriladigan rasm"
+                    className="w-full h-48 object-cover rounded-lg border border-gray-200 dark:border-slate-600"
+                  />
+                </div>
+              )}
+              <p className="text-gray-700 dark:text-gray-300">
+                Rostdan ham bu rasmni o'chirmoqchimisiz?
+              </p>
+              <p className="text-sm text-red-600 dark:text-red-400 mt-2">
+                Bu amal qaytarilmaydi va rasm butunlay yo'qoladi.
+              </p>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 bg-gray-50 dark:bg-slate-900 flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteImageModal({ show: false, imageId: null, imageUrl: null })}
+                disabled={isDeleting}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 hover:bg-gray-100 dark:hover:bg-slate-600 rounded-lg transition-colors border border-gray-300 dark:border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Bekor qilish
+              </button>
+              <button
+                onClick={handleDeleteImage}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                    </svg>
+                    O'chirilmoqda...
+                  </>
+                ) : (
+                  'O\'chirish'
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </motion.div>
   );
 };

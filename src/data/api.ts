@@ -198,7 +198,37 @@ export const api = {
   
   // Dormitory Management
   patchMyDormitory: (data: Record<string, unknown>) => patch('/dormitory/', data),
-  updateMyDormitory: (data: Record<string, unknown>) => put('/admin/my-dormitory/', data),
+  updateMyDormitory: async (data: Record<string, unknown>) => {
+    const token = sessionStorage.getItem('access');
+    const formData = new FormData();
+    
+    // Convert data to FormData
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== null && value !== undefined) {
+        if (Array.isArray(value)) {
+          // For arrays (like amenities), append each item
+          value.forEach(item => formData.append(key, String(item)));
+        } else {
+          formData.append(key, String(value));
+        }
+      }
+    });
+    
+    const response = await fetch(`${BASE_URL}/admin/my-dormitory/`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.message || 'Yangilashda xatolik');
+    }
+    
+    return response.json();
+  },
   
   // Amenities Management
   getAmenities: () => get('/amenities/'),
@@ -213,18 +243,25 @@ export const api = {
   deleteRule: (id: number) => del(`/rules/${id}/`),
   
   // Dormitory Images
-  getDormitoryImages: () => get('/dormitory_images/'),
-  uploadDormitoryImage: (data: FormData) => {
+  getDormitoryImages: () => get('/dormitory-images/'),
+  uploadDormitoryImage: async (data: FormData) => {
     const token = sessionStorage.getItem('access');
-    return fetch(`${BASE_URL}/dormitory_image_create`, {
+    const response = await fetch(`${BASE_URL}/dormitory-images/`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
       },
       body: data,
-    }).then(res => res.json());
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.message || 'Rasm yuklashda xatolik');
+    }
+    
+    return response.json();
   },
-  deleteDormitoryImage: (id: number) => del(`/dormitory_images/${id}/`),
+  deleteDormitoryImage: (id: number) => del(`/dormitory-images/${id}/`),
   
   // Notifications - Fixed endpoint
   getNotifications: async () => {

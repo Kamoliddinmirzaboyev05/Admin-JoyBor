@@ -1121,45 +1121,46 @@ const Payments: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
             onClick={() => setShowViewModal(false)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-              className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-8 w-full max-w-lg relative overflow-hidden"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-lg relative border border-gray-200 dark:border-slate-700"
               onClick={e => e.stopPropagation()}
             >
-              {/* Gradient background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-900/20 dark:to-purple-900/20"></div>
-
               {/* Close button */}
               <button
                 onClick={() => setShowViewModal(false)}
-                className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full p-2 transition-all duration-200 hover:scale-110"
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
 
               {/* Header */}
-              <div className="relative text-center mb-8">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-                  <CreditCard className="w-8 h-8 text-white" />
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-gray-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
+                    <CreditCard className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">To'lov ma'lumotlari</h2>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">ID: #{payment.id}</p>
+                  </div>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">To'lov ma'lumotlari</h2>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">ID: #{payment.id}</p>
               </div>
 
               {/* Content */}
-              <div className="relative space-y-6">
+              <div className="space-y-4">
                 {/* Student info */}
-                <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
+                <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 border border-gray-200 dark:border-slate-600">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-semibold text-sm">
+                    <div className="w-10 h-10 bg-gray-200 dark:bg-slate-600 rounded-lg flex items-center justify-center">
+                      <span className="text-gray-700 dark:text-gray-300 font-semibold text-sm">
                         {payment.student_info
                           ? `${payment.student_info.name?.[0] || ""}${payment.student_info.last_name?.[0] || ""}`
                           : payment.student
@@ -1168,7 +1169,7 @@ const Payments: React.FC = () => {
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Talaba</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Talaba</p>
                       <Link
                         to={`/studentprofile/${payment.student_info?.id || payment.student?.id || ''}`}
                         className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
@@ -1184,31 +1185,31 @@ const Payments: React.FC = () => {
                 </div>
 
                 {/* Amount */}
-                <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">To'lov miqdori</p>
+                <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 border border-gray-200 dark:border-slate-600">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">To'lov miqdori</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {payment.amount ? formatCurrencyDetailed(payment.amount) : "-"}
                   </p>
                 </div>
 
                 {/* Details grid */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">To'lov sanasi</p>
-                    <p className="font-semibold text-gray-900 dark:text-white">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 border border-gray-200 dark:border-slate-600">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">To'lov sanasi</p>
+                    <p className="font-semibold text-gray-900 dark:text-white text-sm">
                       {payment.paid_date ? new Date(payment.paid_date).toLocaleDateString("uz-UZ") : "-"}
                     </p>
                   </div>
 
-                  <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">To'lov turi</p>
+                  <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 border border-gray-200 dark:border-slate-600">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">To'lov turi</p>
                     <div className="flex items-center gap-2">
                       {payment.method === "Cash" ? (
-                        <Wallet className="w-4 h-4 text-green-600" />
+                        <Wallet className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                       ) : (
-                        <CreditCard className="w-4 h-4 text-blue-600" />
+                        <CreditCard className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                       )}
-                      <span className="font-semibold text-gray-900 dark:text-white">
+                      <span className="font-semibold text-gray-900 dark:text-white text-sm">
                         {payment.method === "Cash" ? "Naqd" : payment.method === "Card" ? "Karta orqali" : payment.method}
                       </span>
                     </div>
@@ -1217,17 +1218,17 @@ const Payments: React.FC = () => {
 
                 {/* Comment */}
                 {payment.comment && (
-                  <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Izoh</p>
-                    <p className="text-gray-900 dark:text-white">{payment.comment || '-'}</p>
+                  <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 border border-gray-200 dark:border-slate-600">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Izoh</p>
+                    <p className="text-gray-900 dark:text-white text-sm">{payment.comment || '-'}</p>
                   </div>
                 )}
 
                 {/* Valid until */}
                 {payment.valid_until && (
-                  <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-gray-700/50">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Amal qilish muddati</p>
-                    <p className="font-semibold text-gray-900 dark:text-white">
+                  <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 border border-gray-200 dark:border-slate-600">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Amal qilish muddati</p>
+                    <p className="font-semibold text-gray-900 dark:text-white text-sm">
                       {payment.valid_until ? new Date(payment.valid_until).toLocaleDateString("uz-UZ") : '-'}
                     </p>
                   </div>
@@ -1235,10 +1236,10 @@ const Payments: React.FC = () => {
               </div>
 
               {/* Footer */}
-              <div className="relative mt-8 pt-6 border-t border-gray-200/50 dark:border-gray-700/50">
+              <div className="mt-6 pt-4 border-t border-gray-200 dark:border-slate-600">
                 <button
                   onClick={() => setShowViewModal(false)}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-200 transform hover:scale-[1.02] shadow-lg"
+                  className="w-full bg-gray-600 hover:bg-gray-700 dark:bg-slate-600 dark:hover:bg-slate-700 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors"
                 >
                   Yopish
                 </button>

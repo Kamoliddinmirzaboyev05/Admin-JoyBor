@@ -102,8 +102,8 @@ const Dashboard: React.FC = () => {
   // Use real dashboard data with proper type checking
   const students = dashboardData?.students || { total: 0, male: 0, female: 0, active: 0, inactive: 0, by_course: {} };
   const rooms = dashboardData?.rooms?.total || { rooms: 0, capacity: 0, occupied: 0, free: 0 };
-  // const roomsMale = dashboardData?.rooms?.male || { rooms: 0, capacity: 0, occupied: 0, free: 0 };
-  // const roomsFemale = dashboardData?.rooms?.female || { rooms: 0, capacity: 0, occupied: 0, free: 0 };
+  const roomsMale = dashboardData?.rooms?.male || { rooms: 0, capacity: 0, occupied: 0, free: 0 };
+  const roomsFemale = dashboardData?.rooms?.female || { rooms: 0, capacity: 0, occupied: 0, free: 0 };
   const payments = dashboardData?.payments || {
     total: 0,
     approved: 0,
@@ -340,9 +340,9 @@ const Dashboard: React.FC = () => {
               <PieChart>
                 <Pie
                   data={[
-                    { name: 'Band joylar', value: students.total },
-                    { name: "Yigitlar uchun bo'sh joylar", value: rooms.available_places_male },
-                    { name: "Qizlar uchun bo'sh joylar", value: rooms.available_places_female },
+                    { name: 'Band joylar', value: rooms.occupied || 0 },
+                    { name: "Yigitlar uchun bo'sh joylar", value: roomsMale.free || 0 },
+                    { name: "Qizlar uchun bo'sh joylar", value: roomsFemale.free || 0 },
                   ]}
                   cx="50%"
                   cy="50%"
@@ -389,15 +389,15 @@ const Dashboard: React.FC = () => {
           <div className="flex flex-wrap justify-center gap-6 mt-6">
             <div className="flex items-center space-x-3 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
               <span className="inline-block w-3 h-3 rounded-full bg-blue-500"></span>
-              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Band joylar ({students.total})</span>
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Band joylar ({rooms.occupied || 0})</span>
             </div>
             <div className="flex items-center space-x-3 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg">
               <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span>
-              <span className="text-sm font-medium text-green-700 dark:text-green-300">Yigitlar uchun bo'sh joylar ({rooms.available_places_male})</span>
+              <span className="text-sm font-medium text-green-700 dark:text-green-300">Yigitlar uchun bo'sh joylar ({roomsMale.free || 0})</span>
             </div>
             <div className="flex items-center space-x-3 bg-pink-50 dark:bg-pink-900/20 px-3 py-2 rounded-lg">
               <span className="inline-block w-3 h-3 rounded-full bg-pink-500"></span>
-              <span className="text-sm font-medium text-pink-700 dark:text-pink-300">Qizlar uchun bo'sh joylar ({rooms.available_places_female})</span>
+              <span className="text-sm font-medium text-pink-700 dark:text-pink-300">Qizlar uchun bo'sh joylar ({roomsFemale.free || 0})</span>
             </div>
           </div>
         </motion.div>
