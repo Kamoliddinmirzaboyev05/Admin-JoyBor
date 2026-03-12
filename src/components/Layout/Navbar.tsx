@@ -52,49 +52,25 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
 
   // Use notifications hook
   const { 
-    notifications: apiNotifications, 
+    notifications, 
+    unreadNotifications,
+    unreadCount,
     isLoading: notificationsLoading, 
     refetch: refetchNotifications,
-    markAsRead 
+    markAsRead,
+    markAllAsRead
   } = useNotifications();
 
-  // API dan kelgan notifications (store faqat demo uchun, navbar faqat API ga tayansin)
-  const displayNotifications = Array.isArray(apiNotifications) ? apiNotifications : [];
-  // O'qilmagan bildirishnomalar soni
-  const unreadCount = displayNotifications.filter((n) => !(n?.read || n?.is_read)).length;
-
   // Filtrlangan bildirishnomalar
-  const filteredNotifications = displayNotifications.filter((n) => {
-    if (notificationFilter === 'unread') {
-      return !(n?.read || n?.is_read);
-    }
-    return true;
-  }).slice(0, 8); // Faqat 8 ta ko'rsatish
+  const filteredNotifications = (notificationFilter === 'unread' ? unreadNotifications : notifications).slice(0, 8);
 
   const handleNotificationClick = (notification: any) => {
-    // O'qilmagan bo'lsa o'qilgan qilish
-    const isRead = Boolean(notification.read || notification.is_read);
-    if (!isRead) {
-      // React Query cache-ni optimistik yangilash (badge darhol yo'qolsin)
-      queryClient.setQueryData(['notifications'], (oldData: any) => {
-        if (!Array.isArray(oldData)) return oldData;
-        return oldData.map((n: any) => {
-          const nid = Number(n.id ?? n.notification_id ?? n.pk);
-          return nid === Number(notification.id) ? { ...n, read: true, is_read: true } : n;
-        });
-      });
-
-      // Demo: Mark as read
-      markAsRead(Number(notification.id));
+    if (!notification.is_read) {
+      markAsRead(notification.id);
     }
 
-    // Ariza bildirishnomasi bo'lsa ariza sahifasiga o'tish
-    if (notification.notification_type === 'application') {
-      // Ariza sahifasiga o'tish
-      setTimeout(() => {
-        window.location.href = '/applications';
-      }, 100); // O'qilgan qilish uchun biroz kutish
-      return;
+    if (notification.type === 'application') {
+      window.location.href = '/applications';
     }
   };
 
@@ -266,7 +242,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                               : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700'
                           }`}
                         >
-                          Barchasi ({displayNotifications.length})
+                          Barchasi ({notifications.length})
                         </button>
                       </div>
 
@@ -289,7 +265,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                         ) : (
                           <div className="divide-y divide-gray-200 dark:divide-gray-700">
                             {filteredNotifications.map((notification: any) => {
-                              const isRead = Boolean(notification.read || notification.is_read);
+                              const isRead = notification.is_read;
                               return (
                                 <motion.div
                                   key={notification.id}
@@ -298,97 +274,29 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                                   exit={{ opacity: 0, x: 20 }}
                                   whileHover={{ backgroundColor: "rgba(0,0,0,0.02)" }}
                                   onClick={() => handleNotificationClick(notification)}
-                                  className={`px-4 py-3 cursor-pointer transition-all duration-200 ${
-                                    !isRead ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
+                                  className={`p-4 border-l-4 transition-all cursor-pointer ${
+                                    isRead 
+                                      ? 'bg-white dark:bg-gray-800 border-l-transparent' 
+                                      : `bg-blue-50/50 dark:bg-blue-900/10 ${getNotificationBorderColor(notification.type)}`
                                   }`}
                                 >
-                                  <div className={`border-l-4 ${getNotificationBorderColor(notification.type)} pl-3`}>
-                                    <div className="flex items-start gap-3">
-                                      <div className="flex-shrink-0 mt-0.5">
-                                        {getNotificationIcon(notification.type)}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-start justify-between gap-2">
-                                          <h4 className="font-medium text-gray-900 dark:text-white text-sm leading-tight">
-                                            {notification.title}
-                                          </h4>
-                                          {!isRead && (
-                                            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1"></div>
-                                          )}
+                                  <div className="flex gap-3">
+                                    <div className="flex-shrink-0 mt-1">
+                                      {getNotificationIcon(notification.type)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-sm leading-snug ${isRead ? 'text-gray-600 dark:text-gray-400' : 'text-gray-900 dark:text-white font-medium'}`}>
+                                        {notification.message}
+                                      </p>
+                                      
+                                      <div className="flex items-center justify-between mt-2">
+                                        <div className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
+                                          <Clock className="w-3 h-3" />
+                                          <span>{formatNotificationTime(notification.created_at)}</span>
                                         </div>
-                                        <p className="text-gray-600 dark:text-gray-300 text-xs mt-1 line-clamp-2">
-                                          {notification.message}
-                                        </p>
-                                        
-                                        {/* Notification image in dropdown */}
-                                        {notification.image_url && (
-                                          <div className="mt-2 relative group">
-                                            <div className="relative overflow-hidden rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800">
-                                              {/* Loading state */}
-                                              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg">
-                                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-                                              </div>
-                                              
-                                              <img 
-                                                src={notification.image_url} 
-                                                alt="Bildirishnoma rasm" 
-                                                className="w-full h-20 object-cover transition-transform duration-200 group-hover:scale-105 relative z-10 cursor-pointer"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  // Open image in new tab for dropdown
-                                                  window.open(notification.image_url, '_blank');
-                                                }}
-                                                onLoad={(e) => {
-                                                  const target = e.target as HTMLImageElement;
-                                                  const loadingDiv = target.previousElementSibling as HTMLElement;
-                                                  if (loadingDiv) {
-                                                    loadingDiv.style.display = 'none';
-                                                  }
-                                                }}
-                                                onError={(e) => {
-                                                  const target = e.target as HTMLImageElement;
-                                                  const loadingDiv = target.previousElementSibling as HTMLElement;
-                                                  if (loadingDiv) {
-                                                    loadingDiv.style.display = 'none';
-                                                  }
-                                                  target.style.display = 'none';
-                                                  target.parentElement!.innerHTML = `
-                                                    <div class="flex items-center justify-center h-20 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                                                      <div class="text-center">
-                                                        <svg class="w-5 h-5 mx-auto text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                                        </svg>
-                                                        <p class="text-xs text-gray-500 dark:text-gray-400">Rasm</p>
-                                                      </div>
-                                                    </div>
-                                                  `;
-                                                }}
-                                              />
-                                              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20"></div>
-                                            </div>
-                                            <div className="absolute top-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-[10px] z-30">
-                                              Rasm
-                                            </div>
-                                          </div>
+                                        {!isRead && (
+                                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
                                         )}
-                                        <div className="flex items-center justify-between mt-2">
-                                          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                                            <Clock className="w-3 h-3" />
-                                            <span>{formatNotificationTime(notification.received_at || notification.created_at || notification.createdAt)}</span>
-                                          </div>
-                                          {!isRead && (
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleNotificationClick(notification);
-                                              }}
-                                              className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
-                                            >
-                                              <Eye className="w-3 h-3" />
-                                              O'qilgan qilish
-                                            </button>
-                                          )}
-                                        </div>
                                       </div>
                                     </div>
                                   </div>
@@ -413,21 +321,8 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                           </button>
                           {unreadCount > 0 && (
                             <button
-                              onClick={async () => {
-                                // Mark all as read functionality
-                                // Optimistik yangilash
-                                queryClient.setQueryData(['notifications'], (oldData: any) => {
-                                  if (!Array.isArray(oldData)) return oldData;
-                                  return oldData.map((n: unknown) => ({ ...n, read: true, is_read: true }));
-                                });
-                                
-                                try {
-                                  // Demo: Mark all as read
-                                  console.log('Demo: Marking all notifications as read');
-                                  refetchNotifications();
-                                } catch (error) {
-                                  console.error('Error marking all as read:', error);
-                                }
+                              onClick={() => {
+                                markAllAsRead();
                               }}
                               className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
                             >

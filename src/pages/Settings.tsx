@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Edit, DollarSign, ListChecks, Wifi, BookOpen, WashingMachine, Tv, Coffee, Plus, Info, MapPin, User, School, FileImage, Phone, Send } from 'lucide-react';
+import { Edit, DollarSign, ListChecks, Wifi, BookOpen, WashingMachine, Tv, Coffee, Plus, Info, MapPin, User, School, FileImage, Phone, Send, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useSEO } from '../hooks/useSEO';
@@ -85,16 +85,26 @@ const Settings: React.FC = () => {
   
   // Fetch dormitory settings from API
   interface DormitorySettings {
+    id: number;
     name: string;
     address: string;
-    distance_to_university: number;
+    distance: number;
     description: string;
     month_price: number;
     year_price: number;
+    latitude?: number;
+    longitude?: number;
+    rating?: number;
+    is_active?: boolean;
     amenities: Array<{ id: number; name: string } | number>;
+    amenities_list?: Array<{ id: number; name: string }>;
     university_name?: string;
-    admin?: { username: string; id: number };
+    university?: number;
+    admin?: { username: string; id: number } | number;
+    admin_name?: string;
     images?: Array<{ id: number; image: string }>;
+    phone_numer?: string;
+    link?: string;
   }
   
   const [settings, setSettings] = React.useState<DormitorySettings | null>(null);
@@ -107,7 +117,7 @@ const Settings: React.FC = () => {
       setError(null);
       try {
         const token = sessionStorage.getItem('access');
-        const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+        const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitories/', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -119,7 +129,9 @@ const Settings: React.FC = () => {
         }
         
         const data = await response.json();
-        setSettings(data);
+        // Paginated response dan birinchi dormitory ni olish
+        const dormitory = data.results && data.results.length > 0 ? data.results[0] : data;
+        setSettings(dormitory);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Xatolik yuz berdi');
         console.error('Settings fetch error:', err);
@@ -204,7 +216,9 @@ const Settings: React.FC = () => {
   const [dormCardForm, setDormCardForm] = useState({
     name: '', 
     address: '', 
-    distance_to_university: '',
+    distance: '',
+    phone_numer: '',
+    link: '',
   });
   const [pricesCardForm, setPricesCardForm] = useState({
     month_price: '', year_price: '',
@@ -266,7 +280,9 @@ const Settings: React.FC = () => {
       setDormCardForm({
         name: settings.name || '',
         address: settings.address || '',
-        distance_to_university: settings.distance_to_university ? String(settings.distance_to_university) : '',
+        distance: settings.distance ? String(settings.distance) : '',
+        phone_numer: settings.phone_numer || '',
+        link: settings.link || '',
       });
       setPricesCardForm({
         month_price: settings.month_price ? String(settings.month_price) : '',
@@ -390,47 +406,57 @@ const Settings: React.FC = () => {
   };
   // --- AMENITIES STATE ---
 
-  const handleAmenityChange = (amenity: Amenity) => {
-    setLocalAmenities(prev =>
-      prev.map(item =>
-        item.id === amenity.id
-          ? { ...item, is_active: !item.is_active }
-          : item
-      )
-    );
+  const handleAmenityChange = (idx: number, value: string) => {
+    setLocalAmenities(prev => prev.map((item, i) => i === idx ? { ...item, name: value } : item));
+  };
+
+  const handleAddAmenity = () => {
+    setLocalAmenities(prev => [...prev, { id: 0, name: '', is_active: true }]);
+  };
+
+  const handleRemoveAmenity = async (idx: number) => {
+    const amenityToRemove = localAmenities[idx];
+    if (amenityToRemove.id) {
+      try {
+        await api.deleteAmenity(amenityToRemove.id);
+        toast.success('Qulaylik o\'chirildi!');
+      } catch {
+        toast.error('Qulaylikni o\'chirishda xatolik!');
+        return;
+      }
+    }
+    setLocalAmenities(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handleSaveAmenities = async () => {
     setDormLoading(true);
     try {
-      // Faqat faol (tanlangan) qulayliklar ID larini olish
-      const selectedAmenityIds = localAmenities
-        .filter(a => a.is_active)
-        .map(a => a.id);
+      for (const item of localAmenities) {
+        if (!item.name.trim()) continue;
+        if (item.id) {
+          await api.updateAmenity(item.id, { name: item.name, is_active: item.is_active });
+        } else {
+          await api.createAmenity({ name: item.name, is_active: item.is_active });
+        }
+      }
 
-      const updateData = {
-        name: (settings.name as string) || '',
-        address: (settings.address as string) || '',
-        distance_to_university: (settings.distance_to_university as number) || 0,
-        description: (settings.description as string) || '',
-        month_price: (settings.month_price as number) || 0,
-        year_price: (settings.year_price as number) || 0,
-        amenities: selectedAmenityIds
-      };
+      const data = await api.getAmenities();
+      const amenitiesList = data?.results || data || [];
+      const finalAmenities = Array.isArray(amenitiesList) ? amenitiesList : [];
+      setAllAmenities(finalAmenities);
       
-      await api.updateMyDormitory(updateData);
-      
-      // Yangilangan ma'lumotlarni qayta yuklash
+      // Update dormitory settings to reflect new amenities
       const token = sessionStorage.getItem('access');
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitories/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
-      const data = await response.json();
-      setSettings(data);
-      
+      const dormData = await response.json();
+      const dormitory = dormData.results && dormData.results.length > 0 ? dormData.results[0] : dormData;
+      setSettings(dormitory);
+
       toast.success('Qulayliklar saqlandi!');
       setEditSection(null);
     } catch (err) {
@@ -499,7 +525,9 @@ const Settings: React.FC = () => {
       const updateData = {
         name: dormCardForm.name,
         address: dormCardForm.address,
-        distance_to_university: dormCardForm.distance_to_university ? parseFloat(dormCardForm.distance_to_university) : 0,
+        distance: dormCardForm.distance ? parseFloat(dormCardForm.distance) : 0,
+        phone_numer: dormCardForm.phone_numer,
+        link: dormCardForm.link,
         description: (settings.description as string) || '',
         month_price: (settings.month_price as number) || 0,
         year_price: (settings.year_price as number) || 0,
@@ -510,14 +538,15 @@ const Settings: React.FC = () => {
       
       // Yangilangan ma'lumotlarni qayta yuklash
       const token = sessionStorage.getItem('access');
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitories/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
       const data = await response.json();
-      setSettings(data);
+      const dormitory = data.results && data.results.length > 0 ? data.results[0] : data;
+      setSettings(dormitory);
       
       toast.success('Yotoqxona maʼlumotlari yangilandi!');
       setEditDormCard(false);
@@ -533,7 +562,7 @@ const Settings: React.FC = () => {
       const updateData = {
         name: (settings.name as string) || '',
         address: (settings.address as string) || '',
-        distance_to_university: (settings.distance_to_university as number) || 0,
+        distance: (settings.distance as number) || 0,
         description: (settings.description as string) || '',
         month_price: pricesCardForm.month_price ? parseFloat(pricesCardForm.month_price) : 0,
         year_price: pricesCardForm.year_price ? parseFloat(pricesCardForm.year_price) : 0,
@@ -544,14 +573,15 @@ const Settings: React.FC = () => {
       
       // Yangilangan ma'lumotlarni qayta yuklash
       const token = sessionStorage.getItem('access');
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitories/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
       const data = await response.json();
-      setSettings(data);
+      const dormitory = data.results && data.results.length > 0 ? data.results[0] : data;
+      setSettings(dormitory);
       
       toast.success('Narx ma\'lumotlari yangilandi!');
       setEditPricesCard(false);
@@ -568,7 +598,7 @@ const Settings: React.FC = () => {
       const updateData = {
         name: (settings.name as string) || '',
         address: (settings.address as string) || '',
-        distance_to_university: (settings.distance_to_university as number) || 0,
+        distance: (settings.distance as number) || 0,
         description: descriptionForm,
         month_price: (settings.month_price as number) || 0,
         year_price: (settings.year_price as number) || 0,
@@ -579,14 +609,15 @@ const Settings: React.FC = () => {
       
       // Yangilangan ma'lumotlarni qayta yuklash
       const token = sessionStorage.getItem('access');
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitories/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
       const data = await response.json();
-      setSettings(data);
+      const dormitory = data.results && data.results.length > 0 ? data.results[0] : data;
+      setSettings(dormitory);
       
       toast.success('Tavsif muvaffaqiyatli yangilandi!');
       setEditDescription(false);
@@ -606,14 +637,15 @@ const Settings: React.FC = () => {
       
       // Yangilangan ma'lumotlarni qayta yuklash
       const token = sessionStorage.getItem('access');
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitories/', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
       const data = await response.json();
-      setSettings(data);
+      const dormitory = data.results && data.results.length > 0 ? data.results[0] : data;
+      setSettings(dormitory);
       
       toast.success('Rasm o\'chirildi!');
       setDeleteImageModal({ show: false, imageId: null, imageUrl: null });
@@ -651,7 +683,7 @@ const Settings: React.FC = () => {
         {/* Admin info */}
         <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 px-3 sm:px-4 py-2 rounded-lg">
           <User className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 flex-shrink-0" />
-          <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm sm:text-base truncate">{settings.admin?.username}</span>
+          <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm sm:text-base truncate">{settings.admin_name || (typeof settings.admin === 'object' ? settings.admin?.username : 'Admin')}</span>
           <span className="text-xs text-gray-500 ml-1 sm:ml-2 flex-shrink-0">Admin</span>
         </div>
       </div>
@@ -671,7 +703,9 @@ const Settings: React.FC = () => {
               <>
                 <EditableInput label="Nomi" value={dormCardForm.name} onChange={v => handleDormCardChange('name', v)} disabled={dormLoading} fullWidth />
                 <EditableInput label="Manzil" value={dormCardForm.address} onChange={v => handleDormCardChange('address', v)} disabled={dormLoading} fullWidth />
-                <EditableInput label="Universitetgacha masofa (km)" value={dormCardForm.distance_to_university} onChange={v => handleDormCardChange('distance_to_university', v)} disabled={dormLoading} fullWidth />
+                <EditableInput label="Universitetgacha masofa (km)" value={dormCardForm.distance} onChange={v => handleDormCardChange('distance', v)} disabled={dormLoading} fullWidth />
+                <EditableInput label="Telefon raqami" value={dormCardForm.phone_numer} onChange={v => handleDormCardChange('phone_numer', v)} disabled={dormLoading} fullWidth placeholder="+998901234567" />
+                <EditableInput label="Havola (Link)" value={dormCardForm.link} onChange={v => handleDormCardChange('link', v)} disabled={dormLoading} fullWidth placeholder="https://..." />
                 <div className="flex flex-col sm:flex-row gap-2 mt-2">
                   <button className="px-4 sm:px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm sm:text-base" onClick={handleSaveDormCard} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
                   <button className="px-4 sm:px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm sm:text-base" onClick={() => setEditDormCard(false)} disabled={dormLoading}>Bekor qilish</button>
@@ -697,7 +731,29 @@ const Settings: React.FC = () => {
                   <School className="w-5 h-5 text-blue-600" />
                   <div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">Universitetgacha masofa</div>
-                    <span className="text-gray-900 dark:text-white">{settings.distance_to_university} km</span>
+                    <span className="text-gray-900 dark:text-white">{settings.distance} km</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg">
+                  <Phone className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Telefon raqami</div>
+                    <span className="text-gray-900 dark:text-white">{settings.phone_numer || 'Kiritilmagan'}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg">
+                  <Info className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Havola</div>
+                    <span className="text-gray-900 dark:text-white truncate max-w-[200px] block">
+                      {settings.link ? (
+                        <a href={settings.link} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                          {settings.link}
+                        </a>
+                      ) : (
+                        'Kiritilmagan'
+                      )}
+                    </span>
                   </div>
                 </div>
               </>
@@ -784,100 +840,80 @@ const Settings: React.FC = () => {
         <SectionCard
           icon={<ListChecks className="w-6 h-6" />}
           title="Qulayliklar"
-          description="Yotoqxonada mavjud bo'lgan qulayliklarni belgilang. Tahrirlash uchun 'Tahrirlash' tugmasini bosing."
+          description="Yotoqxonada mavjud bo'lgan qulayliklar. Ro'yxatni tahrirlash va yangi qulaylik qo'shish mumkin."
           onEdit={() => setEditSection(editSection === 'amenities' ? null : 'amenities')}
         >
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {localAmenities && localAmenities.length > 0 ? (
-              localAmenities.map((item: Amenity) => (
-                <div
-                  key={item.id}
-                  className={`relative p-4 rounded-lg border transition-all duration-200 ${
-                    item.is_active
-                      ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
-                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600'
-                  } ${
-                    editSection === 'amenities' 
-                      ? 'cursor-pointer hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600' 
-                      : ''
-                  }`}
-                  onClick={() => editSection === 'amenities' && handleAmenityChange(item)}
-                >
-                  {/* Status indicator */}
-                  <div className={`absolute top-2 right-2 w-2 h-2 rounded-full ${
-                    item.is_active ? 'bg-green-500' : 'bg-gray-400'
-                  }`}></div>
-
-                  {/* Content */}
-                  <div className="flex flex-col items-center text-center space-y-3">
-                    {/* Icon */}
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      item.is_active
-                        ? 'bg-green-100 dark:bg-green-800/30 text-green-600 dark:text-green-400'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                    }`}>
-                      {getAmenityIcon(item.name)}
-                    </div>
-
-                    {/* Title */}
-                    <div>
-                      <h3 className={`font-medium text-sm ${
-                        item.is_active
-                          ? 'text-gray-900 dark:text-white'
-                          : 'text-gray-600 dark:text-gray-300'
-                      }`}>
-                        {item.name}
-                      </h3>
-                      
-                      {/* Status */}
-                      <span className={`text-xs ${
-                        item.is_active
-                          ? 'text-green-600 dark:text-green-400'
-                          : 'text-gray-500 dark:text-gray-400'
-                      }`}>
-                        {item.is_active ? 'Faol' : 'Nofaol'}
-                      </span>
-                    </div>
+          <ul className="space-y-3">
+            {localAmenities.map((item, idx) => (
+              <li key={idx} className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className={`p-2 rounded-lg flex-shrink-0 ${
+                    item.is_active 
+                      ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
+                  }`}>
+                    {getAmenityIcon(item.name)}
                   </div>
+                  {editSection === 'amenities' ? (
+                    <div className="flex-1 flex items-center gap-2">
+                      <input
+                        className="flex-1 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
+                        value={item.name}
+                        onChange={e => handleAmenityChange(idx, e.target.value)}
+                        placeholder="Qulaylik nomi..."
+                      />
+                      <label className="flex items-center gap-2 cursor-pointer bg-gray-50 dark:bg-slate-700 px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-600">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          checked={item.is_active}
+                          onChange={() => {
+                            setLocalAmenities(prev => prev.map((a, i) => i === idx ? { ...a, is_active: !a.is_active } : a));
+                          }}
+                        />
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Faol</span>
+                      </label>
+                      <button
+                        onClick={() => handleRemoveAmenity(idx)}
+                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-between">
+                      <span className={`font-medium text-sm ${item.is_active ? 'text-gray-900 dark:text-white' : 'text-gray-400 line-through'}`}>
+                        {item.name}
+                      </span>
+                      {item.is_active && (
+                        <span className="text-[10px] font-bold text-green-600 dark:text-green-500 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full uppercase tracking-wider">Faol</span>
+                      )}
+                    </div>
+                  )}
                 </div>
-              ))
-            ) : amenitiesLoading ? (
-              <div className="col-span-full text-center py-8">
-                <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500"></div>
-                </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Qulayliklar yuklanmoqda...
-                </p>
-              </div>
-            ) : (
-              <div className="col-span-full text-center py-8">
-                <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                  <ListChecks className="w-6 h-6 text-gray-400" />
-                </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Qulayliklar topilmadi
-                </p>
-              </div>
-            )}
-          </div>
+              </li>
+            ))}
+          </ul>
           {editSection === 'amenities' && (
-            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-              <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
-                Qulayliklarni yoqish yoki o'chirish uchun ustiga bosing.
-              </p>
+            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700 space-y-4">
+              <button
+                onClick={handleAddAmenity}
+                className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+              >
+                <Plus className="w-5 h-5" />
+                Qulaylik qo'shish
+              </button>
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition active:scale-95"
                   onClick={handleSaveAmenities}
                 >
                   Saqlash
                 </button>
                 <button
-                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+                  className="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-bold hover:bg-gray-300 dark:hover:bg-gray-600 transition"
                   onClick={() => {
                     setEditSection(null);
-                    // Bekor qilganda asl holatga qaytarish
                     if (allAmenities.length > 0 && settings) {
                       const dormitoryAmenityIds = (settings.amenities as Array<{ id?: number } | number>)?.map((a) => (typeof a === 'object' ? a.id : a)) || [];
                       const mappedAmenities = allAmenities.map(amenity => ({
@@ -1108,7 +1144,8 @@ const Settings: React.FC = () => {
                   }
                   
                   const data = await response.json();
-                  setSettings(data);
+                  const dormitory = data.results && data.results.length > 0 ? data.results[0] : data;
+                  setSettings(dormitory);
                   
                   setUploadProgress(100);
                   

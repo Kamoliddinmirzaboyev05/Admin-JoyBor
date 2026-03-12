@@ -138,6 +138,16 @@ export const api = {
     phone: string;
   }) => post('/leaders/', data),
   
+  // Floor Leaders
+  getFloorLeaders: () => get('/floor-leaders/'),
+  getFloorLeader: (id: number) => get(`/floor-leaders/${id}/`),
+  createFloorLeader: (data: {
+    floor: number;
+    user: number;
+  }) => post('/floor-leaders/', data),
+  updateFloorLeader: (id: number, data: Record<string, unknown>) => patch(`/floor-leaders/${id}/`, data),
+  deleteFloorLeader: (id: number) => del(`/floor-leaders/${id}/`),
+  
   // Attendance Sessions
   getAttendanceSessions: (params?: {
     date?: string;
@@ -263,54 +273,11 @@ export const api = {
   },
   deleteDormitoryImage: (id: number) => del(`/dormitory-images/${id}/`),
   
-  // Notifications - Fixed endpoint
+  // Notifications
   getNotifications: async () => {
     try {
-      // Ikkita turdagi bildirishnomalarni olish
-      const [generalNotifications, applicationNotifications] = await Promise.all([
-        get('/notifications/my/').catch(() => []),
-        get('/notifications/').catch(() => []) // Fixed: removed application_notifications endpoint
-      ]);
-
-      const allNotifications = [];
-
-      // Umumiy bildirishnomalar
-      if (Array.isArray(generalNotifications)) {
-        const mappedGeneral = generalNotifications.map((item: Record<string, unknown>) => {
-          const notification = item.notification as Record<string, unknown> | undefined;
-          return {
-            id: item.id as number,
-            notification_id: notification?.id as number,
-            title: (notification?.title as string) || 'Bildirishnoma',
-            message: (notification?.message as string) || '',
-            type: (notification?.type as string) || 'info',
-            is_read: (item.is_read as boolean) || false,
-            created_at: (item.created_at as string) || (notification?.created_at as string),
-            category: 'general'
-          };
-        });
-        allNotifications.push(...mappedGeneral);
-      }
-
-      // Ariza bildirishnomalari
-      if (Array.isArray(applicationNotifications)) {
-        const mappedApplication = applicationNotifications.map((item: Record<string, unknown>) => ({
-          id: item.id as number,
-          notification_id: item.id as number,
-          title: (item.title as string) || 'Ariza bildirishnomasi',
-          message: (item.message as string) || '',
-          type: (item.type as string) || 'application',
-          is_read: (item.is_read as boolean) || false,
-          created_at: item.created_at as string,
-          category: 'application'
-        }));
-        allNotifications.push(...mappedApplication);
-      }
-
-      // Vaqt bo'yicha saralash (eng yangi birinchi)
-      return allNotifications.sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+      const res = await get('/notifications/');
+      return res.results || res || [];
     } catch (error) {
       console.error('Notifications fetch error:', error);
       return [];

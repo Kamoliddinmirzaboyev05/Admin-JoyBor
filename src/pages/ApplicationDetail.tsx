@@ -294,13 +294,14 @@ const ApplicationDetail: React.FC = () => {
         name: studentForm.name || '',
         last_name: studentForm.last_name || '',
         middle_name: studentForm.middle_name || '',
+        passport: studentForm.passport || '',
         faculty: studentForm.faculty || '',
         direction: studentForm.direction || '',
         group: studentForm.group || '',
         course: studentForm.course || '1-kurs',
         gender: studentForm.gender || 'Erkak',
         phone: studentForm.phone || '',
-        placement_status: 'Qabul qilindi',
+        placement_status: 'APPROVED', // API expected format
         is_active: true,
         floor: selectedFloor,
         room: selectedRoom,
@@ -630,16 +631,16 @@ const ApplicationDetail: React.FC = () => {
                 onClick={() => {
                   if (application) {
                     setStudentForm({
-                      name: application.name,
-                      last_name: application.last_name,
-                      middle_name: application.middle_name,
-                      passport: application.passport,
-                      faculty: application.faculty,
-                      direction: application.direction,
-                      course: application.course,
-                      group: application.group,
-                      phone: application.phone,
-                      gender: 'Erkak',
+                      name: application.name || '',
+                      last_name: application.last_name || '',
+                      middle_name: application.middle_name || '',
+                      passport: application.passport || '',
+                      faculty: application.faculty || '',
+                      direction: application.direction || '',
+                      course: application.course || '',
+                      group: application.group || '',
+                      phone: application.phone || '',
+                      gender: application.gender || 'Erkak',
                     });
                   }
                   setShowAddStudentModal(true);

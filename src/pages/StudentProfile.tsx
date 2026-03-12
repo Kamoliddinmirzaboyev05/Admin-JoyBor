@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import BackButton from '../components/UI/BackButton';
-import { BadgeCheck, Calendar, Trash2 } from 'lucide-react';
+import { BadgeCheck, Calendar, Trash2, Eye } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { link } from '../data/config';
 import axios from 'axios';
@@ -105,9 +105,11 @@ function EditableInput({ label, value, onChange, type = 'text' }: { label: strin
 
 const StudentProfile: React.FC = () => {
   const { studentId } = useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { emitStudentUpdate, subscribe } = useGlobalEvents();
   const [editMode, setEditMode] = useState(false);
+  const [hasEdited, setHasEdited] = useState(false);
   const [form, setForm] = useState<Record<string, unknown> | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -425,6 +427,7 @@ const StudentProfile: React.FC = () => {
 
       toast.success('Talaba maʼlumotlari saqlandi!');
       setEditMode(false);
+      setHasEdited(true); // Tahrirlanganligini belgilash
       setImagePreview(null);
 
       // Barcha bog'liq cache larni yangilash
@@ -481,7 +484,10 @@ const StudentProfile: React.FC = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-4 sm:py-6 px-1 sm:px-2 flex flex-col items-center">
       <div className="w-full max-w-4xl bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-2 sm:p-6 md:p-8 border border-gray-100 dark:border-slate-700">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-          <BackButton label="Orqaga" />
+          <BackButton 
+            label="Orqaga" 
+            onClick={() => hasEdited ? navigate('/students') : navigate(-1)} 
+          />
 
           <div className="flex items-center gap-2 justify-center">
             <BadgeCheck className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600 dark:text-blue-300" />
@@ -681,7 +687,14 @@ const StudentProfile: React.FC = () => {
                 </div>
               )}
               <ReadOnlyInput label="Qabul qilingan sana" value={(form as Record<string, any>).accepted_date} type="date" />
-              <ReadOnlyInput label="Jami to'lov" value={(form as Record<string, any>).total_payment} type="currency" />
+              <ReadOnlyInput 
+                label="Jami to'lov" 
+                value={
+                  (form as any).payment_summary?.total_amount || 
+                  (form as Record<string, any>).total_payment
+                } 
+                type="currency" 
+              />
             </>
           ) : (
             <>
@@ -704,60 +717,164 @@ const StudentProfile: React.FC = () => {
                 />
               )}
               <ReadOnlyInput label="Qabul qilingan sana" value={(form as Record<string, any>).accepted_date} type="date" />
-              <ReadOnlyInput label="Jami to'lov" value={(form as Record<string, unknown>).total_payment} type="currency" />
+              <ReadOnlyInput 
+                label="Jami to'lov" 
+                value={
+                  (form as any).payment_summary?.total_amount || 
+                  (form as Record<string, any>).total_payment
+                } 
+                type="currency" 
+              />
             </>
           )}
         </div>
 
         {/* Hujjatlar bo'limi */}
         {!editMode && form && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-slate-700">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Hujjatlar</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 sm:p-6 border mt-6 border-gray-200 dark:border-slate-700 w-full">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 flex items-center gap-2">
+              <BadgeCheck className="w-5 h-5 text-blue-500" />
+              Hujjatlar
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
               {/* Pasport old tomoni */}
               {(form as Record<string, any>).passport_image_first && (
-                <div className="group relative bg-gray-50 dark:bg-slate-700/50 rounded-lg overflow-hidden">
-                  <img
-                    src={(form as Record<string, any>).passport_image_first}
-                    alt="Pasport old tomoni"
-                    className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition"
-                    onClick={() => setSelectedImage((form as Record<string, any>).passport_image_first)}
-                  />
-                  <div className="p-3 bg-white dark:bg-slate-800">
-                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Pasport (old tomoni)</div>
+                <div 
+                  className="group relative bg-gray-50 dark:bg-slate-700/30 rounded-xl overflow-hidden border border-gray-100 dark:border-slate-700 cursor-pointer hover:shadow-md transition-all duration-300"
+                  onClick={() => setSelectedImage((form as Record<string, any>).passport_image_first)}
+                >
+                  <div className="aspect-[3/4] sm:aspect-video bg-gray-100 dark:bg-slate-900 flex items-center justify-center relative overflow-hidden">
+                    <img
+                      src={(form as Record<string, any>).passport_image_first}
+                      alt="Pasport old tomoni"
+                      className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                       <Eye className="text-white w-6 h-6 sm:w-8 sm:h-8" />
+                    </div>
+                  </div>
+                  <div className="p-2 sm:p-3 bg-white dark:bg-slate-800 text-center border-t border-gray-50 dark:border-slate-700">
+                    <div className="text-[10px] sm:text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate">Pasport (old)</div>
                   </div>
                 </div>
               )}
               
               {/* Pasport orqa tomoni */}
               {(form as Record<string, any>).passport_image_second && (
-                <div className="group relative bg-gray-50 dark:bg-slate-700/50 rounded-lg overflow-hidden">
-                  <img
-                    src={(form as Record<string, any>).passport_image_second}
-                    alt="Pasport orqa tomoni"
-                    className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition"
-                    onClick={() => setSelectedImage((form as Record<string, any>).passport_image_second)}
-                  />
-                  <div className="p-3 bg-white dark:bg-slate-800">
-                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Pasport (orqa tomoni)</div>
+                <div 
+                  className="group relative bg-gray-50 dark:bg-slate-700/30 rounded-xl overflow-hidden border border-gray-100 dark:border-slate-700 cursor-pointer hover:shadow-md transition-all duration-300"
+                  onClick={() => setSelectedImage((form as Record<string, any>).passport_image_second)}
+                >
+                  <div className="aspect-[3/4] sm:aspect-video bg-gray-100 dark:bg-slate-900 flex items-center justify-center relative overflow-hidden">
+                    <img
+                      src={(form as Record<string, any>).passport_image_second}
+                      alt="Pasport orqa tomoni"
+                      className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                       <Eye className="text-white w-6 h-6 sm:w-8 sm:h-8" />
+                    </div>
+                  </div>
+                  <div className="p-2 sm:p-3 bg-white dark:bg-slate-800 text-center border-t border-gray-50 dark:border-slate-700">
+                    <div className="text-[10px] sm:text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate">Pasport (orqa)</div>
                   </div>
                 </div>
               )}
               
               {/* Qo'shimcha hujjat */}
               {(form as Record<string, any>).document && (
-                <div className="group relative bg-gray-50 dark:bg-slate-700/50 rounded-lg overflow-hidden">
-                  <img
-                    src={(form as Record<string, any>).document}
-                    alt="Qo'shimcha hujjat"
-                    className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition"
-                    onClick={() => setSelectedImage((form as Record<string, unknown>).document)}
-                  />
-                  <div className="p-3 bg-white dark:bg-slate-800">
-                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Qo'shimcha hujjat</div>
+                <div 
+                  className="group relative bg-gray-50 dark:bg-slate-700/30 rounded-xl overflow-hidden border border-gray-100 dark:border-slate-700 cursor-pointer hover:shadow-md transition-all duration-300"
+                  onClick={() => setSelectedImage((form as Record<string, any>).document)}
+                >
+                  <div className="aspect-[3/4] sm:aspect-video bg-gray-100 dark:bg-slate-900 flex items-center justify-center relative overflow-hidden">
+                    <img
+                      src={(form as Record<string, any>).document}
+                      alt="Qo'shimcha hujjat"
+                      className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                       <Eye className="text-white w-6 h-6 sm:w-8 sm:h-8" />
+                    </div>
+                  </div>
+                  <div className="p-2 sm:p-3 bg-white dark:bg-slate-800 text-center border-t border-gray-50 dark:border-slate-700">
+                    <div className="text-[10px] sm:text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate">Qo'shimcha hujjat</div>
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* To'lovlar tarixi */}
+        {!editMode && form && (form as any).payments && (form as any).payments.length > 0 && (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-slate-700 mt-6 w-full">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">To'lovlar tarixi</h2>
+            
+            {/* Summary Cards */}
+            {(form as any).payment_summary && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Jami to'langan</p>
+                    <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                      {formatCurrency((form as any).payment_summary.total_amount)}
+                    </p>
+                 </div>
+                 <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-100 dark:border-green-800">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Tasdiqlangan to'lovlar</p>
+                    <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                      {(form as any).payment_summary.approved_payments} ta
+                    </p>
+                 </div>
+                 <div className={`p-4 rounded-lg border ${(form as any).payment_summary.is_debtor ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800' : 'bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-800'}`}>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Holati</p>
+                    <p className={`text-lg font-bold ${(form as any).payment_summary.is_debtor ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                      {(form as any).payment_summary.is_debtor ? 'Qarzdor' : 'To\'lov qilingan'}
+                    </p>
+                 </div>
+              </div>
+            )}
+
+            {/* Payments List */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-200 dark:border-gray-700">
+                    <th className="py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Sana</th>
+                    <th className="py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Summa</th>
+                    <th className="py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Usul</th>
+                    <th className="py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Holat</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(form as any).payments.map((payment: any) => (
+                    <tr key={payment.id} className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-slate-700/30">
+                      <td className="py-3 px-4 text-gray-900 dark:text-white">
+                        {formatDate(payment.paid_date)}
+                      </td>
+                      <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">
+                        {formatCurrency(payment.amount)}
+                      </td>
+                      <td className="py-3 px-4 text-gray-700 dark:text-gray-300">
+                        {payment.method || '-'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          payment.status === 'APPROVED' 
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                            : payment.status === 'REJECTED'
+                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                        }`}>
+                          {payment.status === 'APPROVED' ? 'Tasdiqlangan' : 
+                           payment.status === 'REJECTED' ? 'Rad etilgan' : 
+                           payment.status === 'PENDING' ? 'Kutilmoqda' : payment.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

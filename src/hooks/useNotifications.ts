@@ -1,137 +1,90 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '../data/api';
 import { toast } from 'sonner';
-// API imports o'chirilgan - demo ma'lumotlar
 
-interface Notification {
+export interface Notification {
   id: number;
-  notification_id?: number;
-  title: string;
+  type: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
-  read: boolean;
   is_read: boolean;
   created_at: string;
-  received_at?: string;
-  image?: string;
-  image_url?: string;
-  target_type?: string;
-  target_user?: unknown;
-  is_active?: boolean;
-  category?: string;
-  notification_type?: 'general' | 'application';
-}
-
-interface NotificationStats {
-  total: number;
-  unread: number;
-  read: number;
-  highPriority: number;
-  byType: {
-    info: number;
-    success: number;
-    warning: number;
-    error: number;
-  };
+  image?: string | null;
 }
 
 export const useNotifications = () => {
-  // Demo notifications
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: 1,
-      title: 'Yangi ariza',
-      message: 'Yangi ariza tushdi: Alisher Valiyev sizning yotoqxonangizga ariza topshirdi',
-      type: 'info',
-      read: false,
-      is_read: false,
-      created_at: new Date().toISOString(),
-      notification_type: 'application',
-    },
-    {
-      id: 2,
-      title: 'To\'lov qabul qilindi',
-      message: 'Dilnoza Karimova oylik to\'lovni amalga oshirdi',
-      type: 'success',
-      read: false,
-      is_read: false,
-      created_at: new Date(Date.now() - 3600000).toISOString(),
-      notification_type: 'general',
-    },
-    {
-      id: 3,
-      title: 'Davomat',
-      message: '2-qavatda davomat sessiyasi yakunlandi',
-      type: 'info',
-      read: true,
-      is_read: true,
-      created_at: new Date(Date.now() - 7200000).toISOString(),
-      notification_type: 'general',
-    },
-  ]);
+  const queryClient = useQueryClient();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const prevUnreadCount = useRef<number>(0);
 
-  const isLoading = false;
-  const error = null;
-  const refetch = () => Promise.resolve();
+  // Initialize audio
+  useEffect(() => {
+    audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+  }, []);
 
-  // Mark as read (demo)
+  const { data: notifications = [], isLoading, error, refetch } = useQuery<Notification[]>({
+    queryKey: ['notifications'],
+    queryFn: async () => {
+      const res = await api.getNotifications();
+      return Array.isArray(res) ? res : [];
+    },
+    staleTime: 1000 * 60,
+    refetchInterval: 10000, // Check every 10 seconds for new notifications
+  });
+
+  const unreadNotifications = notifications.filter(n => !n.is_read);
+  const unreadCount = unreadNotifications.length;
+
+  // Play sound when unread count increases
+  useEffect(() => {
+    if (unreadCount > prevUnreadCount.current) {
+      audioRef.current?.play().catch(err => console.error('Audio play error:', err));
+      
+      // Optional: Show toast for new notification if it's just one
+      if (unreadCount - prevUnreadCount.current === 1) {
+        const latest = unreadNotifications[0];
+        if (latest) {
+          toast.info(latest.message, {
+            description: 'Yangi bildirishnoma keldi',
+            duration: 5000,
+          });
+        }
+      }
+    }
+    prevUnreadCount.current = unreadCount;
+  }, [unreadCount, unreadNotifications]);
+
+  const markAsReadMutation = useMutation({
+    mutationFn: (id: number) => api.markNotificationAsRead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+
+  const markAllAsReadMutation = useMutation({
+    mutationFn: () => api.markAllNotificationsAsRead(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      toast.success("Barcha bildirishnomalar o'qilgan deb belgilandi");
+    },
+  });
+
   const markAsRead = useCallback((id: number) => {
-    setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, read: true, is_read: true } : n))
-    );
-    console.log('Demo: Notification marked as read', id);
-  }, []);
+    markAsReadMutation.mutate(id);
+  }, [markAsReadMutation]);
 
-  // Mark all as read (demo)
   const markAllAsRead = useCallback(() => {
-    setNotifications(prev =>
-      prev.map(n => ({ ...n, read: true, is_read: true }))
-    );
-    toast.success('Barcha bildirishnomalar o\'qilgan! (Demo)');
-    console.log('Demo: All notifications marked as read');
-  }, []);
-
-  // Mark multiple as read (demo)
-  const markMultipleAsRead = useCallback((ids: number[]) => {
-    setNotifications(prev =>
-      prev.map(n => (ids.includes(n.id) ? { ...n, read: true, is_read: true } : n))
-    );
-    console.log('Demo: Multiple notifications marked as read', ids);
-  }, []);
-
-  // Delete notification (demo)
-  const deleteNotification = useCallback((id: number) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-    toast.success('Bildirishnoma o\'chirildi! (Demo)');
-    console.log('Demo: Notification deleted', id);
-  }, []);
-
-  // Statistics
-  const stats: NotificationStats = useMemo(() => {
-    const total = notifications.length;
-    const unread = notifications.filter(n => !n.read && !n.is_read).length;
-    const read = total - unread;
-    const highPriority = notifications.filter(n => n.type === 'error' || n.type === 'warning').length;
-
-    const byType = {
-      info: notifications.filter(n => n.type === 'info').length,
-      success: notifications.filter(n => n.type === 'success').length,
-      warning: notifications.filter(n => n.type === 'warning').length,
-      error: notifications.filter(n => n.type === 'error').length,
-    };
-
-    return { total, unread, read, highPriority, byType };
-  }, [notifications]);
+    markAllAsReadMutation.mutate();
+  }, [markAllAsReadMutation]);
 
   return {
     notifications,
+    unreadNotifications,
+    unreadCount,
     isLoading,
     error,
     refetch,
     markAsRead,
-    markAllAsRead,
-    markMultipleAsRead,
-    deleteNotification,
-    stats,
-    unreadCount: stats.unread,
+    markAllAsRead
   };
 };

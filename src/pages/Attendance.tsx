@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, 
   UserCheck, 
@@ -9,79 +9,186 @@ import {
   Building,
   Eye,
   Calendar,
-  UserPlus
+  UserCog,
+  X,
+  Search
 } from 'lucide-react';
-import { useAppStore } from '../stores/useAppStore';
 import StatsCard from '../components/UI/StatsCard';
-import AddLeaderModal from '../components/Modals/AddLeaderModal';
-// API imports o'chirilgan - demo ma'lumotlar
-import type { AttendanceSession } from '../types/AttendanceSession';
+import api from '../data/api';
+import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import Select from 'react-select';
 
 const Attendance: React.FC = () => {
-  const { floors, attendanceRecords, updateFloorStats } = useAppStore();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
-  const [selectedSession, setSelectedSession] = useState<AttendanceSession | null>(null);
-  const [isAddLeaderModalOpen, setIsAddLeaderModalOpen] = useState(false);
+  const [showLeaderModal, setShowLeaderModal] = useState(false);
+  const [floorLeaders, setFloorLeaders] = useState<Array<{ id: number; user_info: { username: string; email: string; id: number }; floor_info: { name: string; id: number }; floor: number; user: number }>>([]);
+  const [leaderForm, setLeaderForm] = useState({
+    floor_id: '',
+    student_id: '',
+  });
+  const [editingLeader, setEditingLeader] = useState<{ id: number; floor_id: string; student_id: string } | null>(null);
+  const [addingLeader, setAddingLeader] = useState(false);
+  const [studentSearch, setStudentSearch] = useState('');
 
+  // Fetch floors
+  const { data: floorsData } = useQuery({
+    queryKey: ['floors'],
+    queryFn: () => api.getFloors(),
+  });
+
+  const floors = floorsData?.results || floorsData || [];
+
+  // Fetch students
+  const { data: studentsData } = useQuery({
+    queryKey: ['students'],
+    queryFn: () => api.getStudents(),
+  });
+
+  const students = studentsData?.results || studentsData || [];
+
+  // Fetch floor leaders
   useEffect(() => {
-    updateFloorStats();
-  }, [updateFloorStats]);
+    const fetchFloorLeaders = async () => {
+      try {
+        const leaders = await api.getFloorLeaders();
+        const leadersArray = leaders.results || leaders;
+        setFloorLeaders(leadersArray);
+      } catch (error) {
+        console.error('Failed to fetch floor leaders:', error);
+      }
+    };
+    
+    fetchFloorLeaders();
+  }, []);
 
-  // Demo attendance sessions
-  const attendanceSessions: AttendanceSession[] = [
-    {
-      id: 1,
-      date: selectedDate,
-      floor: [{ id: 1, name: '1-qavat' }],
-      leader: { id: 1, user: 'Navbatchi 1', floor: '1' },
-      rooms: [
-        { room_id: 1, room_name: '101', students: [{ id: 1, student: { id: 1, name: 'Talaba', last_name: '1' } }] },
-        { room_id: 2, room_name: '102', students: [{ id: 2, student: { id: 2, name: 'Talaba', last_name: '2' } }] },
-      ],
-    },
-    {
-      id: 2,
-      date: selectedDate,
-      floor: [{ id: 2, name: '2-qavat' }],
-      leader: { id: 2, user: 'Navbatchi 2', floor: '2' },
-      rooms: [
-        { room_id: 3, room_name: '201', students: [{ id: 3, student: { id: 3, name: 'Talaba', last_name: '3' } }] },
-        { room_id: 4, room_name: '202', students: [{ id: 4, student: { id: 4, name: 'Talaba', last_name: '4' } }] },
-      ],
-    },
-    {
-      id: 3,
-      date: selectedDate,
-      floor: [{ id: 3, name: '3-qavat' }],
-      leader: { id: 3, user: 'Navbatchi 3', floor: '3' },
-      rooms: [
-        { room_id: 5, room_name: '301', students: [{ id: 5, student: { id: 5, name: 'Talaba', last_name: '5' } }] },
-        { room_id: 6, room_name: '302', students: [{ id: 6, student: { id: 6, name: 'Talaba', last_name: '6' } }] },
-      ],
-    },
-  ];
-  const sessionsLoading = false;
-  const sessionsError = null;
-  const refetchSessions = () => Promise.resolve();
-
-  // Bugungi umumiy statistika
-  const totalStudents = floors.reduce((sum, floor) => sum + floor.totalStudents, 0);
-  const totalPresent = floors.reduce((sum, floor) => sum + floor.presentStudents, 0);
-  const totalAbsent = totalStudents - totalPresent; // Haqiqiy absent talabalar soni
+  // Calculate statistics
+  const totalStudents = students.length;
+  const totalPresent = 0; // Bu davomat sessiyalaridan hisoblanadi
+  const totalAbsent = totalStudents - totalPresent;
   const attendanceRate = totalStudents > 0 ? ((totalPresent / totalStudents) * 100).toFixed(1) : '0';
 
-  // Tanlangan sana uchun davomat ma'lumotlari
-  const selectedDateAttendance = useMemo(() => 
-    attendanceRecords.filter(record => record.date === selectedDate),
-    [attendanceRecords, selectedDate]
-  );
+  // Floor leader handlers
+  const handleAddLeader = async () => {
+    if (!leaderForm.floor_id || !leaderForm.student_id) {
+      toast.error('Qavat va talabani tanlang!');
+      return;
+    }
+    
+    setAddingLeader(true);
+    try {
+      if (editingLeader) {
+        // Update existing leader
+        await api.updateFloorLeader(editingLeader.id, {
+          floor: parseInt(leaderForm.floor_id),
+          user: parseInt(leaderForm.student_id),
+        });
+        toast.success('Qavat sardori muvaffaqiyatli yangilandi!');
+      } else {
+        // Create new leader
+        await api.createFloorLeader({
+          floor: parseInt(leaderForm.floor_id),
+          user: parseInt(leaderForm.student_id),
+        });
+        toast.success('Qavat sardori muvaffaqiyatli qo\'shildi!');
+      }
+      
+      setShowLeaderModal(false);
+      setLeaderForm({ floor_id: '', student_id: '' });
+      setEditingLeader(null);
+      setStudentSearch('');
+      
+      // Refresh floor leaders
+      const leaders = await api.getFloorLeaders();
+      const leadersArray = leaders.results || leaders;
+      setFloorLeaders(leadersArray);
+    } catch (error: any) {
+      console.error('Add/Edit leader error:', error);
+      if (error.response && error.response.data) {
+        console.log('Error response data:', error.response.data);
+        const errorData = error.response.data;
+        const message = errorData.detail || errorData.message || JSON.stringify(errorData);
+        toast.error(`Xatolik: ${message}`);
+      } else {
+        toast.error((error as Error)?.message || (editingLeader ? 'Sardorni yangilashda xatolik!' : 'Sardor qo\'shishda xatolik!'));
+      }
+    } finally {
+      setAddingLeader(false);
+    }
+  };
 
-  // Tanlangan qavat uchun davomat ma'lumotlari
-  const selectedFloorAttendance = useMemo(() => 
-    selectedFloor ? selectedDateAttendance.filter(record => record.floor === selectedFloor) : [],
-    [selectedDateAttendance, selectedFloor]
-  );
+  const handleEditLeader = (leader: any) => {
+    setEditingLeader({
+      id: leader.id,
+      floor_id: String(leader.floor),
+      student_id: String(leader.user)
+    });
+    setLeaderForm({
+      floor_id: String(leader.floor),
+      student_id: String(leader.user)
+    });
+    setShowLeaderModal(true);
+  };
+
+  const handleRemoveLeader = async (leaderId: number) => {
+    if (!window.confirm('Haqiqatan ham bu qavat sardorini o\'chirmoqchimisiz?')) {
+      return;
+    }
+    
+    try {
+      await api.deleteFloorLeader(leaderId);
+      toast.success('Qavat sardori o\'chirildi!');
+      
+      // Refresh floor leaders
+      const leaders = await api.getFloorLeaders();
+      const leadersArray = leaders.results || leaders;
+      setFloorLeaders(leadersArray);
+    } catch (error: any) {
+      console.error('Remove leader error:', error);
+      if (error.response && error.response.data) {
+        const errorData = error.response.data;
+        const message = errorData.detail || errorData.message || JSON.stringify(errorData);
+        toast.error(`Xatolik: ${message}`);
+      } else {
+        toast.error('Sardorni o\'chirishda xatolik!');
+      }
+    }
+  };
+
+  // Filter students for select
+  const studentOptions = students
+    .filter((s: any) => {
+      const firstName = s.first_name || s.name || '';
+      const lastName = s.last_name || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      return studentSearch === '' || fullName.toLowerCase().includes(studentSearch.toLowerCase());
+    })
+    .map((s: any) => {
+      // Check if student has a user field (ID or object)
+      // If s.user exists, use it. If not, fallback to s.id but log warning
+      let userId = s.id;
+      if (s.user) {
+         if (typeof s.user === 'object' && s.user.id) {
+             userId = s.user.id;
+         } else if (typeof s.user === 'number') {
+             userId = s.user;
+         }
+      }
+      
+      const firstName = s.first_name || s.name || '';
+      const lastName = s.last_name || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      return {
+        value: userId, // Use the determine User ID
+        label: `${fullName} (ID: ${userId})`
+      };
+    });
+
+  const floorOptions = floors.map((f: { id: number; name: string }) => ({
+    value: f.id,
+    label: f.name
+  }));
 
   return (
     <div className="space-y-6">
@@ -98,10 +205,10 @@ const Attendance: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setIsAddLeaderModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+            onClick={() => setShowLeaderModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
           >
-            <UserPlus className="h-4 w-4" />
+            <UserCog className="h-4 w-4" />
             Qavat sardori qo&apos;shish
           </button>
           <div className="flex items-center gap-2">
@@ -144,98 +251,89 @@ const Attendance: React.FC = () => {
         />
       </div>
 
-      {/* Navbatchilar va davomat sessiyalari */}
+      {/* Qavat sardorlari */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Navbatchilar va davomat sessiyalari
+            Qavat sardorlari
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            {selectedDate} sanasi uchun
+            Har bir qavat uchun tayinlangan sardorlar
           </p>
         </div>
         
         <div className="p-6">
-          {sessionsLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-3 text-gray-600 dark:text-gray-400">Yuklanmoqda...</span>
-            </div>
-          ) : sessionsError ? (
+          {floorLeaders.length === 0 ? (
             <div className="text-center py-8">
-              <div className="text-red-500 mb-2">Ma&apos;lumotlarni yuklashda xatolik</div>
-              <button 
-                onClick={() => refetchSessions()}
-                className="text-blue-600 hover:text-blue-700 text-sm"
-              >
-                Qayta urinish
-              </button>
-            </div>
-          ) : attendanceSessions.length === 0 ? (
-            <div className="text-center py-8">
-              <UserX className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-500 dark:text-gray-400">
-                {selectedDate} sanasi uchun davomat sessiyalari topilmadi
+              <UserCog className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-500 dark:text-gray-400 mb-4">
+                Hozircha qavat sardorlari tayinlanmagan
               </p>
+              <button
+                onClick={() => setShowLeaderModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+              >
+                <UserCog className="h-4 w-4" />
+                Sardor tayinlash
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {attendanceSessions.map((session) => (
+              {floorLeaders.map((leader) => (
                 <motion.div
-                  key={session.id}
+                  key={leader.id}
                   whileHover={{ scale: 1.02 }}
-                  className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-600 cursor-pointer transition-all duration-200 hover:shadow-md"
-                  onClick={() => setSelectedSession(selectedSession?.id === session.id ? null : session)}
+                  className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-6 border border-green-200 dark:border-green-700 transition-all duration-200 hover:shadow-md relative group"
                 >
-                  {/* Session header */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-                        <Building className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white">
-                          {session.floor?.[0]?.name || `${session.leader.floor}-qavat`}
-                        </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {session.rooms.length} xona
-                        </p>
-                      </div>
-                    </div>
-                    <Eye className="h-4 w-4 text-gray-400" />
+                  {/* Action buttons */}
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => handleEditLeader(leader)}
+                      className="p-1.5 bg-white dark:bg-gray-700 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 rounded-lg shadow-sm transition-colors"
+                      title="Sardorni tahrirlash"
+                    >
+                      <UserCog className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleRemoveLeader(leader.id)}
+                      className="p-1.5 bg-white dark:bg-gray-700 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 rounded-lg shadow-sm transition-colors"
+                      title="Sardorni o'chirish"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
 
-                  {/* Navbatchi ma'lumoti */}
-                  <div className="mb-4 p-3 bg-white dark:bg-gray-600/50 rounded-lg">
+                  {/* Leader header */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-green-600 dark:bg-green-700 rounded-lg">
+                      <Building className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">
+                        {leader.floor_info?.name || `${leader.floor}-qavat`}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Qavat
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Sardor ma'lumoti */}
+                  <div className="p-3 bg-white dark:bg-gray-700/50 rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
-                      <UserCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      <UserCog className="h-4 w-4 text-green-600 dark:text-green-400" />
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        Navbatchi
+                        Sardor
                       </span>
                     </div>
-                    <p className="text-sm text-gray-700 dark:text-gray-300">
-                      {session.leader.user}
+                    <p className="text-sm text-gray-700 dark:text-gray-300 font-semibold">
+                      {leader.user_info?.username || 'Noma\'lum'}
                     </p>
-                  </div>
-
-                  {/* Xonalar statistikasi */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-gray-900 dark:text-white">
-                        {session.rooms.reduce((sum, room) => sum + room.students.length, 0)}
+                    {leader.user_info?.email && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {leader.user_info.email}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Jami talaba
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                        {session.rooms.length}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Xonalar
-                      </p>
-                    </div>
+                    )}
                   </div>
                 </motion.div>
               ))}
@@ -244,197 +342,129 @@ const Attendance: React.FC = () => {
         </div>
       </div>
 
-      {/* Qavatlar overview (eski) */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Qavatlar bo&apos;yicha davomat (Eski)
-          </h2>
-        </div>
-
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {floors.map((floor) => (
-              <motion.div
-                key={floor.id}
-                whileHover={{ scale: 1.02 }}
-                className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-600 cursor-pointer transition-all duration-200 hover:shadow-md"
-                onClick={() => setSelectedFloor(selectedFloor === floor.number ? null : floor.number)}
-              >
-                {/* Floor header */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-                      <Building className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white">
-                        {floor.name}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {floor.totalRooms} xona
-                      </p>
-                    </div>
-                  </div>
-                  <Eye className="h-4 w-4 text-gray-400" />
-                </div>
-
-                {/* Progress bar */}
-                <div className="mb-4">
-                  <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    <span>Davomat</span>
-                    <span>
-                      {floor.totalStudents > 0 
-                        ? `${((floor.presentStudents / floor.totalStudents) * 100).toFixed(0)}%`
-                        : '0%'
-                      }
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-                    <div
-                      className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all duration-300"
-                      style={{
-                        width: floor.totalStudents > 0 
-                          ? `${(floor.presentStudents / floor.totalStudents) * 100}%`
-                          : '0%'
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Statistics */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-gray-900 dark:text-white">
-                      {floor.totalStudents}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Jami
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-green-600 dark:text-green-400">
-                      {floor.presentStudents}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Hozir
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-red-600 dark:text-red-400">
-                      {floor.absentStudents}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Yo&apos;q
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Tanlangan qavat tafsilotlari */}
-      {selectedFloor && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700"
-        >
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {floors.find(f => f.number === selectedFloor)?.name} - Batafsil ma'lumot
-              </h2>
+      {/* Floor Leader Modal */}
+      <AnimatePresence>
+        {showLeaderModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setShowLeaderModal(false);
+              setLeaderForm({ floor_id: '', student_id: '' });
+              setEditingLeader(null);
+              setStudentSearch('');
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 40 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
               <button
-                onClick={() => setSelectedFloor(null)}
-                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded transition-colors"
+                onClick={() => {
+                  setShowLeaderModal(false);
+                  setLeaderForm({ floor_id: '', student_id: '' });
+                  setEditingLeader(null);
+                  setStudentSearch('');
+                }}
               >
-                ✕
+                <X size={22} />
               </button>
-            </div>
-          </div>
-
-          <div className="p-6">
-            <div className="space-y-4">
-              {selectedFloorAttendance.map((record) => (
-                  <div
-                    key={record.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`p-2 rounded-full ${
-                        record.status === 'present' 
-                          ? 'bg-green-100 dark:bg-green-900/50' 
-                          : record.status === 'late'
-                          ? 'bg-yellow-100 dark:bg-yellow-900/50'
-                          : 'bg-red-100 dark:bg-red-900/50'
-                      }`}>
-                        {record.status === 'present' ? (
-                          <UserCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
-                        ) : record.status === 'late' ? (
-                          <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                        ) : (
-                          <UserX className="h-4 w-4 text-red-600 dark:text-red-400" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          {record.studentName}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {record.room}-xona
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          record.status === 'present'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
-                            : record.status === 'late'
-                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
-                        }`}>
-                          {record.status === 'present' ? 'Hozir' : 
-                           record.status === 'late' ? 'Kech keldi' : 'Yo&apos;q'}
-                        </span>
-                      </div>
-                      {record.checkInTime && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          {record.checkInTime}
-                        </p>
-                      )}
-                      {record.notes && (
-                        <p className="text-xs text-gray-400 mt-1 max-w-32 truncate">
-                          {record.notes}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-              {selectedFloorAttendance.length === 0 && (
-                <div className="text-center py-8">
-                  <UserX className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-500 dark:text-gray-400">
-                    Bu qavat uchun tanlangan sanada davomat ma'lumotlari topilmadi
+              
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                  <UserCog className="w-6 h-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {editingLeader ? 'Sardorni tahrirlash' : 'Qavat sardorini tayinlash'}
+                  </h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Qavat va talabani tanlang</p>
+                </div>
+              </div>
+              
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  handleAddLeader();
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Qavat
+                  </label>
+                  <Select
+                    options={floorOptions}
+                    value={floorOptions.find((opt: { value: number; label: string }) => opt.value === parseInt(leaderForm.floor_id)) || null}
+                    onChange={(option: { value: number; label: string } | null) => setLeaderForm({ ...leaderForm, floor_id: option ? String(option.value) : '' })}
+                    placeholder="Qavatni tanlang..."
+                    className="react-select-container"
+                    classNamePrefix="react-select"
+                    isClearable
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Talaba
+                  </label>
+                  <Select
+                    options={studentOptions}
+                    value={studentOptions.find((opt: { value: number; label: string }) => opt.value === parseInt(leaderForm.student_id)) || null}
+                    onChange={(option: { value: number; label: string } | null) => setLeaderForm({ ...leaderForm, student_id: option ? String(option.value) : '' })}
+                    onInputChange={(value) => setStudentSearch(value)}
+                    placeholder="Talabani qidiring..."
+                    className="react-select-container"
+                    classNamePrefix="react-select"
+                    isClearable
+                    isSearchable
+                    noOptionsMessage={() => "Talaba topilmadi"}
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Talaba ismini yozing yoki ro'yxatdan tanlang
                   </p>
                 </div>
-              )}
-            </div>
+                
+                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowLeaderModal(false);
+                      setLeaderForm({ floor_id: '', student_id: '' });
+                      setEditingLeader(null);
+                      setStudentSearch('');
+                    }}
+                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full sm:w-auto"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={addingLeader}
+                    className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors disabled:opacity-60 w-full sm:w-auto flex items-center justify-center gap-2"
+                  >
+                    {addingLeader ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        {editingLeader ? 'Yangilanmoqda...' : 'Tayinlanmoqda...'}
+                      </>
+                    ) : (
+                      <>
+                        <UserCog className="w-4 h-4" />
+                        {editingLeader ? 'Saqlash' : 'Sardor qilish'}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
-        </motion.div>
-      )}
-
-      {/* Add Leader Modal */}
-      <AddLeaderModal
-        isOpen={isAddLeaderModalOpen}
-        onClose={() => setIsAddLeaderModalOpen(false)}
-        floors={floors}
-      />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

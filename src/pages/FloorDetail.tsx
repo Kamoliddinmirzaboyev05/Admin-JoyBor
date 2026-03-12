@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import BackButton from '../components/UI/BackButton';
 import { get } from '../data/api';
+import api from '../data/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { X, MoreVertical, Filter } from 'lucide-react';
+import { X, MoreVertical, Filter, UserCog } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -55,6 +56,14 @@ const FloorDetail: React.FC = () => {
   const [editingRoom, setEditingRoom] = useState(false);
   const [deleteRoomModal, setDeleteRoomModal] = useState<Room | null>(null);
   const [deletingRoom, setDeletingRoom] = useState(false);
+  
+  // Floor Leader states
+  const [showLeaderModal, setShowLeaderModal] = useState(false);
+  const [floorLeader, setFloorLeader] = useState<{ id: number; user_info: { username: string; email: string }; floor_info: { name: string } } | null>(null);
+  const [leaderForm, setLeaderForm] = useState({
+    student_id: '',
+  });
+  const [addingLeader, setAddingLeader] = useState(false);
 
   // Close room menu on outside click or Esc
   React.useEffect(() => {
@@ -82,7 +91,7 @@ const FloorDetail: React.FC = () => {
 
   // React Query bilan floors va rooms ma'lumotlarini olish
   const {
-    data: floors = [],
+    data: floorsData,
     isLoading: floorsLoading,
     error: floorsError
   } = useQuery({
@@ -91,7 +100,25 @@ const FloorDetail: React.FC = () => {
     staleTime: 1000 * 60 * 5,
   });
 
+  const floors = Array.isArray(floorsData) ? floorsData : (floorsData?.results || []);
   const floor = floors.find((f: Floor) => String(f.id) === String(floorId)) as Floor | undefined;
+  
+  // Fetch floor leader
+  React.useEffect(() => {
+    const fetchFloorLeader = async () => {
+      if (!floorId) return;
+      try {
+        const leaders = await api.getFloorLeaders();
+        const leadersArray = leaders.results || leaders;
+        const leader = leadersArray.find((l: { floor: number }) => String(l.floor) === String(floorId));
+        setFloorLeader(leader || null);
+      } catch (error) {
+        console.error('Failed to fetch floor leader:', error);
+      }
+    };
+    
+    fetchFloorLeader();
+  }, [floorId]);
 
   const {
     data: roomsData,
@@ -209,6 +236,49 @@ const FloorDetail: React.FC = () => {
     }
   };
 
+  // Floor Leader handlers
+  const handleAddLeader = async () => {
+    if (!leaderForm.student_id || !floorId) {
+      toast.error('Talaba IDsini kiriting!');
+      return;
+    }
+    
+    setAddingLeader(true);
+    try {
+      await api.createFloorLeader({
+        floor: parseInt(floorId),
+        user: parseInt(leaderForm.student_id),
+      });
+      
+      toast.success('Qavat sardori muvaffaqiyatli qo\'shildi!');
+      setShowLeaderModal(false);
+      setLeaderForm({ student_id: '' });
+      
+      // Refresh floor leader
+      const leaders = await api.getFloorLeaders();
+      const leadersArray = leaders.results || leaders;
+      const leader = leadersArray.find((l: { floor: number }) => String(l.floor) === String(floorId));
+      setFloorLeader(leader || null);
+    } catch (error) {
+      console.error('Add leader error:', error);
+      toast.error((error as Error)?.message || 'Sardor qo\'shishda xatolik!');
+    } finally {
+      setAddingLeader(false);
+    }
+  };
+  
+  const handleRemoveLeader = async () => {
+    if (!floorLeader) return;
+    
+    try {
+      await api.deleteFloorLeader(floorLeader.id);
+      toast.success('Qavat sardori o\'chirildi!');
+      setFloorLeader(null);
+    } catch (error) {
+      console.error('Remove leader error:', error);
+      toast.error('Sardorni o\'chirishda xatolik!');
+    }
+  };
 
 
   if (floorsLoading || roomsLoading) {
@@ -237,7 +307,31 @@ const FloorDetail: React.FC = () => {
             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${floor.gender === 'female' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-200' : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'}`}>{floor.gender === 'female' ? 'Qizlar' : 'Yigitlar'}</span>
           </div>
         </div>
-        <div className="sm:ml-auto w-full sm:w-auto">
+        <div className="sm:ml-auto w-full sm:w-auto flex gap-2">
+          {floorLeader ? (
+            <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 px-4 py-2 rounded-lg border border-green-200 dark:border-green-700">
+              <UserCog className="w-5 h-5 text-green-600 dark:text-green-400" />
+              <div className="flex flex-col">
+                <span className="text-xs text-green-600 dark:text-green-400 font-medium">Qavat sardori</span>
+                <span className="text-sm font-semibold text-gray-900 dark:text-white">{floorLeader.user_info?.username || 'Noma\'lum'}</span>
+              </div>
+              <button
+                onClick={handleRemoveLeader}
+                className="ml-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                title="Sardorni o'chirish"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition-colors flex items-center gap-2"
+              onClick={() => setShowLeaderModal(true)}
+            >
+              <UserCog className="w-5 h-5" />
+              Sardor tayinlash
+            </button>
+          )}
           <button
             className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition-colors"
             onClick={() => {
@@ -335,6 +429,106 @@ const FloorDetail: React.FC = () => {
         )}
       </AnimatePresence>
       {/* End Add Room Modal */}
+      
+      {/* Floor Leader Modal */}
+      <AnimatePresence>
+        {showLeaderModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setShowLeaderModal(false);
+              setLeaderForm({ student_id: '' });
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 40 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded transition-colors"
+                onClick={() => {
+                  setShowLeaderModal(false);
+                  setLeaderForm({ student_id: '' });
+                }}
+              >
+                <X size={22} />
+              </button>
+              
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                  <UserCog className="w-6 h-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Qavat sardorini tayinlash</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Talaba IDsini kiriting</p>
+                </div>
+              </div>
+              
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  handleAddLeader();
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Talaba ID raqami
+                  </label>
+                  <input
+                    type="number"
+                    value={leaderForm.student_id}
+                    onChange={e => setLeaderForm({ student_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Masalan: 1, 2, 3..."
+                    min="1"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Talabalar ro'yxatidan talaba IDsini topishingiz mumkin
+                  </p>
+                </div>
+                
+                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowLeaderModal(false);
+                      setLeaderForm({ student_id: '' });
+                    }}
+                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full sm:w-auto"
+                  >
+                    Bekor qilish
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={addingLeader}
+                    className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors disabled:opacity-60 w-full sm:w-auto flex items-center justify-center gap-2"
+                  >
+                    {addingLeader ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Tayinlanmoqda...
+                      </>
+                    ) : (
+                      <>
+                        <UserCog className="w-4 h-4" />
+                        Sardor qilish
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* End Floor Leader Modal */}
+      
       {/* Edit room modal */}
       <AnimatePresence>
         {editRoomModal && (
