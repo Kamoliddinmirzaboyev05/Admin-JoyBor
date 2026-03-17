@@ -127,7 +127,7 @@ export const api = {
     const queryString = searchParams.toString();
     return get(`/payments/${queryString ? `?${queryString}` : ''}`);
   },
-  createPayment: (data: Record<string, unknown>) => post('/payment/create/', data),
+  createPayment: (data: Record<string, unknown>) => post('/payments/create/', data),
   
   // Applications
   getApplications: (params?: any) => {

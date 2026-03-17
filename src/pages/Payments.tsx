@@ -498,13 +498,10 @@ const Payments: React.FC = () => {
     })
   }), [isDarkMode]);
 
-  if (isLoading || studentsLoading) {
+  if (isLoading && payments.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
-          <p className="text-gray-600 dark:text-gray-400">Ma'lumotlar yuklanmoqda...</p>
-        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
       </div>
     );
   }
@@ -513,12 +510,6 @@ const Payments: React.FC = () => {
     return (
       <div className="text-center py-10 text-red-600 dark:text-red-400">
         Ma'lumotlarni yuklashda xatolik yuz berdi.
-        <button
-          onClick={() => refetch()}
-          className="ml-2 text-blue-600 hover:underline"
-        >
-          Qayta urinish
-        </button>
       </div>
     );
   }
@@ -810,7 +801,6 @@ const Payments: React.FC = () => {
                     placeholder="Izoh..."
                   />
                 </div>
-                {error && <div className="text-red-600 text-sm text-center">{error}</div>}
                 <div className="flex gap-3 mt-4">
                   <button
                     type="button"

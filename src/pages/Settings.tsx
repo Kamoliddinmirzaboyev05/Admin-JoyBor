@@ -438,47 +438,62 @@ const Settings: React.FC = () => {
         if (!item.name.trim()) continue;
         
         let savedItem;
-        if (item.id) {
-          savedItem = await api.updateAmenity(item.id, { name: item.name, is_active: item.is_active });
+        if (item.id && item.id !== 0) {
+          // Mavjud qulaylikni tahrirlash
+          savedItem = await api.updateAmenity(item.id, { 
+            name: item.name, 
+            is_active: item.is_active 
+          });
         } else {
-          savedItem = await api.createAmenity({ name: item.name, is_active: true }); // Yangi qo'shilganda har doim true
+          // Yangi qulaylik qo'shish - har doim is_active: true bilan
+          savedItem = await api.createAmenity({ 
+            name: item.name, 
+            is_active: true 
+          });
         }
         
-        // Agar qulaylik faol (is_active: true) bo'lsa, uni dormitory ro'yxatiga qo'shish uchun ID sini saqlaymiz
-        if (item.is_active || !item.id) { // Yangi qo'shilganlar (id: 0) ham default faol deb hisoblanadi
-          savedAmenityIds.push(savedItem.id || item.id);
+        // Agar qulaylik faol bo'lsa (yoki yangi qo'shilgan bo'lsa), uni dormitoryga biriktirish ro'yxatiga qo'shish
+        // Backenddan qaytgan ID ni olishga harakat qilamiz
+        const finalId = savedItem?.id || item.id;
+        if (finalId && (item.is_active || !item.id)) {
+          savedAmenityIds.push(Number(finalId));
         }
       }
 
       // 2. Dormitory settings ni yangilash (yangi qulayliklarni bog'lash)
       if (settings) {
+        // Faqat kerakli maydonlarni yuboramiz
         const updateData = {
-          name: (settings.name as string) || '',
-          address: (settings.address as string) || '',
-          distance: (settings.distance as number) || 0,
-          description: (settings.description as string) || '',
-          month_price: (settings.month_price as number) || 0,
-          year_price: (settings.year_price as number) || 0,
-          amenities: savedAmenityIds // Faqat tanlangan/yangi qulayliklar ID lari
+          name: settings.name || '',
+          address: settings.address || '',
+          distance: Number(settings.distance) || 0,
+          description: settings.description || '',
+          month_price: Number(settings.month_price) || 0,
+          year_price: Number(settings.year_price) || 0,
+          amenities: [...new Set(savedAmenityIds)] // Takrorlanishlarni olib tashlash
         };
         
         await api.updateMyDormitory(updateData);
       }
 
-      // 3. Ma'lumotlarni qayta yuklash
-      const data = await api.getAmenities();
-      const amenitiesList = data?.results || data || [];
+      // 3. Barcha ma'lumotlarni qayta yuklash va keshni yangilash
+      const [amenitiesData, dormResponse] = await Promise.all([
+        api.getAmenities(),
+        fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitories/', {
+          headers: {
+            'Authorization': `Bearer ${sessionStorage.getItem('access')}`,
+            'Content-Type': 'application/json',
+          },
+        })
+      ]);
+
+      // Global qulayliklar ro'yxatini yangilash
+      const amenitiesList = amenitiesData?.results || amenitiesData || [];
       const finalAmenities = Array.isArray(amenitiesList) ? amenitiesList : [];
       setAllAmenities(finalAmenities);
       
-      const token = sessionStorage.getItem('access');
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitories/', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      const dormData = await response.json();
+      // Yotoqxona ma'lumotlarini yangilash
+      const dormData = await dormResponse.json();
       const dormitory = dormData.results && dormData.results.length > 0 ? dormData.results[0] : dormData;
       setSettings(dormitory);
 
