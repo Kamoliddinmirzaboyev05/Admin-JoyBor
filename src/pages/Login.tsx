@@ -74,11 +74,11 @@ const Login: React.FC = () => {
         className="bg-white dark:bg-[#1E293B] rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-md border border-gray-200 dark:border-gray-800"
       >
         <div className="mb-8 text-center">
-          <div className="w-16 h-16 mx-auto mb-2 bg-white rounded-full flex items-center justify-center shadow p-2">
-            <img src="/logoicon.svg" alt="JoyBor Logo" className="w-full h-full object-contain" />
+          <div className="w-20 h-20 mx-auto mb-4 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center shadow-lg border border-gray-100 dark:border-slate-700 p-3">
+            <img src="/logoicon.png" alt="JoyBor Logo" className="w-full h-full object-contain" />
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-[#1E293B] dark:text-white font-sans">Xush kelibsiz, Admin!</h2>
-          <p className="text-gray-500 dark:text-gray-300 text-xs sm:text-sm mt-1 font-sans">Platformaga kirish uchun login va parolingizni kiriting</p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-[#1E293B] dark:text-white font-sans tracking-tight">Xush kelibsiz!</h2>
+          <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base mt-2 font-sans">JoyBor Admin Paneliga kirish</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
           <div>

@@ -3,7 +3,7 @@ import DataTable from '../components/UI/DataTable';
 import { toast } from 'sonner';
 import Select from 'react-select';
 import { Link, useLocation } from 'react-router-dom';
-// import { formatCurrency } from '../utils/formatters';
+import { useStudents } from '../hooks/api/useApi';
 import { link } from '../data/api';
 
 // react-select custom styles for dark mode
@@ -111,49 +111,14 @@ const Students: React.FC = () => {
 
   const location = useLocation();
 
-  // Fetch students from API
-  const [students, setStudents] = useState<Array<Record<string, unknown>>>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchStudents = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const token = sessionStorage.getItem('access');
-      const response = await fetch(`${link}/students/?is_active=true`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Talabalarni yuklashda xatolik');
-      }
-      
-      const data = await response.json();
-      // API returns { results: [...] } format
-      // Filter only active students (is_active=true)
-      const allStudents = Array.isArray(data.results) ? data.results : [];
-      const activeStudents = allStudents.filter((student: Record<string, unknown>) => student.is_active !== false);
-      setStudents(activeStudents);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Xatolik yuz berdi');
-      console.error('Students fetch error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const refetch = () => {
-    return fetchStudents();
-  };
-
-  // Initial fetch
-  useEffect(() => {
-    fetchStudents();
-  }, []);
+  // Fetch students using custom hook with caching
+  const { data: studentsData, isLoading, error: fetchError, refetch } = useStudents({ is_active: true });
+  
+  // Extract results and filter active students
+  const students = React.useMemo(() => {
+    const results = Array.isArray(studentsData?.results) ? studentsData.results : [];
+    return results.filter((student: Record<string, unknown>) => student.is_active !== false);
+  }, [studentsData]);
 
   // Demo floors ma'lumotlari
   const floorsData = [
@@ -479,7 +444,7 @@ const Students: React.FC = () => {
   // Debug: API dan kelayotgan ma'lumotlarni ko'rish
   React.useEffect(() => {
     if (students.length > 0) {
-      console.log('Students data sample:', students.slice(0, 2).map((s) => ({
+      console.log('Students data sample:', students.slice(0, 2).map((s: any) => ({
         name: s.name,
         total_payment: (s as { total_payment?: unknown }).total_payment,
         tarif: (s as { tarif?: unknown }).tarif,
@@ -490,7 +455,7 @@ const Students: React.FC = () => {
 
   // Filtering and sorting logic
   const filteredStudents = students
-    .filter((s) => {
+    .filter((s: any) => {
       // Gender filter validation
 
       // Gender filter - API dan kelayotgan qiymatlarni tekshirish
@@ -589,7 +554,7 @@ const Students: React.FC = () => {
 
       return finalMatch;
     })
-    .sort((a, b) => {
+    .sort((a: any, b: any) => {
       // Familiya bo'yicha alifbo tartibida saralash
       const lastNameA = String(a.last_name || '').toLowerCase();
       const lastNameB = String(b.last_name || '').toLowerCase();
@@ -604,18 +569,18 @@ const Students: React.FC = () => {
   useEffect(() => {
     // Event listener for student updates
     const handleStudentUpdate = () => {
-      fetchStudents();
+      refetch();
     };
     window.addEventListener('student-updated', handleStudentUpdate);
     return () => {
       window.removeEventListener('student-updated', handleStudentUpdate);
     };
-  }, []);
+  }, [refetch]);
 
 
 
   // Loading state
-  if (isLoading) {
+  if (isLoading && students.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
@@ -624,7 +589,7 @@ const Students: React.FC = () => {
   }
 
   // Error state
-  if (error) {
+  if (fetchError) {
     return (
       <div className="text-center py-10 text-red-600 dark:text-red-400">
         Ma'lumotlarni yuklashda xatolik yuz berdi.
@@ -859,7 +824,7 @@ const Students: React.FC = () => {
       {/* Data Table */}
       <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         <DataTable
-          data={filteredStudents.map((s, idx: number) => ({ ...s, _idx: idx }))}
+          data={filteredStudents.map((s: any, idx: number) => ({ ...s, _idx: idx }))}
           columns={columnsWithActions}
           actions={null}
           searchable={true}

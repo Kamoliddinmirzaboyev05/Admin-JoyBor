@@ -31,19 +31,17 @@ const LoadingSpinner = () => (
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 10, // 10 daqiqa cache - sahifalar o'rtasida o'tishda qayta yuklash bo'lmasligi uchun
-      gcTime: 1000 * 60 * 30, // 30 daqiqa cache - ma'lumotlar xotirajada saqlanadi
+      staleTime: 1000 * 60 * 5, // 5 daqiqa staleTime - ma'lumotlar 5 daqiqa davomida "yangi" hisoblanadi
+      gcTime: 1000 * 60 * 10, // 10 daqiqa cacheTime (gcTime) - foydalanilmayotgan ma'lumotlar 10 daqiqa xotirada saqlanadi
       retry: (failureCount, error: Error & { response?: { status?: number } }) => {
-        // Don't retry on 403 or 401 errors
         if (error?.response?.status === 403 || error?.response?.status === 401) {
           return false;
         }
-        // Retry up to 2 times for other errors
         return failureCount < 2;
       },
-      refetchOnWindowFocus: false,
-      refetchOnMount: false, // Sahifa ochilganda qayta yuklash bo'lmasligi uchun
-      refetchOnReconnect: true, // Internet qayta ulanganda yuklash
+      refetchOnWindowFocus: true, // Oyna fokusga kelganda ma'lumotlarni yangilash (agar stale bo'lsa)
+      refetchOnMount: true, // Komponent mount bo'lganda yangilash (agar stale bo'lsa)
+      refetchOnReconnect: true,
     },
   },
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Moon, Sun, User, LogOut, PanelLeft, CheckCircle, AlertCircle, Info, Clock, Eye, RefreshCw } from 'lucide-react';
+import { Bell, Moon, Sun, User, LogOut, PanelLeft, CheckCircle, AlertCircle, Info, Clock, Eye, RefreshCw, X } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -122,8 +122,8 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
               animate={{ opacity: 1, scale: 1 }}
               className="flex items-center space-x-2"
             >
-              <div className="w-8 h-8 flex items-center justify-center">
-                <img src="/logoicon.svg" alt="logo" className='w-full h-full object-contain' />
+              <div className="w-10 h-10 flex items-center justify-center">
+                <img src="/logoicon.png" alt="logo" className='w-full h-full object-contain' />
               </div>
               <div className="hidden sm:block">
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">JoyBor</h1>
@@ -178,7 +178,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
               <AnimatePresence>
                 {showNotifications && (
                   <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
+                    <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setShowNotifications(false)} />
                     <motion.div
                       initial={{ opacity: 0, y: -10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -214,9 +214,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                               onClick={() => setShowNotifications(false)}
                               className="p-1.5 rounded-lg bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                             >
-                              <div className="w-4 h-4 flex items-center justify-center">
-                                <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full"></div>
-                              </div>
+                              <X className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
@@ -274,7 +272,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                                   exit={{ opacity: 0, x: 20 }}
                                   whileHover={{ backgroundColor: "rgba(0,0,0,0.02)" }}
                                   onClick={() => handleNotificationClick(notification)}
-                                  className={`p-4 border-l-4 transition-all cursor-pointer ${
+                                  className={`p-4 border-l-4 transition-all cursor-pointer border-b border-gray-100 dark:border-gray-700/50 ${
                                     isRead 
                                       ? 'bg-white dark:bg-gray-800 border-l-transparent' 
                                       : `bg-blue-50/50 dark:bg-blue-900/10 ${getNotificationBorderColor(notification.type)}`
@@ -285,17 +283,29 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
                                       {getNotificationIcon(notification.type)}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className={`text-sm leading-snug ${isRead ? 'text-gray-600 dark:text-gray-400' : 'text-gray-900 dark:text-white font-medium'}`}>
+                                      <div className="flex items-center justify-between gap-2 mb-1">
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                          notification.type === 'application' 
+                                            ? 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30' 
+                                            : 'text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-700'
+                                        }`}>
+                                          {notification.type === 'application' ? 'Ariza' : 'Bildirishnoma'}
+                                        </span>
+                                        <div className="flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+                                          <Clock className="w-2.5 h-2.5" />
+                                          <span>{formatNotificationTime(notification.created_at)}</span>
+                                        </div>
+                                      </div>
+                                      <p className={`text-sm leading-snug line-clamp-3 ${isRead ? 'text-gray-600 dark:text-gray-400' : 'text-gray-900 dark:text-white font-medium'}`}>
                                         {notification.message}
                                       </p>
                                       
-                                      <div className="flex items-center justify-between mt-2">
-                                        <div className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
-                                          <Clock className="w-3 h-3" />
-                                          <span>{formatNotificationTime(notification.created_at)}</span>
-                                        </div>
+                                      <div className="flex justify-end mt-2">
                                         {!isRead && (
-                                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                                          <div className="flex items-center gap-1">
+                                            <span className="text-[10px] text-blue-500 font-bold uppercase">Yangi</span>
+                                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                                          </div>
                                         )}
                                       </div>
                                     </div>

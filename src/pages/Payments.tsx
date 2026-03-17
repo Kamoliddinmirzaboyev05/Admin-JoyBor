@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import DataTable from "../components/UI/DataTable";
-import { CreditCard, Plus, X, Wallet, Eye, Edit } from "lucide-react";
+import { CreditCard, Plus, X, Wallet, Eye, Edit, Clock, CheckCircle, AlertCircle, ZoomIn } from "lucide-react";
 import Select from "react-select";
 import { motion, AnimatePresence } from "framer-motion";
 import "../index.css";
 import { toast } from "sonner";
 import { useLocation, Link } from "react-router-dom";
 import { formatCurrency, formatCurrencyDetailed } from "../utils/formatters";
+import { usePayments, useStudents, useCreatePayment, useUpdatePayment } from "../hooks/api/useApi";
 
 // Type definitions
 interface Student extends Record<string, unknown> {
@@ -54,9 +55,6 @@ const Payments: React.FC = () => {
     paymentType: "",
     comment: "",
   });
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const location = useLocation();
 
   // Filter states
@@ -65,97 +63,34 @@ const Payments: React.FC = () => {
   const [amountRangeFilter, setAmountRangeFilter] = useState("");
 
   // Dark mode holatini kuzatish
+  const [isDarkMode, setIsDarkMode] = useState(false);
   useEffect(() => {
     const checkDarkMode = () => {
       setIsDarkMode(document.documentElement.classList.contains('dark'));
     };
-
     checkDarkMode();
-
-    // MutationObserver bilan dark mode o'zgarishlarini kuzatish
     const observer = new MutationObserver(checkDarkMode);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class']
-    });
-
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => observer.disconnect();
   }, []);
 
-  // Fetch payments from API
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  // Fetch payments and students using custom hooks with caching
+  const { data: paymentsData, isLoading: paymentsLoading, error: fetchError, refetch } = usePayments();
+  const { data: studentsData, isLoading: studentsLoading } = useStudents({ is_active: true });
+  
+  const createPaymentMutation = useCreatePayment();
+  const updatePaymentMutation = useUpdatePayment();
 
-  const fetchPayments = useCallback(async () => {
-    setIsLoading(true);
-    setFetchError(null);
-    try {
-      const token = sessionStorage.getItem('access');
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/payments/', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('To\'lovlarni yuklashda xatolik');
-      }
-      
-      const data = await response.json();
-      const paymentsArray = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
-      setPayments(paymentsArray);
-    } catch (err) {
-      setFetchError(err instanceof Error ? err.message : 'Xatolik yuz berdi');
-      console.error('Payments fetch error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const payments = useMemo(() => {
+    return Array.isArray(paymentsData?.results) ? paymentsData.results : (Array.isArray(paymentsData) ? paymentsData : []);
+  }, [paymentsData]);
 
-  const refetch = useCallback(() => {
-    return fetchPayments();
-  }, [fetchPayments]);
+  const students = useMemo(() => {
+    return Array.isArray(studentsData?.results) ? studentsData.results : (Array.isArray(studentsData) ? studentsData : []);
+  }, [studentsData]);
 
-  // Initial fetch
-  useEffect(() => {
-    fetchPayments();
-  }, [fetchPayments]);
-
-  // Fetch students from API
-  const [students, setStudents] = useState<Student[]>([]);
-  const [studentsLoading, setStudentsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchStudents = async () => {
-      setStudentsLoading(true);
-      try {
-        const token = sessionStorage.getItem('access');
-        const response = await fetch('https://joyborv1.pythonanywhere.com/api/students/?is_active=true', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        if (!response.ok) {
-          throw new Error('Talabalarni yuklashda xatolik');
-        }
-        
-        const data = await response.json();
-        const studentsArray = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []);
-        setStudents(studentsArray);
-      } catch (err) {
-        console.error('Students fetch error:', err);
-        toast.error('Talabalarni yuklashda xatolik');
-      } finally {
-        setStudentsLoading(false);
-      }
-    };
-
-    fetchStudents();
-  }, []);
+  const isLoading = paymentsLoading || studentsLoading;
+  const loading = createPaymentMutation.isPending || updatePaymentMutation.isPending;
 
   useEffect(() => {
     if (location.state && (location.state as { openAddPaymentModal?: boolean }).openAddPaymentModal) {
@@ -164,22 +99,14 @@ const Payments: React.FC = () => {
     }
   }, [location.state]);
 
-  // Listen for global payment updates
+  // Listen for global updates
   useEffect(() => {
-    const handlePaymentUpdate = () => {
-      refetch();
-    };
-    
-    const handleStudentUpdate = () => {
-      refetch(); // Demo rejimda faqat refetch qilamiz
-    };
-
-    window.addEventListener('payment-updated', handlePaymentUpdate);
-    window.addEventListener('student-updated', handleStudentUpdate);
-
+    const handleUpdate = () => refetch();
+    window.addEventListener('payment-updated', handleUpdate);
+    window.addEventListener('student-updated', handleUpdate);
     return () => {
-      window.removeEventListener('payment-updated', handlePaymentUpdate);
-      window.removeEventListener('student-updated', handleStudentUpdate);
+      window.removeEventListener('payment-updated', handleUpdate);
+      window.removeEventListener('student-updated', handleUpdate);
     };
   }, [refetch]);
 
@@ -188,27 +115,21 @@ const Payments: React.FC = () => {
       key: "student",
       title: "Talaba",
       render: (_: unknown, row: Record<string, unknown>): React.ReactNode => {
-        // API dan student_info keladi
         if (row.student_info && typeof row.student_info === "object") {
-          const studentInfo = row.student_info as { id: number; name: string; last_name: string };
+          const studentInfo = row.student_info as { id: number; name?: string; last_name?: string };
+          const fullName = [studentInfo.last_name, studentInfo.name].filter(Boolean).join(' ');
           return (
-            <Link
-              to={`/studentprofile/${studentInfo.id}`}
-              className="font-medium text-blue-600 hover:underline dark:text-blue-400"
-            >
-              {`${studentInfo.last_name} ${studentInfo.name}`}
+            <Link to={`/studentprofile/${studentInfo.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
+              {fullName || "-"}
             </Link>
           );
         }
-        // Fallback - eski format
         if (row.student && typeof row.student === "object") {
-          const student = row.student as { id: number; name: string; last_name: string };
+          const student = row.student as { id: number; name?: string; last_name?: string };
+          const fullName = [student.last_name, student.name].filter(Boolean).join(' ');
           return (
-            <Link
-              to={`/studentprofile/${student.id}`}
-              className="font-medium text-blue-600 hover:underline dark:text-blue-400"
-            >
-              {`${student.last_name} ${student.name}`}
+            <Link to={`/studentprofile/${student.id}`} className="font-medium text-blue-600 hover:underline dark:text-blue-400">
+              {fullName || "-"}
             </Link>
           );
         }
@@ -247,22 +168,13 @@ const Payments: React.FC = () => {
       key: "actions",
       title: "Amallar",
       render: (_: unknown, row: Record<string, unknown>): React.ReactNode => {
-        // Type assertion to Payment for our handlers
         const payment = row as Payment;
         return (
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleView(payment)}
-              className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-              title="Ko'rish"
-            >
+            <button onClick={() => handleView(payment)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors" title="Ko'rish">
               <Eye className="w-4 h-4" />
             </button>
-            <button
-              onClick={() => handleEdit(payment)}
-              className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-              title="Tahrirlash"
-            >
+            <button onClick={() => handleEdit(payment)} className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors" title="Tahrirlash">
               <Edit className="w-4 h-4" />
             </button>
           </div>
@@ -273,10 +185,14 @@ const Payments: React.FC = () => {
   ];
 
   const handleOpen = () => {
-    setForm({ studentId: "", amount: "", validUntil: "", paymentType: "", comment: "" });
-    setError("");
     setIsEditMode(false);
-    setSelectedPayment(null);
+    setForm({
+      studentId: "",
+      amount: "",
+      validUntil: "",
+      paymentType: "",
+      comment: "",
+    });
     setShowModal(true);
   };
 
@@ -284,6 +200,36 @@ const Payments: React.FC = () => {
     setShowModal(false);
     setIsEditMode(false);
     setSelectedPayment(null);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSelectChange = (opt: { value: string; label: string } | null) => {
+    setForm(prev => ({ ...prev, studentId: opt ? opt.value : "" }));
+  };
+
+  const formatNumber = (value: string) => {
+    if (!value) return "";
+    const numericValue = value.replace(/[^\d]/g, "");
+    if (!numericValue) return "";
+    return numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  };
+
+  const unformatNumber = (value: string) => {
+    return value.replace(/[^\d]/g, "");
+  };
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value;
+    const unformattedValue = unformatNumber(rawValue);
+    const numericValue = Number(unformattedValue);
+    if (numericValue > 100000000) {
+      toast.error("Maksimal summa 100,000,000 som bo'lishi mumkin");
+      return;
+    }
+    setForm(prev => ({ ...prev, amount: unformattedValue }));
   };
 
   const handleView = (payment: Payment) => {
@@ -294,275 +240,58 @@ const Payments: React.FC = () => {
   const handleEdit = (payment: Payment) => {
     setSelectedPayment(payment);
     setIsEditMode(true);
-
-    // Sanani to'g'ri formatda o'rnatish
-    let validUntilDate = "";
-    if (payment.valid_until) {
-      try {
-        const date = new Date(payment.valid_until);
-        if (!isNaN(date.getTime())) {
-          validUntilDate = date.toISOString().split('T')[0]; // YYYY-MM-DD format
-        }
-      } catch {
-        validUntilDate = String(payment.valid_until);
-      }
-    }
-
-    // student_info dan yoki student dan ID olish
-    const studentId = payment.student_info?.id || payment.student?.id;
-
     setForm({
-      studentId: studentId ? String(studentId) : "",
-      amount: payment.amount ? String(payment.amount) : "",
-      validUntil: validUntilDate,
+      studentId: String(payment.student_info?.id || payment.student?.id || ""),
+      amount: String(payment.amount || ""),
+      validUntil: payment.valid_until || "",
       paymentType: payment.method?.toLowerCase() === "cash" ? "cash" : "card",
       comment: payment.comment || "",
     });
-
-    setError("");
     setShowModal(true);
   };
-
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  }, []);
-
-  const handleSelectChange = useCallback((opt: { value: string; label: string } | null) => {
-    setForm(prev => ({ ...prev, studentId: opt ? opt.value : "" }));
-  }, []);
-
-  // Raqamni formatlash funksiyasi
-  const formatNumber = useCallback((value: string) => {
-    if (!value) return "";
-    // Faqat raqamlarni qoldirish
-    const numericValue = value.replace(/[^\d]/g, "");
-    if (!numericValue) return "";
-    // Raqamni formatlash (1000 -> 1,000)
-    return numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  }, []);
-
-  // Formatni olib tashlash funksiyasi
-  const unformatNumber = useCallback((value: string) => {
-    return value.replace(/[^\d]/g, "");
-  }, []);
-
-  // Amount input uchun maxsus handler
-  const handleAmountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawValue = e.target.value;
-    const unformattedValue = unformatNumber(rawValue);
-
-    // Maksimal qiymat tekshiruvi (100 million som)
-    const numericValue = Number(unformattedValue);
-    if (numericValue > 100000000) {
-      toast.error("Maksimal summa 100,000,000 som bo'lishi mumkin");
-      return;
-    }
-
-    setForm(prev => ({ ...prev, amount: unformattedValue }));
-
-    // Input qiymatini formatlangan holda ko'rsatish
-    e.target.value = formatNumber(unformattedValue);
-  }, [formatNumber, unformatNumber]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Form validation - yaxshilangan
     const errors: string[] = [];
-
-    if (!form.studentId.trim()) {
-      errors.push("Talabani tanlang");
-    }
-
-    if (!form.amount.trim()) {
-      errors.push("To'lov miqdorini kiriting");
-    } else {
-      const amount = Number(form.amount);
-      if (isNaN(amount)) {
-        errors.push("To'lov miqdori faqat raqam bo'lishi kerak");
-      } else if (amount <= 0) {
-        errors.push("To'lov miqdori 0 dan katta bo'lishi kerak");
-      } else if (amount < 100000) {
-        errors.push("Minimal to'lov miqdori 100,000 som bo'lishi kerak");
-      } else if (amount > 100000000) {
-        errors.push("Maksimal to'lov miqdori 100,000,000 som bo'lishi mumkin");
-      }
-    }
-
-
-
-    if (!form.paymentType.trim()) {
-      errors.push("To'lov turini tanlang");
-    }
+    if (!form.studentId.trim()) errors.push("Talabani tanlang");
+    if (!form.amount.trim()) errors.push("To'lov miqdorini kiriting");
+    if (!form.paymentType.trim()) errors.push("To'lov turini tanlang");
 
     if (errors.length > 0) {
-      const errorMessage = errors.join(". ");
-      setError(errorMessage);
-      toast.error(errorMessage);
+      toast.error(errors.join(". "));
       return;
     }
 
-    setError("");
-    setLoading(true);
-    try {
-      if (isEditMode && selectedPayment) {
-        // Tahrirlash - haqiqiy update API endpoint ishlatish
-        const updateData = {
-          student: Number(form.studentId),
-          amount: Number(form.amount),
-          method: form.paymentType === "cash" ? "Cash" : "Card",
-          status: selectedPayment.status || "APPROVED", // Mavjud statusni saqlash
-          comment: form.comment || "",
-        };
+    const payload = {
+      student: Number(form.studentId),
+      amount: Number(form.amount),
+      method: form.paymentType === "cash" ? "Cash" : "Card",
+      comment: form.comment || "",
+      status: "APPROVED"
+    };
 
-        // PATCH request for updating existing payment
-        const token = sessionStorage.getItem("access");
-        if (!token) {
-          throw new Error("Avtorizatsiya talab qilinadi");
-        }
-
-        const response = await fetch(`https://joyborv1.pythonanywhere.com/payments/${selectedPayment.id}/`, {
-          method: "PATCH",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updateData),
-        });
-
-        if (!response.ok) {
-          let errorData;
-          try {
-            errorData = await response.json();
-          } catch {
-            errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
-          }
-
-          // Xatolik turini aniqlash
-          if (response.status === 404) {
-            throw new Error("To'lov topilmadi yoki o'chirilgan");
-          } else if (response.status === 403) {
-            throw new Error("To'lovni tahrirlash uchun ruxsat yo'q");
-          } else if (response.status === 400) {
-            const fieldErrors = [];
-            if (errorData.student) fieldErrors.push(`Talaba: ${errorData.student}`);
-            if (errorData.amount) fieldErrors.push(`Miqdor: ${errorData.amount}`);
-            if (errorData.valid_until) fieldErrors.push(`Sana: ${errorData.valid_until}`);
-            if (errorData.method) fieldErrors.push(`To'lov turi: ${errorData.method}`);
-
-            if (fieldErrors.length > 0) {
-              throw new Error(fieldErrors.join(', '));
-            }
-          }
-
-          throw new Error(errorData.detail || errorData.message || "To'lovni yangilashda xatolik");
-        }
-
-        // Muvaffaqiyatli yangilanganini tekshirish
-        await response.json(); // Response ni consume qilish
-        toast.success(`To'lov #${selectedPayment.id} muvaffaqiyatli yangilandi!`);
-
-        // Form va modallarni yopish
-        setShowModal(false);
-        setIsEditMode(false);
-        setSelectedPayment(null);
-
-        // Force immediate refetch
-        await refetch();
-        // Emit global event
-        window.dispatchEvent(new CustomEvent('payment-updated', { detail: { action: 'updated', id: selectedPayment.id } }));
-      } else {
-        // Yangi to'lov qo'shish
-        const createData = {
-          student: Number(form.studentId),
-          amount: Number(form.amount),
-          method: form.paymentType === "cash" ? "Cash" : "Card",
-          status: "APPROVED",
-          comment: form.comment || "",
-        };
-
-        console.log('Creating payment:', createData);
-
-        const token = sessionStorage.getItem("access");
-        if (!token) {
-          throw new Error("Avtorizatsiya talab qilinadi");
-        }
-
-        const response = await fetch('https://joyborv1.pythonanywhere.com/api/payments/create/', {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(createData),
-        });
-
-        if (!response.ok) {
-          let errorData;
-          try {
-            errorData = await response.json();
-          } catch {
-            errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
-          }
-
-          // Xatolik turini aniqlash
-          if (response.status === 400) {
-            const fieldErrors = [];
-            if (errorData.student) fieldErrors.push(`Talaba: ${errorData.student}`);
-            if (errorData.amount) fieldErrors.push(`Miqdor: ${errorData.amount}`);
-            if (errorData.valid_until) fieldErrors.push(`Sana: ${errorData.valid_until}`);
-            if (errorData.method) fieldErrors.push(`To'lov turi: ${errorData.method}`);
-
-            if (fieldErrors.length > 0) {
-              throw new Error(fieldErrors.join(', '));
-            }
-          }
-
-          throw new Error(errorData.detail || errorData.message || "To'lovni yaratishda xatolik");
-        }
-
-        const result = await response.json();
-        console.log('Payment created:', result);
-
-        toast.success("To'lov muvaffaqiyatli qo'shildi!");
-
-        // Form va modallarni yopish
-        setShowModal(false);
-        setIsEditMode(false);
-        setSelectedPayment(null);
-
-        // Force immediate refetch
-        await refetch();
-        // Emit global event
-        window.dispatchEvent(new CustomEvent('payment-updated', { detail: { action: 'created' } }));
-      }
-    } catch (err: unknown) {
-      console.error("Payment operation error:", err);
-
-      const errorMessage = isEditMode ? "To'lovni yangilashda xatolik: " : "To'lovni yaratishda xatolik: ";
-      let fullErrorMessage = errorMessage;
-
-      if (err instanceof Error) {
-        fullErrorMessage += err.message;
-      } else if (typeof err === 'string') {
-        fullErrorMessage += err;
-      } else {
-        fullErrorMessage += "Noma'lum xatolik yuz berdi";
-      }
-
-      setError(fullErrorMessage);
-      toast.error(fullErrorMessage);
-
-      // Agar 404 yoki 403 xatolik bo'lsa, modallarni yopish
-      if (err instanceof Error && (err.message.includes("topilmadi") || err.message.includes("ruxsat yo'q"))) {
-        setTimeout(() => {
+    if (isEditMode && selectedPayment) {
+      updatePaymentMutation.mutate({ id: selectedPayment.id, data: payload }, {
+        onSuccess: () => {
           setShowModal(false);
           setIsEditMode(false);
           setSelectedPayment(null);
-        }, 2000);
-      }
-    } finally {
-      setLoading(false);
+        }
+      });
+    } else {
+      createPaymentMutation.mutate(payload, {
+        onSuccess: () => {
+          setShowModal(false);
+          setForm({
+            studentId: "",
+            amount: "",
+            validUntil: "",
+            paymentType: "",
+            comment: "",
+          });
+        }
+      });
     }
   };
 
@@ -1175,9 +904,9 @@ const Payments: React.FC = () => {
                         className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                       >
                         {payment.student_info
-                          ? `${payment.student_info.name || ''} ${payment.student_info.last_name || ''}`
+                          ? [payment.student_info.last_name, payment.student_info.name].filter(Boolean).join(' ')
                           : payment.student
-                          ? `${payment.student.name || ''} ${payment.student.last_name || ''}`
+                          ? [payment.student.last_name, payment.student.name].filter(Boolean).join(' ')
                           : "-"}
                       </Link>
                     </div>

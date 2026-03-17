@@ -107,24 +107,37 @@ export const api = {
   },
   
   createStudent: (data: Record<string, unknown>) => post('/student/create/', data),
-  updateStudent: (id: number, data: Record<string, unknown>) => patch(`/students/${id}/`, data),
-  deleteStudent: (id: number) => del(`/students/${id}/`),
+  getStudent: (id: number | string) => get(`/students/${id}/`),
+  updateStudent: (id: number | string, data: Record<string, unknown>) => patch(`/students/${id}/`, data),
+  deleteStudent: (id: number | string) => del(`/students/${id}/`),
   
   // Floors and Rooms
   getFloors: () => get('/floors/'),
-  getRooms: (floorId?: number) => get(`/rooms/${floorId ? `?floor=${floorId}` : ''}`),
-  getAvailableRooms: (floorId: number) => get(`/available-rooms/?floor=${floorId}`),
+  getRooms: (floorId?: number | string) => get(`/rooms/${floorId ? `?floor=${floorId}` : ''}`),
+  getAvailableRooms: (floorId: number | string) => get(`/available-rooms/?floor=${floorId}`),
   
   // Provinces and Districts
   getProvinces: () => get('/provinces/'),
-  getDistricts: (provinceId?: number) => get(`/districts/${provinceId ? `?province=${provinceId}` : ''}`),
+  getDistricts: (provinceId?: number | string) => get(`/districts/${provinceId ? `?province=${provinceId}` : ''}`),
   
   // Payments
-  getPayments: () => get('/payments/'),
+  getPayments: (params?: any) => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', params.page.toString());
+    const queryString = searchParams.toString();
+    return get(`/payments/${queryString ? `?${queryString}` : ''}`);
+  },
   createPayment: (data: Record<string, unknown>) => post('/payment/create/', data),
   
   // Applications
-  getApplications: () => get('/applications/'),
+  getApplications: (params?: any) => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', params.page.toString());
+    const queryString = searchParams.toString();
+    return get(`/applications/${queryString ? `?${queryString}` : ''}`);
+  },
+  getApplication: (id: number | string) => get(`/applications/${id}/`),
+  updateApplication: (id: number | string, data: Record<string, unknown>) => patch(`/applications/${id}/`, data),
   
   // Leaders
   getLeaders: () => get('/leaders/'),

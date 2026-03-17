@@ -301,7 +301,7 @@ const ApplicationDetail: React.FC = () => {
         course: studentForm.course || '1-kurs',
         gender: studentForm.gender || 'Erkak',
         phone: studentForm.phone || '',
-        placement_status: 'APPROVED', // API expected format
+        placement_status: 'Qabul qilindi', // API expected format
         is_active: true,
         floor: selectedFloor,
         room: selectedRoom,
@@ -846,241 +846,253 @@ const ApplicationDetail: React.FC = () => {
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto"
+              className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto border border-gray-100 dark:border-slate-700"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
-                Talabalar ro'yxatiga qo'shish
-              </h3>
-              
-              {/* Form */}
-              <div className="space-y-4">
-                {/* Shaxsiy ma'lumotlar */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Ism <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={studentForm.name}
-                      onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Ism"
-                    />
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
+                    <UserPlus className="w-6 h-6" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Familiya <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={studentForm.last_name}
-                      onChange={(e) => setStudentForm({ ...studentForm, last_name: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Familiya"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Otasining ismi
-                    </label>
-                    <input
-                      type="text"
-                      value={studentForm.middle_name}
-                      onChange={(e) => setStudentForm({ ...studentForm, middle_name: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Otasining ismi"
-                    />
+                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                      Talabalar ro'yxatiga qo'shish
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Talaba ma'lumotlarini tekshiring va yotoqxonaga joylashtiring
+                    </p>
                   </div>
                 </div>
+                <button 
+                  onClick={() => setShowAddStudentModal(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-gray-400"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+              
+              {/* Form */}
+              <div className="space-y-8">
+                {/* Shaxsiy ma'lumotlar */}
+                <div className="bg-gray-50 dark:bg-slate-700/30 p-4 sm:p-6 rounded-2xl border border-gray-100 dark:border-slate-700">
+                  <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Shaxsiy ma'lumotlar
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 ml-1">
+                        Ism <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={studentForm.name}
+                        onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+                        placeholder="Ism"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 ml-1">
+                        Familiya <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={studentForm.last_name}
+                        onChange={(e) => setStudentForm({ ...studentForm, last_name: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+                        placeholder="Familiya"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 ml-1">
+                        Otasining ismi
+                      </label>
+                      <input
+                        type="text"
+                        value={studentForm.middle_name}
+                        onChange={(e) => setStudentForm({ ...studentForm, middle_name: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+                        placeholder="Otasining ismi"
+                      />
+                    </div>
+                  </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Pasport <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={studentForm.passport}
-                      onChange={(e) => setStudentForm({ ...studentForm, passport: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="AA1234567"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Telefon
-                    </label>
-                    <input
-                      type="text"
-                      value={studentForm.phone}
-                      onChange={(e) => setStudentForm({ ...studentForm, phone: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="+998901234567"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Jinsi
-                    </label>
-                    <select
-                      value={studentForm.gender}
-                      onChange={(e) => setStudentForm({ ...studentForm, gender: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="Erkak">Erkak</option>
-                      <option value="Ayol">Ayol</option>
-                    </select>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 ml-1">
+                        Pasport <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={studentForm.passport}
+                        onChange={(e) => setStudentForm({ ...studentForm, passport: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+                        placeholder="AA1234567"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 ml-1">
+                        Telefon
+                      </label>
+                      <input
+                        type="text"
+                        value={studentForm.phone}
+                        onChange={(e) => setStudentForm({ ...studentForm, phone: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+                        placeholder="+998901234567"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 ml-1">
+                        Jinsi
+                      </label>
+                      <select
+                        value={studentForm.gender}
+                        onChange={(e) => setStudentForm({ ...studentForm, gender: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none cursor-pointer"
+                      >
+                        <option value="Erkak">Erkak</option>
+                        <option value="Ayol">Ayol</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
                 {/* O'qish ma'lumotlari */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Fakultet
-                    </label>
-                    <input
-                      type="text"
-                      value={studentForm.faculty}
-                      onChange={(e) => setStudentForm({ ...studentForm, faculty: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Fakultet"
-                    />
+                <div className="bg-gray-50 dark:bg-slate-700/30 p-4 sm:p-6 rounded-2xl border border-gray-100 dark:border-slate-700">
+                  <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <GraduationCap className="w-4 h-4" />
+                    O'qish ma'lumotlari
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 ml-1">
+                        Fakultet
+                      </label>
+                      <input
+                        type="text"
+                        value={studentForm.faculty}
+                        onChange={(e) => setStudentForm({ ...studentForm, faculty: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+                        placeholder="Fakultet"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 ml-1">
+                        Yo'nalish
+                      </label>
+                      <input
+                        type="text"
+                        value={studentForm.direction}
+                        onChange={(e) => setStudentForm({ ...studentForm, direction: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+                        placeholder="Yo'nalish"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Yo'nalish
-                    </label>
-                    <input
-                      type="text"
-                      value={studentForm.direction}
-                      onChange={(e) => setStudentForm({ ...studentForm, direction: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Yo'nalish"
-                    />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Kurs
-                    </label>
-                    <select
-                      value={studentForm.course}
-                      onChange={(e) => setStudentForm({ ...studentForm, course: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Kursni tanlang</option>
-                      <option value="1-kurs">1-kurs</option>
-                      <option value="2-kurs">2-kurs</option>
-                      <option value="3-kurs">3-kurs</option>
-                      <option value="4-kurs">4-kurs</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Guruh
-                    </label>
-                    <input
-                      type="text"
-                      value={studentForm.group}
-                      onChange={(e) => setStudentForm({ ...studentForm, group: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Guruh"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 ml-1">
+                        Kurs
+                      </label>
+                      <select
+                        value={studentForm.course}
+                        onChange={(e) => setStudentForm({ ...studentForm, course: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none cursor-pointer"
+                      >
+                        <option value="">Kursni tanlang</option>
+                        <option value="1-kurs">1-kurs</option>
+                        <option value="2-kurs">2-kurs</option>
+                        <option value="3-kurs">3-kurs</option>
+                        <option value="4-kurs">4-kurs</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 ml-1">
+                        Guruh
+                      </label>
+                      <input
+                        type="text"
+                        value={studentForm.group}
+                        onChange={(e) => setStudentForm({ ...studentForm, group: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+                        placeholder="Guruh"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Qavat va xona */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-slate-700">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Qavat <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={selectedFloor}
-                      onChange={(e) => {
-                        setSelectedFloor(Number(e.target.value));
-                        setSelectedRoom(0);
-                      }}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value={0}>Qavatni tanlang</option>
-                      {floors.map((floor) => (
-                        <option key={floor.id} value={floor.id}>
-                          {floor.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Xona <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={selectedRoom}
-                      onChange={(e) => setSelectedRoom(Number(e.target.value))}
-                      disabled={!selectedFloor}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value={0}>Xonani tanlang</option>
-                      {rooms.map((room) => (
-                        <option key={room.id} value={room.id}>
-                          {room.name} ({room.current_occupancy}/{room.capacity})
-                        </option>
-                      ))}
-                    </select>
-                    {selectedFloor && rooms.length === 0 && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Bu qavatda xonalar mavjud emas
-                      </p>
-                    )}
+                <div className="bg-blue-50 dark:bg-blue-900/10 p-4 sm:p-6 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+                  <h4 className="text-sm font-bold text-blue-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    Yotoqxonaga joylashtirish
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-blue-600/70 dark:text-blue-400/70 mb-2 ml-1">
+                        Qavat <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={selectedFloor}
+                        onChange={(e) => {
+                          setSelectedFloor(Number(e.target.value));
+                          setSelectedRoom(0);
+                        }}
+                        className="w-full px-4 py-3 border border-blue-200 dark:border-blue-900/50 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none cursor-pointer"
+                      >
+                        <option value={0}>Qavatni tanlang</option>
+                        {floors.map((f: any) => (
+                          <option key={f.id} value={f.id}>{f.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-blue-600/70 dark:text-blue-400/70 mb-2 ml-1">
+                        Xona <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={selectedRoom}
+                        onChange={(e) => setSelectedRoom(Number(e.target.value))}
+                        disabled={!selectedFloor}
+                        className="w-full px-4 py-3 border border-blue-200 dark:border-blue-900/50 rounded-xl bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value={0}>Xonani tanlang</option>
+                        {rooms.map((r: any) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name} ({r.current_occupancy}/{r.capacity})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-slate-700">
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row gap-3 mt-10 pt-6 border-t border-gray-100 dark:border-slate-700">
                 <button
-                  onClick={() => {
-                    setShowAddStudentModal(false);
-                    setSelectedFloor(0);
-                    setSelectedRoom(0);
-                    // Reset form
-                    setStudentForm({
-                      name: '',
-                      last_name: '',
-                      middle_name: '',
-                      passport: '',
-                      faculty: '',
-                      direction: '',
-                      course: '',
-                      group: '',
-                      phone: '',
-                      gender: 'Erkak',
-                    });
-                  }}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition font-medium"
+                  onClick={() => setShowAddStudentModal(false)}
+                  className="flex-1 px-6 py-4 border border-gray-200 dark:border-slate-600 rounded-xl text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-50 dark:hover:bg-slate-700 transition-all active:scale-95"
                 >
                   Bekor qilish
                 </button>
                 <button
                   onClick={handleAddStudent}
-                  disabled={loading || !selectedFloor || !selectedRoom || !studentForm.name || !studentForm.last_name || !studentForm.passport}
-                  className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
+                  disabled={loading || !selectedFloor || !selectedRoom}
+                  className="flex-[2] px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/25 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                 >
                   {loading ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                      Qo'shilmoqda...
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                      Saqlanmoqda...
                     </>
                   ) : (
                     <>
-                      <UserPlus className="w-4 h-4" />
-                      Talaba qo'shish
+                      <Check className="w-5 h-5" />
+                      Ro'yxatga qo'shish va saqlash
                     </>
                   )}
                 </button>
