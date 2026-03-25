@@ -219,7 +219,44 @@ const Settings: React.FC = () => {
     distance: '',
     phone_numer: '',
     link: '',
+    latitude: '',
+    longitude: '',
   });
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Brauzeringiz geolokatsiyani qo'llab-quvvatlamaydi");
+      return;
+    }
+
+    toast.promise(
+      new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setDormCardForm(prev => ({
+              ...prev,
+              latitude: position.coords.latitude.toString(),
+              longitude: position.coords.longitude.toString()
+            }));
+            resolve(position);
+          },
+          (error) => {
+            reject(error);
+          }
+        );
+      }),
+      {
+        loading: 'Joylashuv aniqlanmoqda...',
+        success: 'Joylashuv muvaffaqiyatli aniqlandi!',
+        error: (err: any) => {
+          if (err.code === 1) return 'Joylashuvga ruxsat berilmadi';
+          if (err.code === 2) return 'Joylashuvni aniqlab bo\'lmadi';
+          if (err.code === 3) return 'Vaqt tugadi';
+          return 'Xatolik yuz berdi';
+        }
+      }
+    );
+  };
   const [pricesCardForm, setPricesCardForm] = useState({
     month_price: '', year_price: '',
   });
@@ -283,6 +320,8 @@ const Settings: React.FC = () => {
         distance: settings.distance ? String(settings.distance) : '',
         phone_numer: settings.phone_numer || '',
         link: settings.link || '',
+        latitude: settings.latitude ? String(settings.latitude) : '',
+        longitude: settings.longitude ? String(settings.longitude) : '',
       });
       setPricesCardForm({
         month_price: settings.month_price ? String(settings.month_price) : '',
@@ -569,6 +608,8 @@ const Settings: React.FC = () => {
         distance: dormCardForm.distance ? parseFloat(dormCardForm.distance) : 0,
         phone_numer: dormCardForm.phone_numer,
         link: dormCardForm.link,
+        latitude: dormCardForm.latitude ? parseFloat(dormCardForm.latitude) : 0,
+        longitude: dormCardForm.longitude ? parseFloat(dormCardForm.longitude) : 0,
         description: (settings.description as string) || '',
         month_price: (settings.month_price as number) || 0,
         year_price: (settings.year_price as number) || 0,
@@ -747,6 +788,21 @@ const Settings: React.FC = () => {
                 <EditableInput label="Universitetgacha masofa (km)" value={dormCardForm.distance} onChange={v => handleDormCardChange('distance', v)} disabled={dormLoading} fullWidth />
                 <EditableInput label="Telefon raqami" value={dormCardForm.phone_numer} onChange={v => handleDormCardChange('phone_numer', v)} disabled={dormLoading} fullWidth placeholder="+998901234567" />
                 <EditableInput label="Havola (Link)" value={dormCardForm.link} onChange={v => handleDormCardChange('link', v)} disabled={dormLoading} fullWidth placeholder="https://..." />
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <EditableInput label="Latitude" value={dormCardForm.latitude} onChange={v => handleDormCardChange('latitude', v)} disabled={dormLoading} fullWidth placeholder="41.2995" />
+                  <EditableInput label="Longitude" value={dormCardForm.longitude} onChange={v => handleDormCardChange('longitude', v)} disabled={dormLoading} fullWidth placeholder="69.2401" />
+                </div>
+                
+                <button
+                  onClick={handleGetLocation}
+                  disabled={dormLoading}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition text-sm font-semibold"
+                >
+                  <MapPin className="w-4 h-4" />
+                  Hozirgi joylashuvni aniqlash
+                </button>
+
                 <div className="flex flex-col sm:flex-row gap-2 mt-2">
                   <button className="px-4 sm:px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm sm:text-base" onClick={handleSaveDormCard} disabled={dormLoading}>{dormLoading ? 'Saqlanmoqda...' : 'Saqlash'}</button>
                   <button className="px-4 sm:px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm sm:text-base" onClick={() => setEditDormCard(false)} disabled={dormLoading}>Bekor qilish</button>
@@ -795,6 +851,19 @@ const Settings: React.FC = () => {
                         'Kiritilmagan'
                       )}
                     </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg">
+                  <MapPin className="w-5 h-5 text-blue-600" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Latitude</div>
+                      <span className="text-gray-900 dark:text-white">{settings.latitude || 'Kiritilmagan'}</span>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Longitude</div>
+                      <span className="text-gray-900 dark:text-white">{settings.longitude || 'Kiritilmagan'}</span>
+                    </div>
                   </div>
                 </div>
               </>
@@ -946,10 +1015,18 @@ const Settings: React.FC = () => {
               </button>
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition active:scale-95"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   onClick={handleSaveAmenities}
+                  disabled={dormLoading}
                 >
-                  Saqlash
+                  {dormLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Saqlanmoqda...
+                    </>
+                  ) : (
+                    'Saqlash'
+                  )}
                 </button>
                 <button
                   className="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-bold hover:bg-gray-300 dark:hover:bg-gray-600 transition"
@@ -1000,10 +1077,18 @@ const Settings: React.FC = () => {
                 />
                 <div className="flex flex-col sm:flex-row gap-2 mt-4">
                   <button
-                    className="px-4 sm:px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm sm:text-base"
+                    className="px-4 sm:px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     onClick={handleSaveContact}
+                    disabled={dormLoading}
                   >
-                    Saqlash
+                    {dormLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Saqlanmoqda...
+                      </>
+                    ) : (
+                      'Saqlash'
+                    )}
                   </button>
                   <button
                     className="px-4 sm:px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm sm:text-base"
@@ -1085,10 +1170,18 @@ const Settings: React.FC = () => {
                 <Plus className="w-4 h-4" /> Yangi qoida qo'shish
               </button>
               <button
-                className="px-4 sm:px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm sm:text-base"
+                className="px-4 sm:px-6 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 onClick={handleSaveRules}
+                disabled={dormLoading}
               >
-                Saqlash
+                {dormLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Saqlanmoqda...
+                  </>
+                ) : (
+                  'Saqlash'
+                )}
               </button>
             </div>
           )}

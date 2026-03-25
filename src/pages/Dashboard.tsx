@@ -64,16 +64,22 @@ const Dashboard: React.FC = () => {
     fetchDashboard();
   }, []);
 
-  // Demo monthly revenue ma'lumotlari
-  const monthlyRevenue = [
-    { month: 'Yanvar', revenue: 15000000 },
-    { month: 'Fevral', revenue: 16500000 },
-    { month: 'Mart', revenue: 18000000 },
-    { month: 'Aprel', revenue: 17500000 },
-    { month: 'May', revenue: 19000000 },
-    { month: 'Iyun', revenue: 18500000 },
-  ];
-  const monthlyRevenueLoading = false;
+  // Use real dashboard data with proper type checking
+  const students = (dashboardData as any)?.students || { total: 0, male: 0, female: 0, active: 0, inactive: 0, by_course: {} };
+  const rooms = (dashboardData as any)?.rooms?.total || { rooms: 0, capacity: 0, occupied: 0, free: 0 };
+  const roomsMale = (dashboardData as any)?.rooms?.male || { rooms: 0, capacity: 0, occupied: 0, free: 0 };
+  const roomsFemale = (dashboardData as any)?.rooms?.female || { rooms: 0, capacity: 0, occupied: 0, free: 0 };
+  const payments = (dashboardData as any)?.payments || {
+    total: 0,
+    approved: 0,
+    cancelled: 0,
+    total_amount: 0,
+    paid_students: 0,
+    debtors: 0
+  };
+  const applications = (dashboardData as any)?.applications || { total: 0, pending: 0, approved: 0, rejected: 0, cancelled: 0 };
+  const monthlyRevenue = (dashboardData as any)?.income?.monthly_chart || [];
+  const monthlyRevenueLoading = dashboardLoading;
 
   // Show only loading bar and spinner until data is loaded
   if (dashboardLoading) {
@@ -99,27 +105,14 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // Use real dashboard data with proper type checking
-  const students = dashboardData?.students || { total: 0, male: 0, female: 0, active: 0, inactive: 0, by_course: {} };
-  const rooms = dashboardData?.rooms?.total || { rooms: 0, capacity: 0, occupied: 0, free: 0 };
-  const roomsMale = dashboardData?.rooms?.male || { rooms: 0, capacity: 0, occupied: 0, free: 0 };
-  const roomsFemale = dashboardData?.rooms?.female || { rooms: 0, capacity: 0, occupied: 0, free: 0 };
-  const payments = dashboardData?.payments || {
-    total: 0,
-    approved: 0,
-    cancelled: 0,
-    total_amount: 0,
-    paid_students: 0,
-    debtors: 0
-  };
-  const applications = dashboardData?.applications || { total: 0, pending: 0, approved: 0, rejected: 0, cancelled: 0 };
-
   // Add this helper for Uzbek month names:
   const uzMonths = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
   function formatMonth(monthStr: string) {
     // monthStr: '2025-07'
+    if (!monthStr || !monthStr.includes('-')) return monthStr;
     const [year, month] = monthStr.split('-');
     const m = parseInt(month, 10);
+    if (isNaN(m) || m < 1 || m > 12) return monthStr;
     return `${uzMonths[m - 1]} ${year}`;
   }
 
@@ -307,7 +300,7 @@ const Dashboard: React.FC = () => {
                   }}
                 />
                 <Bar
-                  dataKey="revenue"
+                  dataKey="income"
                   fill="url(#barGradient)"
                   radius={[4, 4, 0, 0]}
                 />
