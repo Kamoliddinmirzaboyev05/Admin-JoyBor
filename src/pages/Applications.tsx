@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Select, { SingleValue } from 'react-select';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { link } from '../data/config';
 
 
 interface StatusColors {
@@ -207,7 +208,7 @@ const Applications: React.FC = () => {
         throw new Error('Avtorizatsiya talab qilinadi');
       }
 
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/applications/', {
+      const response = await fetch(`${link}/applications/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',

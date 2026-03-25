@@ -1,6 +1,7 @@
+import { link } from './config';
+
 // Universal API helper for authenticated requests
-export const BASE_URL = 'https://joyborv1.pythonanywhere.com/api';
-export const link = 'https://joyborv1.pythonanywhere.com/api';
+export const BASE_URL = link;
 
 export async function apiFetch(url: string, options: RequestInit = {}) {
   const token = sessionStorage.getItem('access');

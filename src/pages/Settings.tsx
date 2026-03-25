@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useSEO } from '../hooks/useSEO';
 import { formatCurrency } from '../utils/formatters';
 import api from '../data/api';
+import { link } from '../data/config';
 
 // Icon mapping for amenities
 const getAmenityIcon = (name: string) => {
@@ -117,7 +118,7 @@ const Settings: React.FC = () => {
       setError(null);
       try {
         const token = sessionStorage.getItem('access');
-        const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitories/', {
+        const response = await fetch(`${link}/admin/my-dormitories/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -173,7 +174,7 @@ const Settings: React.FC = () => {
     const fetchRules = async () => {
       try {
         const token = sessionStorage.getItem('access');
-        const response = await fetch('https://joyborv1.pythonanywhere.com/api/rules/', {
+        const response = await fetch(`${link}/rules/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -425,7 +426,7 @@ const Settings: React.FC = () => {
       
       // Yangilangan qoidalarni qayta yuklash
       const token = sessionStorage.getItem('access');
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/rules/', {
+      const response = await fetch(`${link}/rules/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -518,7 +519,7 @@ const Settings: React.FC = () => {
       // 3. Barcha ma'lumotlarni qayta yuklash va keshni yangilash
       const [amenitiesData, dormResponse] = await Promise.all([
         api.getAmenities(),
-        fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitories/', {
+        fetch(`${link}/admin/my-dormitories/`, {
           headers: {
             'Authorization': `Bearer ${sessionStorage.getItem('access')}`,
             'Content-Type': 'application/json',
@@ -620,7 +621,7 @@ const Settings: React.FC = () => {
       
       // Yangilangan ma'lumotlarni qayta yuklash
       const token = sessionStorage.getItem('access');
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitories/', {
+      const response = await fetch(`${link}/admin/my-dormitories/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -655,7 +656,7 @@ const Settings: React.FC = () => {
       
       // Yangilangan ma'lumotlarni qayta yuklash
       const token = sessionStorage.getItem('access');
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitories/', {
+      const response = await fetch(`${link}/admin/my-dormitories/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -691,7 +692,7 @@ const Settings: React.FC = () => {
       
       // Yangilangan ma'lumotlarni qayta yuklash
       const token = sessionStorage.getItem('access');
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitories/', {
+      const response = await fetch(`${link}/admin/my-dormitories/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -719,7 +720,7 @@ const Settings: React.FC = () => {
       
       // Yangilangan ma'lumotlarni qayta yuklash
       const token = sessionStorage.getItem('access');
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitories/', {
+      const response = await fetch(`${link}/admin/my-dormitories/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -1266,7 +1267,7 @@ const Settings: React.FC = () => {
                   
                   // Yangilangan ma'lumotlarni qayta yuklash
                   const token = sessionStorage.getItem('access');
-                  const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/my-dormitory/', {
+                  const response = await fetch(`${link}/admin/my-dormitory/`, {
                     headers: {
                       'Authorization': `Bearer ${token}`,
                       'Content-Type': 'application/json',

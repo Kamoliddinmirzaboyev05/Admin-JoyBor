@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useNavigate, useLocation } from 'react-router-dom';
 import FloorRooms from '../components/UI/FloorRooms';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { link } from '../data/config';
 
 interface Floor {
   id: number;
@@ -121,7 +122,7 @@ const Rooms: React.FC = () => {
         throw new Error('Avtorizatsiya talab qilinadi');
       }
 
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/floors/', {
+      const response = await fetch(`${link}/floors/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -225,7 +226,7 @@ const Rooms: React.FC = () => {
         throw new Error('Avtorizatsiya talab qilinadi');
       }
 
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/floors/', {
+      const response = await fetch(`${link}/floors/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -315,7 +316,7 @@ const Rooms: React.FC = () => {
         throw new Error('Avtorizatsiya talab qilinadi');
       }
 
-      const response = await fetch('https://joyborv1.pythonanywhere.com/api/rooms/', {
+      const response = await fetch(`${link}/rooms/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -366,7 +367,7 @@ const Rooms: React.FC = () => {
         throw new Error('Avtorizatsiya talab qilinadi');
       }
 
-      const response = await fetch(`https://joyborv1.pythonanywhere.com/api/floors/${editFloor.id}/`, {
+      const response = await fetch(`${link}/floors/${editFloor.id}/`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -411,7 +412,7 @@ const Rooms: React.FC = () => {
         throw new Error('Avtorizatsiya talab qilinadi');
       }
 
-      const response = await fetch(`https://joyborv1.pythonanywhere.com/api/floors/${deleteFloorId}/`, {
+      const response = await fetch(`${link}/floors/${deleteFloorId}/`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -446,7 +447,7 @@ const Rooms: React.FC = () => {
         throw new Error('Avtorizatsiya talab qilinadi');
       }
 
-      const response = await fetch(`https://joyborv1.pythonanywhere.com/api/rooms/${editRoom.id}/`, {
+      const response = await fetch(`${link}/rooms/${editRoom.id}/`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -485,7 +486,7 @@ const Rooms: React.FC = () => {
         throw new Error('Avtorizatsiya talab qilinadi');
       }
 
-      const response = await fetch(`https://joyborv1.pythonanywhere.com/api/rooms/${deleteRoom.id}/`, {
+      const response = await fetch(`${link}/rooms/${deleteRoom.id}/`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

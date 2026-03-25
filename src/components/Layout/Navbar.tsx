@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useQueryClient } from '@tanstack/react-query';
+import { link } from '../../data/config';
 
 interface NavbarProps {
   handleSidebarToggle?: () => void;
@@ -31,7 +32,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleSidebarToggle }) => {
     const fetchProfile = async () => {
       try {
         const token = sessionStorage.getItem('access');
-        const response = await fetch('https://joyborv1.pythonanywhere.com/api/me/', {
+        const response = await fetch(`${link}/me/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

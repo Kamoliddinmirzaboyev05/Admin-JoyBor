@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { LogOut, User, KeyRound, Phone, UserCog, CalendarCheck2, MapPin, MessageCircle } from 'lucide-react';
 import { get, patch } from '../data/api';
+import { link } from '../data/config';
 
 function ProfileField({ icon, label, value, actionLabel, onAction }: { icon: React.ReactNode; label: string; value?: string; actionLabel?: string; onAction?: () => void }) {
   return (
@@ -119,7 +120,7 @@ const Profile: React.FC = () => {
         
         // FormData uchun alohida fetch
         const token = sessionStorage.getItem('access');
-        const response = await fetch('https://joyborv1.pythonanywhere.com/api/me/', {
+        const response = await fetch(`${link}/me/`, {
           method: 'PATCH',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -142,8 +143,8 @@ const Profile: React.FC = () => {
 
       setShowEditModal(false);
       toast.success('Profil muvaffaqiyatli yangilandi!');
-    } catch (err: unknown) {
-      toast.error('Xatolik: ' + (err?.detail || err?.message || 'Profilni yangilashda xatolik'));
+    } catch (err: any) {
+      toast.error('Xatolik: ' + (err?.detail || err?.message || err?.toString() || 'Profilni yangilashda xatolik'));
     } finally {
       setIsUpdating(false);
     }

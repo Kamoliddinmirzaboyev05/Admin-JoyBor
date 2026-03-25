@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import StatsCard from '../components/UI/StatsCard';
 import { useEffect, useState } from 'react';
 import { formatCurrency } from '../utils/formatters';
+import { link } from '../data/config';
 
 const Dashboard: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -40,7 +41,7 @@ const Dashboard: React.FC = () => {
       setDashboardError(null);
       try {
         const token = sessionStorage.getItem('access');
-        const response = await fetch('https://joyborv1.pythonanywhere.com/api/admin/dashboard/', {
+        const response = await fetch(`${link}/admin/dashboard/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
