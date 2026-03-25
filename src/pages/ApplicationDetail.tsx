@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import BackButton from '../components/UI/BackButton';
-import { MapPin, GraduationCap, User, FileText, Check, XCircle, MessageSquare, CreditCard, UserPlus } from 'lucide-react';
+import { MapPin, GraduationCap, User, FileText, Check, XCircle, MessageSquare, CreditCard, UserPlus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { link } from '../data/config';
 import { toast } from 'sonner';
 import { invalidateApplicationCaches } from '../utils/cacheUtils';
 import { useGlobalEvents } from '../utils/globalEvents';
+import api from '../data/api';
 
 interface Application {
   id: number;
@@ -63,13 +64,16 @@ const getStatusLabel = (status: string) => {
 
 const ApplicationDetail: React.FC = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { emitApplicationUpdate, emitStudentUpdate } = useGlobalEvents();
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedFloor, setSelectedFloor] = useState<number>(0);
   const [selectedRoom, setSelectedRoom] = useState<number>(0);
@@ -227,6 +231,22 @@ const ApplicationDetail: React.FC = () => {
       toast.error(errorMessage);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    setDeleting(true);
+    try {
+      await api.deleteApplication(id);
+      toast.success('Ariza muvaffaqiyatli o\'chirildi');
+      await invalidateApplicationCaches(queryClient);
+      navigate('/applications');
+    } catch (error: any) {
+      toast.error(error.message || 'Arizani o\'chirishda xatolik yuz berdi');
+    } finally {
+      setDeleting(false);
+      setShowDeleteModal(false);
     }
   };
 
@@ -651,6 +671,14 @@ const ApplicationDetail: React.FC = () => {
                 Talabalar ro'yxatiga qo'shish
               </button>
             )}
+
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="w-full mt-4 px-6 py-3 rounded-lg border-2 border-red-600 text-red-600 hover:bg-red-600 hover:text-white font-semibold transition flex items-center justify-center gap-2"
+            >
+              <Trash2 className="w-5 h-5" />
+              Arizani o'chirib tashlash
+            </button>
           </div>
         </div>
       </motion.div>
@@ -806,6 +834,62 @@ const ApplicationDetail: React.FC = () => {
                     <>
                       <XCircle className="w-4 h-4" />
                       Rad etish
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowDeleteModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500">
+                <Trash2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 text-center">
+                Arizani o'chirish?
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6 text-center">
+                Siz haqiqatan ham ushbu arizani butunlay o'chirib tashlamoqchimisiz? Bu amalni ortga qaytarib bo'lmaydi.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition font-semibold"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2 font-semibold"
+                >
+                  {deleting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      O'chirilmoqda...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      O'chirish
                     </>
                   )}
                 </button>

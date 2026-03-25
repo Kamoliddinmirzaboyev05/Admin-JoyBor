@@ -17,6 +17,8 @@ const Profile = React.lazy(() => import("./pages/Profile"));
 const Applications = React.lazy(() => import("./pages/Applications"));
 const ApplicationDetail = React.lazy(() => import("./pages/ApplicationDetail"));
 const Settings = React.lazy(() => import("./pages/Settings"));
+const Staff = React.lazy(() => import("./pages/Staff"));
+const StaffProfile = React.lazy(() => import("./pages/StaffProfile"));
 const Notifications = React.lazy(() => import("./pages/Notifications"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
 
@@ -97,6 +99,16 @@ function App() {
             <Route path="applications/:id" element={
               <Suspense fallback={<LoadingSpinner />}>
                 <ApplicationDetail />
+              </Suspense>
+            } />
+            <Route path="staff" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <Staff />
+              </Suspense>
+            } />
+            <Route path="staff/:id" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <StaffProfile />
               </Suspense>
             } />
             <Route path="settings" element={

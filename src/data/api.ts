@@ -139,6 +139,7 @@ export const api = {
   },
   getApplication: (id: number | string) => get(`/applications/${id}/`),
   updateApplication: (id: number | string, data: Record<string, unknown>) => patch(`/applications/${id}/`, data),
+  deleteApplication: (id: number | string) => del(`/applications/${id}/`),
   
   // Leaders
   getLeaders: () => get('/leaders/'),

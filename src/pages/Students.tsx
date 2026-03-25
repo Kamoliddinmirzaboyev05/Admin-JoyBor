@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import Select from 'react-select';
 import { Link, useLocation } from 'react-router-dom';
 import { useStudents } from '../hooks/api/useApi';
-import { link } from '../data/api';
+import { link } from '../data/config';
 
 // react-select custom styles for dark mode
 const selectStyles = {

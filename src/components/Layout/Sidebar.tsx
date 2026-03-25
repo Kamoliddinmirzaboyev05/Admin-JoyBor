@@ -18,6 +18,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Talabalar', href: '/students', icon: Users },
   { name: 'To\'lovlar', href: '/payments', icon: CreditCard },
+  { name: 'Xodimlar', href: '/staff', icon: Users },
   { name: 'Yotoqxona', href: '/rooms', icon: Building },
   { name: 'Davomat', href: '/attendance', icon: UserCheck },
   { name: 'Arizalar', href: '/applications', icon: FileText },
@@ -53,7 +54,7 @@ const Sidebar: React.FC = () => {
   };
 
   // Demo settings
-  const settings = {
+  const settings: any = {
     name: 'JoyBor Yotoqxonasi',
     logo: null,
   };
