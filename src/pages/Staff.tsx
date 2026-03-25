@@ -223,36 +223,40 @@ const Staff: React.FC = () => {
   ];
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
+    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
       
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-            Xodimlar
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 font-medium">
-            Tizimdagi barcha xodimlarni boshqarish va monitoring qilish
-          </p>
+      {/* Header Section - Fixed */}
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full flex-shrink-0">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+              Xodimlar
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 font-medium">
+              Tizimdagi barcha xodimlarni boshqarish va monitoring qilish
+            </p>
+          </div>
+          
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold shadow-xl shadow-blue-500/20 transition-all active:scale-[0.98]"
+          >
+            <UserPlus className="w-5 h-5" />
+            <span>Xodim qo'shish</span>
+          </motion.button>
         </div>
-        
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold shadow-xl shadow-blue-500/20 transition-all active:scale-[0.98]"
-        >
-          <UserPlus className="w-5 h-5" />
-          <span>Xodim qo'shish</span>
-        </motion.button>
       </div>
 
-      {/* Main Content Card - Using DataTable for professional look */}
-      <DataTable 
-        data={staffList as any} 
-        columns={columns as any}
-        onRowClick={(row) => navigate(`/staff/${row.id}`)}
-      />
+      {/* Main Content Area - Scrollable */}
+      <div className="flex-1 overflow-hidden px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full pb-8">
+        <DataTable 
+          data={staffList as any} 
+          columns={columns as any}
+          onRowClick={(row) => navigate(`/staff/${row.id}`)}
+        />
+      </div>
 
       {/* Add Employee Modal */}
       <AnimatePresence>

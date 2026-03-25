@@ -124,14 +124,14 @@ const DataTable: React.FC<DataTableProps> = ({
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[600px]">
-          <thead className="bg-gray-50 dark:bg-gray-700">
+      <div className="overflow-x-auto max-h-[calc(100vh-300px)] overflow-y-auto custom-scrollbar">
+        <table className="w-full min-w-[600px] border-separate border-spacing-0">
+          <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10 shadow-sm">
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-2 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider ${column.sortable ? 'cursor-pointer hover:text-gray-700 dark:hover:text-gray-200' : ''
+                  className={`px-2 sm:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 ${column.sortable ? 'cursor-pointer hover:text-gray-700 dark:hover:text-gray-200' : ''
                     }`}
                   onClick={() => column.sortable && handleSort(column.key)}
                 >
