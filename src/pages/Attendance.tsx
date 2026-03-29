@@ -11,18 +11,21 @@ import {
   Calendar,
   UserCog,
   X,
-  Search
+  Search,
+  UserPlus
 } from 'lucide-react';
 import StatsCard from '../components/UI/StatsCard';
 import api from '../data/api';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import Select from 'react-select';
+import AddLeaderModal from '../components/Modals/AddLeaderModal';
 
 const Attendance: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
   const [showLeaderModal, setShowLeaderModal] = useState(false);
+  const [showAddLeaderModal, setShowAddLeaderModal] = useState(false);
   const [floorLeaders, setFloorLeaders] = useState<Array<{ id: number; user_info: { username: string; email: string; id: number }; floor_info: { name: string; id: number }; floor: number; user: number }>>([]);
   const [leaderForm, setLeaderForm] = useState({
     floor_id: '',
@@ -31,6 +34,8 @@ const Attendance: React.FC = () => {
   const [editingLeader, setEditingLeader] = useState<{ id: number; floor_id: string; student_id: string } | null>(null);
   const [addingLeader, setAddingLeader] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
+  
+  const queryClient = useQueryClient();
 
   // Fetch floors
   const { data: floorsData } = useQuery({
@@ -39,6 +44,12 @@ const Attendance: React.FC = () => {
   });
 
   const floors = floorsData?.results || floorsData || [];
+  
+  const floorsForModal = floors.map((f: any) => ({
+    id: String(f.id),
+    number: f.id, // Assuming ID is the floor number or use another property
+    name: f.name
+  }));
 
   // Fetch students
   const { data: studentsData } = useQuery({
@@ -49,19 +60,16 @@ const Attendance: React.FC = () => {
   const students = studentsData?.results || studentsData || [];
 
   // Fetch floor leaders
+  const { data: leadersData, refetch: refetchLeaders } = useQuery({
+    queryKey: ['floor-leaders'],
+    queryFn: () => api.getFloorLeaders()
+  });
+
   useEffect(() => {
-    const fetchFloorLeaders = async () => {
-      try {
-        const leaders = await api.getFloorLeaders();
-        const leadersArray = leaders.results || leaders;
-        setFloorLeaders(leadersArray);
-      } catch (error) {
-        console.error('Failed to fetch floor leaders:', error);
-      }
-    };
-    
-    fetchFloorLeaders();
-  }, []);
+    if (leadersData) {
+      setFloorLeaders(leadersData.results || leadersData);
+    }
+  }, [leadersData]);
 
   // Calculate statistics
   const totalStudents = students.length;
@@ -100,13 +108,10 @@ const Attendance: React.FC = () => {
       setStudentSearch('');
       
       // Refresh floor leaders
-      const leaders = await api.getFloorLeaders();
-      const leadersArray = leaders.results || leaders;
-      setFloorLeaders(leadersArray);
+      refetchLeaders();
     } catch (error: any) {
       console.error('Add/Edit leader error:', error);
       if (error.response && error.response.data) {
-        console.log('Error response data:', error.response.data);
         const errorData = error.response.data;
         const message = errorData.detail || errorData.message || JSON.stringify(errorData);
         toast.error(`Xatolik: ${message}`);
@@ -141,9 +146,7 @@ const Attendance: React.FC = () => {
       toast.success('Qavat sardori o\'chirildi!');
       
       // Refresh floor leaders
-      const leaders = await api.getFloorLeaders();
-      const leadersArray = leaders.results || leaders;
-      setFloorLeaders(leadersArray);
+      refetchLeaders();
     } catch (error: any) {
       console.error('Remove leader error:', error);
       if (error.response && error.response.data) {
@@ -206,10 +209,17 @@ const Attendance: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowLeaderModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
           >
             <UserCog className="h-4 w-4" />
-            Qavat sardori qo&apos;shish
+            Sardor tayinlash
+          </button>
+          <button
+            onClick={() => setShowAddLeaderModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+          >
+            <UserPlus className="h-4 w-4" />
+            Yangi sardor qo&apos;shish
           </button>
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-gray-500" />
@@ -269,13 +279,22 @@ const Attendance: React.FC = () => {
               <p className="text-gray-500 dark:text-gray-400 mb-4">
                 Hozircha qavat sardorlari tayinlanmagan
               </p>
-              <button
-                onClick={() => setShowLeaderModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-              >
-                <UserCog className="h-4 w-4" />
-                Sardor tayinlash
-              </button>
+              <div className="flex justify-center gap-4">
+                <button
+                  onClick={() => setShowLeaderModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  <UserCog className="h-4 w-4" />
+                  Sardor tayinlash
+                </button>
+                <button
+                  onClick={() => setShowAddLeaderModal(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Yangi sardor
+                </button>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -342,7 +361,17 @@ const Attendance: React.FC = () => {
         </div>
       </div>
 
-      {/* Floor Leader Modal */}
+      {/* AddLeaderModal Component */}
+      <AddLeaderModal 
+        isOpen={showAddLeaderModal}
+        onClose={() => {
+          setShowAddLeaderModal(false);
+          refetchLeaders();
+        }}
+        floors={floorsForModal}
+      />
+
+      {/* Floor Leader Modal (Linking existing) */}
       <AnimatePresence>
         {showLeaderModal && (
           <div
@@ -375,14 +404,14 @@ const Attendance: React.FC = () => {
               </button>
               
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                  <UserCog className="w-6 h-6 text-green-600 dark:text-green-400" />
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                  <UserCog className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {editingLeader ? 'Sardorni tahrirlash' : 'Qavat sardorini tayinlash'}
+                    {editingLeader ? 'Sardorni tahrirlash' : 'Sardor tayinlash'}
                   </h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Qavat va talabani tanlang</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Mavjud talabani tanlang</p>
                 </div>
               </div>
               
@@ -425,7 +454,7 @@ const Attendance: React.FC = () => {
                     noOptionsMessage={() => "Talaba topilmadi"}
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Talaba ismini yozing yoki ro'yxatdan tanlang
+                    Mavjud talabalar ro'yxatidan tanlang
                   </p>
                 </div>
                 
@@ -445,7 +474,7 @@ const Attendance: React.FC = () => {
                   <button
                     type="submit"
                     disabled={addingLeader}
-                    className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors disabled:opacity-60 w-full sm:w-auto flex items-center justify-center gap-2"
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors disabled:opacity-60 w-full sm:w-auto flex items-center justify-center gap-2"
                   >
                     {addingLeader ? (
                       <>
@@ -455,7 +484,7 @@ const Attendance: React.FC = () => {
                     ) : (
                       <>
                         <UserCog className="w-4 h-4" />
-                        {editingLeader ? 'Saqlash' : 'Sardor qilish'}
+                        {editingLeader ? 'Saqlash' : 'Tayinlash'}
                       </>
                     )}
                   </button>

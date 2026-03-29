@@ -11,127 +11,122 @@ import {
   DollarSign,
   ChevronRight,
   UserCheck,
-  Calendar
+  Calendar,
+  Search,
+  Filter
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import DataTable from '../components/UI/DataTable';
+import api from '../data/api';
 
-// Mock data for employees
-const MOCK_STAFF = [
-  {
-    id: 1,
-    name: "Azamat Toshpo'latov",
-    role: "Boshqaruvchi",
-    phone: "+998 90 123 45 67",
-    salary: "8,500,000",
-    status: "Ishda",
-    avatar: "https://i.pravatar.cc/150?u=1",
-    email: "azamat@joybor.uz",
-    joined_date: "2023-01-15"
-  },
-  {
-    id: 2,
-    name: "Malika Ahmedova",
-    role: "Administrator",
-    phone: "+998 93 987 65 43",
-    salary: "5,000,000",
-    status: "Ishda",
-    avatar: "https://i.pravatar.cc/150?u=2",
-    email: "malika@joybor.uz",
-    joined_date: "2023-03-20"
-  },
-  {
-    id: 3,
-    name: "Jasur Karimov",
-    role: "Xavfsizlik xodimi",
-    phone: "+998 94 555 44 33",
-    salary: "4,200,000",
-    status: "Ishda",
-    avatar: "https://i.pravatar.cc/150?u=3",
-    email: "jasur@joybor.uz",
-    joined_date: "2022-11-05"
-  },
-  {
-    id: 4,
-    name: "Nigora Usmonova",
-    role: "Tozalik xodimi",
-    phone: "+998 99 111 22 33",
-    salary: "3,500,000",
-    status: "Ta'tilda",
-    avatar: "https://i.pravatar.cc/150?u=4",
-    email: "nigora@joybor.uz",
-    joined_date: "2023-06-12"
-  },
-  {
-    id: 5,
-    name: "Sardor Ergashev",
-    role: "Texnik xodim",
-    phone: "+998 97 777 88 99",
-    salary: "4,800,000",
-    status: "Ishda",
-    avatar: "https://i.pravatar.cc/150?u=5",
-    email: "sardor@joybor.uz",
-    joined_date: "2023-02-28"
-  },
-  {
-    id: 6,
-    name: "Dilnoza Olimova",
-    role: "Oshpaz",
-    phone: "+998 91 222 33 44",
-    salary: "4,500,000",
-    status: "Ishda",
-    avatar: "https://i.pravatar.cc/150?u=6",
-    email: "dilnoza@joybor.uz",
-    joined_date: "2023-08-10"
-  }
-];
+const ROLES_MAP: Record<string, string> = {
+  "manager": "Boshqaruvchi",
+  "admin": "Administrator",
+  "guard": "Xavfsizlik xodimi",
+  "cleaner": "Tozalik xodimi",
+  "technician": "Texnik xodim",
+  "cook": "Oshpaz"
+};
 
-const ROLES = [
-  "Boshqaruvchi",
-  "Administrator",
-  "Xavfsizlik xodimi",
-  "Tozalik xodimi",
-  "Texnik xodim",
-  "Oshpaz"
+const ROLES_OPTIONS = [
+  { value: "manager", label: "Boshqaruvchi" },
+  { value: "admin", label: "Administrator" },
+  { value: "guard", label: "Xavfsizlik xodimi" },
+  { value: "cleaner", label: "Tozalik xodimi" },
+  { value: "technician", label: "Texnik xodim" },
+  { value: "cook", label: "Oshpaz" }
 ];
 
 const Staff: React.FC = () => {
-  const [staffList, setStaffList] = useState(MOCK_STAFF);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editStaff, setEditStaff] = useState<any>(null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   
   const [formData, setFormData] = useState({
     name: '',
-    role: ROLES[0],
+    last_name: '',
+    position: ROLES_OPTIONS[0].value,
     phone: '',
     salary: '',
   });
+
+  const [search, setSearch] = useState('');
+  const [positionFilter, setPositionFilter] = useState('');
+
+  // Fetch staff list
+  const { data: staffData, isLoading } = useQuery({
+    queryKey: ['staff', search, positionFilter],
+    queryFn: () => api.getStaff({ search, position: positionFilter })
+  });
+
+  const staffList = Array.isArray(staffData?.results) ? staffData.results : [];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Add/Edit mutation
+  const saveMutation = useMutation({
+    mutationFn: (data: any) => {
+      if (editStaff) {
+        return api.updateStaff(editStaff.id, data);
+      }
+      return api.createStaff({
+        ...data,
+        salary: Number(data.salary.replace(/[^0-9]/g, '')),
+        hired_date: new Date().toISOString().split('T')[0],
+        is_active: true
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff'] });
+      setIsModalOpen(false);
+      setEditStaff(null);
+      setFormData({ name: '', last_name: '', position: ROLES_OPTIONS[0].value, phone: '', salary: '' });
+      toast.success(editStaff ? "Xodim ma'lumotlari yangilandi" : "Yangi xodim muvaffaqiyatli qo'shildi");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Xatolik yuz berdi");
+    }
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const newEmployee = {
-      id: staffList.length + 1,
-      ...formData,
-      status: "Ishda",
-      avatar: `https://i.pravatar.cc/150?u=${staffList.length + 1}`,
-      email: `${formData.name.toLowerCase().replace(' ', '.')}@joybor.uz`,
-      joined_date: new Date().toISOString().split('T')[0]
-    };
-    setStaffList(prev => [newEmployee, ...prev]);
-    setIsModalOpen(false);
-    setFormData({ name: '', role: ROLES[0], phone: '', salary: '' });
-    toast.success("Yangi xodim muvaffaqiyatli qo'shildi");
+    saveMutation.mutate(formData);
   };
 
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => api.deleteStaff(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff'] });
+      toast.error("Xodim tizimdan o'chirildi");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "O'chirishda xatolik");
+    }
+  });
+
   const handleDelete = (id: number) => {
-    setStaffList(prev => prev.filter(item => item.id !== id));
-    toast.error("Xodim tizimdan o'chirildi");
+    if (window.confirm("Haqiqatan ham ushbu xodimni o'chirmoqchimisiz?")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const handleEdit = (staff: any) => {
+    setEditStaff(staff);
+    setFormData({
+      name: staff.name,
+      last_name: staff.last_name,
+      position: staff.position,
+      phone: staff.phone,
+      salary: staff.salary.toString(),
+    });
+    setIsModalOpen(true);
   };
 
   const columns = [
@@ -139,31 +134,26 @@ const Staff: React.FC = () => {
       key: 'name',
       title: 'Xodim',
       sortable: true,
-      render: (value: unknown, row: any) => (
+      render: (_: unknown, row: any) => (
         <div className="flex items-center gap-3">
-          <img src={row.avatar} alt={String(value)} className="w-10 h-10 rounded-xl object-cover border border-gray-200 dark:border-gray-700" />
+          <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold border border-blue-200 dark:border-blue-800">
+            {row.name[0]}{row.last_name?.[0]}
+          </div>
           <div className="flex flex-col">
-            <span className="font-bold text-gray-900 dark:text-white text-sm sm:text-base">{String(value)}</span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">{row.email}</span>
+            <span className="font-bold text-gray-900 dark:text-white text-sm sm:text-base">{row.name} {row.last_name}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{row.phone}</span>
           </div>
         </div>
       )
     },
     {
-      key: 'role',
+      key: 'position',
       title: 'Lavozim',
       sortable: true,
       render: (value: unknown) => (
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-lg">
-          {String(value)}
+          {ROLES_MAP[String(value)] || String(value)}
         </span>
-      )
-    },
-    {
-      key: 'phone',
-      title: 'Telefon',
-      render: (value: unknown) => (
-        <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">{String(value)}</span>
       )
     },
     {
@@ -172,23 +162,25 @@ const Staff: React.FC = () => {
       sortable: true,
       render: (value: unknown) => (
         <div className="flex flex-col">
-          <span className="text-sm font-bold text-gray-900 dark:text-white">{String(value)}</span>
+          <span className="text-sm font-bold text-gray-900 dark:text-white">
+            {Number(value).toLocaleString()}
+          </span>
           <span className="text-[10px] text-gray-400 font-bold uppercase">UZS</span>
         </div>
       )
     },
     {
-      key: 'status',
+      key: 'is_active',
       title: 'Holati',
       sortable: true,
       render: (value: unknown) => (
         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
-          value === 'Ishda' 
+          value 
             ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
             : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
         }`}>
-          <span className={`w-1.5 h-1.5 rounded-full mr-2 ${value === 'Ishda' ? 'bg-green-500' : 'bg-amber-500'}`}></span>
-          {String(value)}
+          <span className={`w-1.5 h-1.5 rounded-full mr-2 ${value ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+          {value ? 'Ishda' : 'Nofaol'}
         </span>
       )
     },
@@ -200,12 +192,12 @@ const Staff: React.FC = () => {
           <button 
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/staff/${row.id}`);
+              handleEdit(row);
             }}
             className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all"
-            title="Profilni ko'rish"
+            title="Tahrirlash"
           >
-            <ChevronRight className="w-5 h-5" />
+            <Edit2 className="w-4 h-4" />
           </button>
           <button 
             onClick={(e) => {
@@ -228,19 +220,53 @@ const Staff: React.FC = () => {
       {/* Header Section - Fixed */}
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full flex-shrink-0">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div className="space-y-1">
-            <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-              Xodimlar
-            </h1>
-            <p className="text-gray-500 dark:text-gray-400 font-medium">
-              Tizimdagi barcha xodimlarni boshqarish va monitoring qilish
-            </p>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                Xodimlar
+              </h1>
+              <p className="text-gray-500 dark:text-gray-400 font-medium">
+                Tizimdagi barcha xodimlarni boshqarish va monitoring qilish
+              </p>
+            </div>
+            
+            {/* Filters */}
+            <div className="flex flex-wrap gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input 
+                  type="text"
+                  placeholder="Qidirish..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all w-full sm:w-64"
+                />
+              </div>
+              
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <select
+                  value={positionFilter}
+                  onChange={(e) => setPositionFilter(e.target.value)}
+                  className="pl-10 pr-8 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all appearance-none"
+                >
+                  <option value="">Barcha lavozimlar</option>
+                  {ROLES_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
           
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              setEditStaff(null);
+              setFormData({ name: '', last_name: '', position: ROLES_OPTIONS[0].value, phone: '', salary: '' });
+              setIsModalOpen(true);
+            }}
             className="flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold shadow-xl shadow-blue-500/20 transition-all active:scale-[0.98]"
           >
             <UserPlus className="w-5 h-5" />
@@ -252,13 +278,12 @@ const Staff: React.FC = () => {
       {/* Main Content Area - Scrollable */}
       <div className="flex-1 overflow-hidden px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full pb-8">
         <DataTable 
-          data={staffList as any} 
+          data={staffList} 
           columns={columns as any}
-          onRowClick={(row) => navigate(`/staff/${row.id}`)}
         />
       </div>
 
-      {/* Add Employee Modal */}
+      {/* Add/Edit Employee Modal */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -282,11 +307,15 @@ const Staff: React.FC = () => {
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-4">
                     <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-2xl text-blue-600 dark:text-blue-400 shadow-inner">
-                      <UserPlus className="w-6 h-6" />
+                      {editStaff ? <Edit2 className="w-6 h-6" /> : <UserPlus className="w-6 h-6" />}
                     </div>
                     <div>
-                      <h3 className="text-2xl font-black text-slate-900 dark:text-white">Xodim qo'shish</h3>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Yangi xodim ma'lumotlarini kiriting</p>
+                      <h3 className="text-2xl font-black text-slate-900 dark:text-white">
+                        {editStaff ? "Xodimni tahrirlash" : "Xodim qo'shish"}
+                      </h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+                        {editStaff ? "Xodim ma'lumotlarini yangilang" : "Yangi xodim ma'lumotlarini kiriting"}
+                      </p>
                     </div>
                   </div>
                   <button 
@@ -299,20 +328,35 @@ const Staff: React.FC = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-5">
-                    <div>
-                      <label className="flex items-center gap-2 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">
-                        <User className="w-3.5 h-3.5" />
-                        F.I.SH
-                      </label>
-                      <input 
-                        required
-                        type="text" 
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        placeholder="Masalan: Ali Valiyev"
-                        className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-transparent focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl text-slate-900 dark:text-white placeholder-slate-400 focus:ring-0 transition-all outline-none font-semibold"
-                      />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="flex items-center gap-2 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                          Ismi
+                        </label>
+                        <input 
+                          required
+                          type="text" 
+                          name="name"
+                          value={formData.name}
+                          onChange={handleInputChange}
+                          placeholder="Ali"
+                          className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-transparent focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl text-slate-900 dark:text-white placeholder-slate-400 focus:ring-0 transition-all outline-none font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="flex items-center gap-2 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                          Familiyasi
+                        </label>
+                        <input 
+                          required
+                          type="text" 
+                          name="last_name"
+                          value={formData.last_name}
+                          onChange={handleInputChange}
+                          placeholder="Valiyev"
+                          className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-transparent focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl text-slate-900 dark:text-white placeholder-slate-400 focus:ring-0 transition-all outline-none font-semibold"
+                        />
+                      </div>
                     </div>
 
                     <div>
@@ -322,13 +366,13 @@ const Staff: React.FC = () => {
                       </label>
                       <div className="relative">
                         <select 
-                          name="role"
-                          value={formData.role}
+                          name="position"
+                          value={formData.position}
                           onChange={handleInputChange}
                           className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-transparent focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl text-slate-900 dark:text-white focus:ring-0 transition-all outline-none cursor-pointer appearance-none font-semibold"
                         >
-                          {ROLES.map(role => (
-                            <option key={role} value={role}>{role}</option>
+                          {ROLES_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
                           ))}
                         </select>
                         <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
@@ -381,9 +425,10 @@ const Staff: React.FC = () => {
                     </button>
                     <button
                       type="submit"
-                      className="flex-1 py-5 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all active:scale-95"
+                      disabled={saveMutation.isPending}
+                      className="flex-1 py-5 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
                     >
-                      Qo'shish
+                      {saveMutation.isPending ? "Saqlanmoqda..." : (editStaff ? "Yangilash" : "Qo'shish")}
                     </button>
                   </div>
                 </form>

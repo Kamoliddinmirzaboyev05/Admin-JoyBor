@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import BackButton from '../components/UI/BackButton';
-import { BadgeCheck, Calendar, Trash2, Eye } from 'lucide-react';
+import { BadgeCheck, Calendar, Trash2, Eye, FileText } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { link } from '../data/config';
 import axios from 'axios';
@@ -781,26 +781,27 @@ const StudentProfile: React.FC = () => {
                 </div>
               )}
               
-              {/* Qo'shimcha hujjat */}
+              {/* Qo'shimcha hujjat - Fayl ko'rinishida */}
               {(form as Record<string, any>).document && (
-                <div 
-                  className="group relative bg-gray-50 dark:bg-slate-700/30 rounded-xl overflow-hidden border border-gray-100 dark:border-slate-700 cursor-pointer hover:shadow-md transition-all duration-300"
-                  onClick={() => setSelectedImage((form as Record<string, any>).document)}
+                <a 
+                  href={(form as Record<string, any>).document}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative bg-gray-50 dark:bg-slate-700/30 rounded-xl overflow-hidden border border-gray-100 dark:border-slate-700 cursor-pointer hover:shadow-md transition-all duration-300 flex flex-col"
                 >
                   <div className="aspect-[3/4] sm:aspect-video bg-gray-100 dark:bg-slate-900 flex items-center justify-center relative overflow-hidden">
-                    <img
-                      src={(form as Record<string, any>).document}
-                      alt="Qo'shimcha hujjat"
-                      className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110"
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <FileText className="w-16 h-16 text-gray-400 dark:text-gray-500 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors" />
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Hujjatni ochish</span>
+                    </div>
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                        <Eye className="text-white w-6 h-6 sm:w-8 sm:h-8" />
                     </div>
                   </div>
                   <div className="p-2 sm:p-3 bg-white dark:bg-slate-800 text-center border-t border-gray-50 dark:border-slate-700">
                     <div className="text-[10px] sm:text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate">Qo'shimcha hujjat</div>
                   </div>
-                </div>
+                </a>
               )}
             </div>
           </div>

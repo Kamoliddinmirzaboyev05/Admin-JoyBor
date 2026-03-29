@@ -32,34 +32,47 @@ const AddLeaderModal: React.FC<AddLeaderModalProps> = ({ isOpen, onClose, floors
     phone: ''
   });
 
-  const [errors, setErrors] = useState<Partial<LeaderFormData>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof LeaderFormData, string>>>({});
   const [showPassword, setShowPassword] = useState(false);
 
   const queryClient = useQueryClient();
 
   // Create leader mutation
   const createLeaderMutation = useMutation({
-    mutationFn: api.createLeader,
+    mutationFn: (data: LeaderFormData) => {
+      return api.createFloorLeader({
+        floor: Number(data.floor),
+        user_info: {
+          username: data.username,
+          password: data.password,
+          role: 'student',
+          email: data.email,
+          first_name: data.first_name,
+          last_name: data.last_name,
+        }
+      });
+    },
     onSuccess: () => {
-      toast.success('Qavat sardori muvaffaqiyatli qo&apos;shildi!');
-      queryClient.invalidateQueries({ queryKey: ['leaders'] });
+      toast.success('Qavat sardori muvaffaqiyatli qo\'shildi!');
+      queryClient.invalidateQueries({ queryKey: ['floor-leaders'] });
       handleClose();
     },
-    onError: (error: Error & { response?: { data?: Record<string, unknown> } }) => {
-      const errorMessage = error?.response?.data?.detail || 
-                          error?.response?.data?.message || 
+    onError: (error: Error & { response?: { data?: any } }) => {
+      const errorData = error?.response?.data;
+      const errorMessage = errorData?.detail || 
+                          errorData?.message || 
                           error?.message || 
-                          'Qavat sardorini qo&apos;shishda xatolik yuz berdi';
+                          'Qavat sardorini qo\'shishda xatolik yuz berdi';
       toast.error(errorMessage);
       
       // Handle field-specific errors
-      if (error?.response?.data && typeof error.response.data === 'object') {
-        const fieldErrors: Partial<LeaderFormData> = {};
-        Object.keys(error.response.data).forEach(field => {
+      if (errorData && typeof errorData === 'object') {
+        const fieldErrors: Partial<Record<keyof LeaderFormData, string>> = {};
+        Object.keys(errorData).forEach(field => {
           if (field in formData) {
-            fieldErrors[field as keyof LeaderFormData] = Array.isArray(error.response.data[field]) 
-              ? error.response.data[field][0] 
-              : error.response.data[field];
+            fieldErrors[field as keyof LeaderFormData] = Array.isArray(errorData[field]) 
+              ? String(errorData[field][0]) 
+              : String(errorData[field]);
           }
         });
         setErrors(fieldErrors);
@@ -68,7 +81,7 @@ const AddLeaderModal: React.FC<AddLeaderModalProps> = ({ isOpen, onClose, floors
   });
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<LeaderFormData> = {};
+    const newErrors: Partial<Record<keyof LeaderFormData, string>> = {};
 
     if (!formData.floor) {
       newErrors.floor = 'Qavat tanlanishi shart';
@@ -209,8 +222,8 @@ const AddLeaderModal: React.FC<AddLeaderModalProps> = ({ isOpen, onClose, floors
                 >
                   <option value="">Qavatni tanlang</option>
                   {floors.map((floor) => (
-                    <option key={floor.id} value={floor.number}>
-                      {floor.name} ({floor.number}-qavat)
+                    <option key={floor.id} value={floor.id}>
+                      {floor.name}
                     </option>
                   ))}
                 </select>

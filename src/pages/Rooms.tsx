@@ -82,6 +82,7 @@ const Rooms: React.FC = () => {
   const [newFloor, setNewFloor] = useState('');
   const [newFloorGender, setNewFloorGender] = useState<'male' | 'female'>('male');
   const [newRoom, setNewRoom] = useState('');
+  const [newRoomGender, setNewRoomGender] = useState<'male' | 'female'>('male');
   const [selectedFloor, setSelectedFloor] = useState('');
   
   // Filter states
@@ -99,6 +100,7 @@ const Rooms: React.FC = () => {
   const [editingFloor, setEditingFloor] = useState(false);
   const [editRoom, setEditRoom] = useState<Room | null>(null);
   const [editRoomName, setEditRoomName] = useState('');
+  const [editRoomGender, setEditRoomGender] = useState<'male' | 'female'>('male');
   const [editRoomCapacity, setEditRoomCapacity] = useState('');
   const [editRoomFloor, setEditRoomFloor] = useState<number | null>(null);
   const [editingRoom, setEditingRoom] = useState(false);
@@ -326,6 +328,7 @@ const Rooms: React.FC = () => {
           name: roomStr,
           capacity: capacity,
           floor: floorObj.id,
+          gender: newRoomGender,
         }),
       });
 
@@ -437,6 +440,15 @@ const Rooms: React.FC = () => {
     }
   };
 
+  // Edit room handler
+  const handleEditRoom = (room: Room) => {
+    setEditRoom(room);
+    setEditRoomName(room.name);
+    setEditRoomCapacity(room.capacity.toString());
+    setEditRoomFloor(room.floor.id);
+    setEditRoomGender(room.gender || 'male');
+  };
+
   const handleEditRoomSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editRoom) return;
@@ -456,7 +468,8 @@ const Rooms: React.FC = () => {
         body: JSON.stringify({
           name: editRoomName,
           floor: editRoomFloor,
-          capacity: Number(editRoomCapacity)
+          capacity: Number(editRoomCapacity),
+          gender: editRoomGender
         }),
       });
 
@@ -509,6 +522,10 @@ const Rooms: React.FC = () => {
     } finally {
       setDeletingRoom(false);
     }
+  };
+
+  const handleDeleteRoom = (room: Room) => {
+    setDeleteRoom(room);
   };
 
   return (
@@ -595,6 +612,8 @@ const Rooms: React.FC = () => {
                   setMenuOpen={setMenuOpen}
                   handleEditFloor={handleEditFloor}
                   handleDeleteFloor={handleDeleteFloor}
+                  handleEditRoom={handleEditRoom}
+                  handleDeleteRoom={handleDeleteRoom}
                   navigate={navigate}
                 />
               ))
@@ -725,7 +744,14 @@ const Rooms: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Qavat tanlang</label>
                   <select
                     value={selectedFloor}
-                    onChange={e => setSelectedFloor(e.target.value)}
+                    onChange={e => {
+                      const floorName = e.target.value;
+                      setSelectedFloor(floorName);
+                      const floor = typedFloors.find(f => f.name === floorName);
+                      if (floor) {
+                        setNewRoomGender(floor.gender);
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   >
@@ -749,6 +775,45 @@ const Rooms: React.FC = () => {
                     required
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Faqat raqam kiriting, "xona" so'zi avtomatik qo'shiladi</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona jinsi</label>
+                  <div className="flex gap-4">
+                    {(['male', 'female'] as const).map(g => (
+                      <label
+                        key={g}
+                        className={`group flex flex-col items-center justify-center cursor-pointer px-4 py-3 rounded-xl border-2 transition-all duration-200 select-none
+                          ${newRoomGender === g
+                            ? 'border-blue-600 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-slate-900 shadow-lg'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-400 dark:hover:border-blue-400'}
+                        `}
+                      >
+                        <input
+                          type="radio"
+                          name="room-gender"
+                          checked={newRoomGender === g}
+                          onChange={() => setNewRoomGender(g)}
+                          className="sr-only"
+                        />
+                        <span className={`flex items-center justify-center w-10 h-10 rounded-full mb-2
+                          ${newRoomGender === g
+                            ? 'bg-blue-600 text-white shadow'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}
+                          transition-all duration-200
+                        `}>
+                          {genderLabels[g]?.icon}
+                        </span>
+                        <span className={`text-sm font-semibold
+                          ${newRoomGender === g
+                            ? 'text-blue-700 dark:text-blue-200'
+                            : 'text-gray-700 dark:text-gray-200'}
+                          transition-colors
+                        `}>
+                          {genderLabels[g]?.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona sigimi</label>
@@ -933,7 +998,14 @@ const Rooms: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Qavat</label>
                   <select
                     value={editRoomFloor ?? ''}
-                    onChange={e => setEditRoomFloor(Number(e.target.value))}
+                    onChange={e => {
+                      const floorId = Number(e.target.value);
+                      setEditRoomFloor(floorId);
+                      const floor = typedFloors.find(f => f.id === floorId);
+                      if (floor) {
+                        setEditRoomGender(floor.gender);
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   >
@@ -942,6 +1014,45 @@ const Rooms: React.FC = () => {
                       <option key={floor.id} value={floor.id}>{floor.name}</option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona jinsi</label>
+                  <div className="flex gap-4">
+                    {(['male', 'female'] as const).map(g => (
+                      <label
+                        key={g}
+                        className={`group flex flex-col items-center justify-center cursor-pointer px-4 py-3 rounded-xl border-2 transition-all duration-200 select-none
+                          ${editRoomGender === g
+                            ? 'border-blue-600 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-slate-900 shadow-lg'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-400 dark:hover:border-blue-400'}
+                        `}
+                      >
+                        <input
+                          type="radio"
+                          name="edit-room-gender"
+                          checked={editRoomGender === g}
+                          onChange={() => setEditRoomGender(g)}
+                          className="sr-only"
+                        />
+                        <span className={`flex items-center justify-center w-10 h-10 rounded-full mb-2
+                          ${editRoomGender === g
+                            ? 'bg-blue-600 text-white shadow'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}
+                          transition-all duration-200
+                        `}>
+                          {genderLabels[g]?.icon}
+                        </span>
+                        <span className={`text-sm font-semibold
+                          ${editRoomGender === g
+                            ? 'text-blue-700 dark:text-blue-200'
+                            : 'text-gray-700 dark:text-gray-200'}
+                          transition-colors
+                        `}>
+                          {genderLabels[g]?.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona sig'imi</label>

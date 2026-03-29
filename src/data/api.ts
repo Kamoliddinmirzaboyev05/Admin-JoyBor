@@ -158,7 +158,19 @@ export const api = {
   getFloorLeader: (id: number) => get(`/floor-leaders/${id}/`),
   createFloorLeader: (data: {
     floor: number;
-    user: number;
+    user?: number;
+    user_info?: {
+      username: string;
+      password?: string;
+      role?: string;
+      email?: string;
+      first_name?: string;
+      last_name?: string;
+    };
+    floor_info?: {
+      name: string;
+      gender: string;
+    };
   }) => post('/floor-leaders/', data),
   updateFloorLeader: (id: number, data: Record<string, unknown>) => patch(`/floor-leaders/${id}/`, data),
   deleteFloorLeader: (id: number) => del(`/floor-leaders/${id}/`),
@@ -216,6 +228,34 @@ export const api = {
   
   // Dashboard
   getDashboard: () => get('/dashboard/'),
+  
+  // Staff Management
+  getStaff: (params?: {
+    position?: string;
+    is_active?: boolean;
+    search?: string;
+    page?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.position) searchParams.append('position', params.position);
+    if (params?.is_active !== undefined) searchParams.append('is_active', params.is_active.toString());
+    if (params?.search) searchParams.append('search', params.search);
+    if (params?.page) searchParams.append('page', params.page.toString());
+    
+    const queryString = searchParams.toString();
+    return get(`/staff/${queryString ? `?${queryString}` : ''}`);
+  },
+  createStaff: (data: {
+    name: string;
+    last_name: string;
+    position: string;
+    phone: string;
+    salary: number;
+    hired_date: string;
+    is_active: boolean;
+  }) => post('/staff/', data),
+  updateStaff: (id: number | string, data: Record<string, unknown>) => patch(`/staff/${id}/`, data),
+  deleteStaff: (id: number | string) => del(`/staff/${id}/`),
   
   // Additional Notification Methods
   markApplicationNotificationAsRead: (id: number) => patch(`/notifications/${id}/`, { is_read: true }),

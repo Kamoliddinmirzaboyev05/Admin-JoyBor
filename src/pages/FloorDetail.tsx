@@ -5,6 +5,7 @@ import { get } from '../data/api';
 import api from '../data/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { X, MoreVertical, Filter, UserCog } from 'lucide-react';
+import { IoManSharp, IoWomanSharp } from 'react-icons/io5';
 import { AnimatePresence, motion } from 'framer-motion';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -12,6 +13,11 @@ import { link } from '../data/config';
 
 
 const CARD_HEIGHT = 'h-44';
+
+const genderLabels: Record<string, { label: string; icon: React.ReactNode }> = {
+  male: { label: 'Yigitlar', icon: <IoManSharp className="inline w-5 h-5 mr-1" /> },
+  female: { label: 'Qizlar', icon: <IoWomanSharp className="inline w-5 h-5 mr-1" /> },
+};
 
 function getShortName(fullName: string) {
   const [first, ...rest] = fullName.split(' ');
@@ -37,6 +43,7 @@ interface Room {
   name: string;
   capacity: number;
   room_type: string;
+  gender: 'male' | 'female';
   students: Student[];
 }
 
@@ -45,6 +52,7 @@ const FloorDetail: React.FC = () => {
   const queryClient = useQueryClient();
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [newRoom, setNewRoom] = useState('');
+  const [newRoomGender, setNewRoomGender] = useState<'male' | 'female'>('male');
   const [newRoomCapacity, setNewRoomCapacity] = useState('');
   const [adding, setAdding] = useState(false);
   // Add state for room actions
@@ -52,6 +60,7 @@ const FloorDetail: React.FC = () => {
   const [openRoomMenuId, setOpenRoomMenuId] = useState<number | null>(null);
   const [editRoomModal, setEditRoomModal] = useState<Room | null>(null);
   const [editRoomName, setEditRoomName] = useState('');
+  const [editRoomGender, setEditRoomGender] = useState<'male' | 'female'>('male');
   const [editRoomCapacity, setEditRoomCapacity] = useState('');
   const [editingRoom, setEditingRoom] = useState(false);
   const [deleteRoomModal, setDeleteRoomModal] = useState<Room | null>(null);
@@ -191,7 +200,7 @@ const FloorDetail: React.FC = () => {
           floor: floor.id,
           capacity: Number(newRoomCapacity),
           room_type: '',
-          gender: floor.gender,
+          gender: newRoomGender,
           status: 'EMPTY',
         }),
       };
@@ -338,6 +347,7 @@ const FloorDetail: React.FC = () => {
               setShowRoomModal(true);
               setNewRoom('');
               setNewRoomCapacity('');
+              setNewRoomGender(floor.gender);
             }}
           >
             + Xona qo'shish
@@ -389,6 +399,45 @@ const FloorDetail: React.FC = () => {
                     min="1"
                     required
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona jinsi</label>
+                  <div className="flex gap-4">
+                    {(['male', 'female'] as const).map(g => (
+                      <label
+                        key={g}
+                        className={`group flex flex-col items-center justify-center cursor-pointer px-4 py-3 rounded-xl border-2 transition-all duration-200 select-none
+                          ${newRoomGender === g
+                            ? 'border-blue-600 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-slate-900 shadow-lg'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-400 dark:hover:border-blue-400'}
+                        `}
+                      >
+                        <input
+                          type="radio"
+                          name="room-gender"
+                          checked={newRoomGender === g}
+                          onChange={() => setNewRoomGender(g)}
+                          className="sr-only"
+                        />
+                        <span className={`flex items-center justify-center w-10 h-10 rounded-full mb-2
+                          ${newRoomGender === g
+                            ? 'bg-blue-600 text-white shadow'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}
+                          transition-all duration-200
+                        `}>
+                          {genderLabels[g]?.icon}
+                        </span>
+                        <span className={`text-sm font-semibold
+                          ${newRoomGender === g
+                            ? 'text-blue-700 dark:text-blue-200'
+                            : 'text-gray-700 dark:text-gray-200'}
+                          transition-colors
+                        `}>
+                          {genderLabels[g]?.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona sig'imi</label>
@@ -551,7 +600,7 @@ const FloorDetail: React.FC = () => {
                     const token = sessionStorage.getItem('access');
                     await axios.patch(
                       `${link}/rooms/${editRoomModal.id}/`,
-                      { name: editRoomName, capacity: Number(editRoomCapacity) },
+                      { name: editRoomName, capacity: Number(editRoomCapacity), gender: editRoomGender },
                       { headers: { Authorization: `Bearer ${token}` } }
                     );
                     toast.success('Xona tahrirlandi!');
@@ -575,6 +624,45 @@ const FloorDetail: React.FC = () => {
                     placeholder="Masalan: 101-xona"
                     required
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona jinsi</label>
+                  <div className="flex gap-4">
+                    {(['male', 'female'] as const).map(g => (
+                      <label
+                        key={g}
+                        className={`group flex flex-col items-center justify-center cursor-pointer px-4 py-3 rounded-xl border-2 transition-all duration-200 select-none
+                          ${editRoomGender === g
+                            ? 'border-blue-600 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-slate-900 shadow-lg'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-400 dark:hover:border-blue-400'}
+                        `}
+                      >
+                        <input
+                          type="radio"
+                          name="edit-room-gender"
+                          checked={editRoomGender === g}
+                          onChange={() => setEditRoomGender(g)}
+                          className="sr-only"
+                        />
+                        <span className={`flex items-center justify-center w-10 h-10 rounded-full mb-2
+                          ${editRoomGender === g
+                            ? 'bg-blue-600 text-white shadow'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}
+                          transition-all duration-200
+                        `}>
+                          {genderLabels[g]?.icon}
+                        </span>
+                        <span className={`text-sm font-semibold
+                          ${editRoomGender === g
+                            ? 'text-blue-700 dark:text-blue-200'
+                            : 'text-gray-700 dark:text-gray-200'}
+                          transition-colors
+                        `}>
+                          {genderLabels[g]?.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Xona sig'imi</label>
@@ -773,6 +861,7 @@ const FloorDetail: React.FC = () => {
                             setEditRoomModal(room);
                             setEditRoomName(room.name);
                             setEditRoomCapacity(room.capacity.toString());
+                            setEditRoomGender(room.gender || 'male');
                             setOpenRoomMenuId(null);
                           }}
                         >
@@ -846,6 +935,7 @@ const FloorDetail: React.FC = () => {
             setShowRoomModal(true);
             setNewRoom('');
             setNewRoomCapacity('');
+            setNewRoomGender(floor.gender);
           }}
           className="inline-flex items-center gap-2 px-4 py-3 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 active:scale-[0.98] transition"
         >
