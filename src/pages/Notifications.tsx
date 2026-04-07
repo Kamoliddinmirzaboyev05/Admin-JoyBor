@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../data/api';
@@ -8,13 +8,10 @@ import {
   CheckCircle,
   AlertCircle,
   Info,
-  Filter,
   Search,
-  Eye,
-  RefreshCw,
-  Star,
   X,
-  ZoomIn
+  Check,
+  RefreshCw
 } from 'lucide-react';
 import BackButton from '../components/UI/BackButton';
 import { useSEO } from '../hooks/useSEO';
@@ -40,7 +37,7 @@ const Notifications: React.FC = () => {
 
   const queryClient = useQueryClient();
 
-  const { data: notifications = [], isLoading, error, refetch } = useQuery<Notification[]>({
+  const { data: notifications = [], isLoading } = useQuery<Notification[]>({
     queryKey: ['notifications'],
     queryFn: async () => {
       try {
@@ -57,20 +54,65 @@ const Notifications: React.FC = () => {
 
   const markAsReadMutation = useMutation({
     mutationFn: (id: number) => api.markNotificationAsRead(id),
-    onSuccess: () => {
+    onMutate: async (id) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+      
+      // Snapshot previous value
+      const previousNotifications = queryClient.getQueryData<Notification[]>(['notifications']);
+      
+      // Optimistically update
+      queryClient.setQueryData<Notification[]>(['notifications'], (old) => {
+        if (!old) return [];
+        return old.map(n => n.id === id ? { ...n, is_read: true } : n);
+      });
+      
+      return { previousNotifications };
+    },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    onError: (_err, _id, context) => {
+      // Revert on error
+      if (context?.previousNotifications) {
+        queryClient.setQueryData(['notifications'], context.previousNotifications);
+      }
+      toast.error("O'qilgan deb belgilashda xatolik");
+    },
+    onSettled: () => {
+      // Always refetch after error or success
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 
   const markAllAsReadMutation = useMutation({
     mutationFn: () => api.markAllNotificationsAsRead(),
-    onSuccess: () => {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'] });
+      const previousNotifications = queryClient.getQueryData<Notification[]>(['notifications']);
+      
+      queryClient.setQueryData<Notification[]>(['notifications'], (old) => {
+        if (!old) return [];
+        return old.map(n => ({ ...n, is_read: true }));
+      });
+      
+      return { previousNotifications };
+    },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    onError: (_err, _variables, context) => {
+      if (context?.previousNotifications) {
+        queryClient.setQueryData(['notifications'], context.previousNotifications);
+      }
+      toast.error("Xatolik yuz berdi");
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+    onSuccess: () => {
       toast.success("Barchasi o'qilgan deb belgilandi");
     },
   });
 
-  const handleNotificationClick = (notification: Notification) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+const handleNotificationClick = (notification: Notification) => {
     if (!notification.is_read) {
       markAsReadMutation.mutate(notification.id);
     }
@@ -203,8 +245,23 @@ const Notifications: React.FC = () => {
                     </div>
 
                     {!n.is_read && (
-                      <div className="flex-shrink-0 self-center">
-                        <div className="w-2.5 h-2.5 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
+                      <div className="flex-shrink-0 self-center flex flex-col items-center gap-2">
+                        <div className="w-2.5 h-2.5 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)] animate-pulse" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markAsReadMutation.mutate(n.id);
+                          }}
+                          disabled={markAsReadMutation.isPending && markAsReadMutation.variables === n.id}
+                          className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-all opacity-0 group-hover:opacity-100"
+                          title="O'qilgan deb belgilash"
+                        >
+                          {markAsReadMutation.isPending && markAsReadMutation.variables === n.id ? (
+                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Check className="w-4 h-4" />
+                          )}
+                        </button>
                       </div>
                     )}
                   </div>

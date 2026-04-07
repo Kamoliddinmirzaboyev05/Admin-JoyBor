@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trash2, Building, Home, ChevronRight, X, Filter, Search, ChevronDown, User, CheckCircle, XCircle, AlertCircle, UserPlus, SlidersHorizontal, Calendar, Phone as PhoneIcon, MapPin, GraduationCap } from 'lucide-react';
+import { Trash2, Building, Home, ChevronRight, X, Filter, Search, User, UserPlus, Calendar, Phone as PhoneIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select, { SingleValue, StylesConfig } from 'react-select';
 import { toast } from 'sonner';
@@ -8,10 +8,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { link } from '../data/config';
 import api from '../data/api';
 
-
-interface StatusColors {
-  [key: string]: string;
-}
 
 interface Application {
   id: string | number;
@@ -85,19 +81,9 @@ interface SelectOption {
   label: string;
 }
 
-const statusColors: StatusColors = {
-  'PENDING': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-  'APPROVED': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-  'REJECTED': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-  // O'zbek tilidagi statuslar ham qo'llab-quvvatlash uchun
-  'Yangi': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-  'Rad etilgan': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-  'Qabul qilindi': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-} as const;
-
 // Status rangini olish funksiyasi
 const getStatusColor = (status: string) => {
-  return statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+  return statusBadgeColors[status] || 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600';
 };
 
 const selectStyles: StylesConfig<SelectOption, false> = {
@@ -120,7 +106,7 @@ const selectStyles: StylesConfig<SelectOption, false> = {
     overflow: 'hidden',
     boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
     border: '1px solid ' + (document.documentElement.classList.contains('dark') ? '#334155' : '#e2e8f0'),
-    zIndex: 50,
+    zIndex: 9999,
   }),
   option: (base, state) => ({
     ...base,
@@ -150,27 +136,73 @@ const selectStyles: StylesConfig<SelectOption, false> = {
 };
 
 const statusFilterOptions = [
-  { value: '', label: 'Barcha holatlar' },
   { value: 'PENDING', label: 'Yangi arizalar' },
   { value: 'APPROVED', label: 'Qabul qilingan' },
   { value: 'REJECTED', label: 'Rad etilgan' },
+  { value: 'CONVERTED', label: 'Talabaga aylantirilgan' },
+  { value: '', label: 'Barcha arizalar' },
 ];
 
+// Status labels for display
+const statusLabels: Record<string, string> = {
+  'PENDING': 'Yangi',
+  'APPROVED': 'Qabul qilindi',
+  'REJECTED': 'Rad etilgan',
+  'CONVERTED': 'Talabaga aylantirilgan',
+  'Yangi': 'Yangi',
+  'Qabul qilindi': 'Qabul qilindi',
+  'Rad etilgan': 'Rad etilgan',
+  'Pending': 'Yangi',
+  'Approved': 'Qabul qilindi',
+  'Rejected': 'Rad etilgan',
+  'Converted': 'Talabaga aylantirilgan',
+};
+
+// Status badge colors
+const statusBadgeColors: Record<string, string> = {
+  'PENDING': 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800',
+  'APPROVED': 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800',
+  'REJECTED': 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800',
+  'CONVERTED': 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800',
+  'Yangi': 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800',
+  'Qabul qilindi': 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800',
+  'Rad etilgan': 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800',
+  'Pending': 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800',
+  'Approved': 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800',
+  'Rejected': 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800',
+  'Converted': 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800',
+};
+
 const facultyOptions = [
+  { value: 'ATT', label: 'ATT' },
   { value: 'Informatika', label: 'Informatika' },
   { value: 'Iqtisodiyot', label: 'Iqtisodiyot' },
   { value: 'Muhandislik', label: 'Muhandislik' },
-  { value: 'Matematika', label: 'Matematika' },
-  { value: 'Fizika', label: 'Fizika' },
-  { value: 'Kimyo', label: 'Kimyo' },
+  { value: '', label: 'Barcha fakultetlar' },
 ];
 const regionOptions = [
-  { value: 'Toshkent', label: 'Toshkent' },
-  { value: 'Samarqand', label: 'Samarqand' },
-  { value: 'Farg\'ona', label: 'Farg\'ona' },
-  { value: 'Andijon', label: 'Andijon' },
-  { value: 'Buxoro', label: 'Buxoro' },
-  { value: 'Namangan', label: 'Namangan' },
+  { value: 'Farg‘ona viloyati', label: 'Farg‘ona' },
+  { value: 'Toshkent viloyati', label: 'Toshkent viloyati' },
+  { value: 'Toshkent shahri', label: 'Toshkent shahri' },
+  { value: 'Andijon viloyati', label: 'Andijon' },
+  { value: 'Samarqand viloyati', label: 'Samarqand' },
+  { value: 'Namangan viloyati', label: 'Namangan' },
+  { value: 'Buxoro viloyati', label: 'Buxoro' },
+  { value: '', label: 'Barcha viloyatlar' },
+];
+
+const genderOptions = [
+  { value: 'Erkak', label: 'Erkak' },
+  { value: 'Ayol', label: 'Ayol' },
+  { value: '', label: 'Barcha jinslar' },
+];
+
+const courseOptions = [
+  { value: '1-kurs', label: '1-kurs' },
+  { value: '2-kurs', label: '2-kurs' },
+  { value: '3-kurs', label: '3-kurs' },
+  { value: '4-kurs', label: '4-kurs' },
+  { value: '', label: 'Barcha kurslar' },
 ];
 const districtOptions: Record<string, { value: string; label: string }[]> = {
   'Toshkent': [
@@ -202,7 +234,11 @@ const districtOptions: Record<string, { value: string; label: string }[]> = {
 
 const Applications: React.FC = () => {
   const [search, setSearch] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('PENDING'); // Default to PENDING
+  const [genderFilter, setGenderFilter] = useState<string>('');
+  const [facultyFilter, setFacultyFilter] = useState<string>('');
+  const [courseFilter, setCourseFilter] = useState<string>('');
+  const [regionFilter, setRegionFilter] = useState<string>('');
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [selectedAppForConvert, setSelectedAppForConvert] = useState<Application | null>(null);
   const [convertForm, setConvertForm] = useState({
@@ -446,14 +482,31 @@ const Applications: React.FC = () => {
         (app.phone || '').toString().includes(searchLower)
       );
 
-      // Status filter - ingliz va o'zbek tillarini qo'llab-quvvatlash
-      const statusMatch = !statusFilter ||
+      // Status filter
+      const statusMatch = !statusFilter || 
         app.status === statusFilter ||
-        (statusFilter === 'PENDING' && (app.status === 'Yangi' || app.status === 'PENDING')) ||
-        (statusFilter === 'APPROVED' && (app.status === 'Qabul qilindi' || app.status === 'APPROVED')) ||
-        (statusFilter === 'REJECTED' && (app.status === 'Rad etilgan' || app.status === 'REJECTED'));
+        (statusFilter === 'PENDING' && (app.status === 'Yangi' || app.status === 'Pending')) ||
+        (statusFilter === 'APPROVED' && (app.status === 'Qabul qilindi' || app.status === 'Approved')) ||
+        (statusFilter === 'REJECTED' && (app.status === 'Rad etilgan' || app.status === 'Rejected')) ||
+        (statusFilter === 'CONVERTED' && (app.status === 'Talabaga aylantirilgan' || app.status === 'Converted'));
 
-      return nameMatch && statusMatch;
+      // Gender filter
+      const genderMatch = !genderFilter || 
+        (app as any).gender?.toLowerCase() === genderFilter.toLowerCase();
+
+      // Faculty filter
+      const facultyMatch = !facultyFilter || 
+        app.faculty?.toLowerCase() === facultyFilter.toLowerCase();
+
+      // Course filter
+      const courseMatch = !courseFilter || 
+        app.course === courseFilter;
+
+      // Region filter
+      const regionMatch = !regionFilter || 
+        app.province_name === regionFilter;
+
+      return nameMatch && statusMatch && genderMatch && facultyMatch && courseMatch && regionMatch;
     })
     .sort((a, b) => {
       // Eng yangisi tepada bo'lishi uchun created_at bo'yicha saralash
@@ -503,203 +556,214 @@ const Applications: React.FC = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full min-h-screen bg-gray-100 dark:bg-slate-900 transition-colors duration-300">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Arizalar
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 font-medium">
-            Tizimdagi barcha kelib tushgan arizalarni boshqarish
+          <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+            Tizimdagi barcha kelib tushgan arizalar
           </p>
         </div>
         
-        <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800/30">
-          <div className="flex flex-col items-end">
-            <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Jami arizalar</span>
-            <span className="text-xl font-black text-blue-700 dark:text-blue-300">{applications.length}</span>
+        <div className="flex items-center gap-4 px-4 py-2 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700">
+          <div className="text-right">
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Jami</span>
+            <p className="text-lg font-bold text-gray-900 dark:text-white">{applications.length}</p>
           </div>
-          <div className="w-px h-8 bg-blue-200 dark:bg-blue-800/50 mx-1"></div>
-          <div className="flex flex-col items-end">
-            <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Saralandi</span>
-            <span className="text-xl font-black text-gray-700 dark:text-gray-200">{filteredApps.length}</span>
+          <div className="w-px h-8 bg-gray-200 dark:bg-slate-600"></div>
+          <div className="text-right">
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Saralandi</span>
+            <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{filteredApps.length}</p>
           </div>
         </div>
       </div>
 
       {/* Filter Section */}
-      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 dark:border-slate-700 p-2 mb-10">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2">
-          {/* Search Input */}
-          <div className="flex-1 relative group">
-            <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4 mb-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-4">
+            {/* Search Input */}
+            <div className="flex-1 relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Ism, familiya yoki telefon..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Ism yoki telefon raqami bo'yicha qidiruv..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-14 pr-6 py-4 rounded-2xl border-none bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:ring-0 transition-all text-lg font-medium"
-            />
+
+            {/* Status Select */}
+            <div className="lg:w-64">
+              <Select
+                options={statusFilterOptions}
+                value={statusFilterOptions.find(opt => opt.value === statusFilter)}
+                onChange={(opt) => setStatusFilter(opt?.value || '')}
+                styles={selectStyles as any}
+                placeholder="Holatni tanlang"
+                className="react-select-container"
+                classNamePrefix="react-select"
+              />
+            </div>
+
+            {/* Refresh Button */}
+            <button 
+              onClick={() => refetch()}
+              className="px-4 py-2.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-2"
+              title="Yangilash"
+            >
+              <Filter className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <span>Yangilash</span>
+            </button>
           </div>
 
-          <div className="hidden lg:block w-px h-10 bg-gray-100 dark:bg-slate-700"></div>
-
-          {/* Status Select */}
-          <div className="lg:w-72 relative group">
-            <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none z-10">
-              <SlidersHorizontal className="h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Gender Filter */}
             <Select
-              options={statusFilterOptions}
-              value={statusFilterOptions.find(opt => opt.value === statusFilter)}
-              onChange={(opt) => setStatusFilter(opt?.value || '')}
+              options={genderOptions}
+              value={genderOptions.find(opt => opt.value === genderFilter)}
+              onChange={(opt) => setGenderFilter(opt?.value || '')}
               styles={selectStyles as any}
-              placeholder="Holatni tanlang"
-              className="react-select-container"
-              classNamePrefix="react-select"
-              components={{
-                DropdownIndicator: () => <ChevronDown className="h-4 w-4 text-gray-400 mr-4" />,
-                IndicatorSeparator: () => null
-              }}
+              placeholder="Jinsni tanlang"
+            />
+
+            {/* Faculty Filter */}
+            <Select
+              options={facultyOptions}
+              value={facultyOptions.find(opt => opt.value === facultyFilter)}
+              onChange={(opt) => setFacultyFilter(opt?.value || '')}
+              styles={selectStyles as any}
+              placeholder="Fakultetni tanlang"
+            />
+
+            {/* Course Filter */}
+            <Select
+              options={courseOptions}
+              value={courseOptions.find(opt => opt.value === courseFilter)}
+              onChange={(opt) => setCourseFilter(opt?.value || '')}
+              styles={selectStyles as any}
+              placeholder="Kursni tanlang"
+            />
+
+            {/* Region Filter */}
+            <Select
+              options={regionOptions}
+              value={regionOptions.find(opt => opt.value === regionFilter)}
+              onChange={(opt) => setRegionFilter(opt?.value || '')}
+              styles={selectStyles as any}
+              placeholder="Viloyatni tanlang"
             />
           </div>
-
-          {/* Refresh Button */}
-          <button 
-            onClick={() => refetch()}
-            className="lg:ml-2 p-4 rounded-2xl bg-gray-50 dark:bg-slate-700 text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-all active:scale-95"
-            title="Yangilash"
-          >
-            <Filter className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
         </div>
       </div>
 
       {/* Applications List */}
-      <div className="grid grid-cols-1 gap-6 pb-20">
+      <div className="grid grid-cols-1 gap-4 pb-10">
         {filteredApps.length === 0 ? (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-24 bg-white dark:bg-slate-800 rounded-3xl border-2 border-dashed border-gray-200 dark:border-slate-700"
+            className="text-center py-16 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700"
           >
-            <div className="w-24 h-24 mx-auto mb-6 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
-              <Search className="w-12 h-12 text-blue-200 dark:text-blue-800" />
+            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-slate-700 rounded-full flex items-center justify-center">
+              <Search className="w-8 h-8 text-gray-400" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Arizalar topilmadi</h3>
-            <p className="text-gray-500 dark:text-gray-400 max-w-xs mx-auto">
-              Siz qidirayotgan mezonlar bo'yicha hech qanday ma'lumot mavjud emas.
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Arizalar topilmadi</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              Tanlangan filter bo'yicha arizalar mavjud emas
             </p>
           </motion.div>
         ) : (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {filteredApps.map((app: Application, index) => (
               <motion.div
                 key={app.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="group bg-white dark:bg-slate-800 rounded-[2rem] shadow-sm hover:shadow-2xl hover:shadow-blue-900/10 border border-gray-100 dark:border-slate-700 p-1 transition-all duration-500 overflow-hidden"
+                transition={{ delay: index * 0.03 }}
+                className="group bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
               >
-                <div className="p-6">
-                  <div className="flex items-start gap-5">
+                <div className="p-5">
+                  <div className="flex items-start gap-4">
                     {/* Profile Section */}
-                    <div className="relative">
+                    <div className="relative flex-shrink-0">
                       {app.user_image ? (
                         <img
                           src={app.user_image}
                           alt={app.name}
-                          className="w-20 h-20 rounded-3xl object-cover ring-4 ring-gray-50 dark:ring-slate-700 group-hover:ring-blue-500/20 transition-all duration-500 shadow-lg"
+                          className="w-14 h-14 rounded-md object-cover border border-gray-200 dark:border-slate-600"
                         />
                       ) : (
-                        <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-xl group-hover:scale-105 transition-all duration-500">
-                          <span className="text-2xl font-black">
-                            {(app.last_name?.[0] || '') + (app.name?.[0] || '') || <User className="w-8 h-8" />}
+                        <div className="w-14 h-14 bg-blue-600 rounded-md flex items-center justify-center text-white">
+                          <span className="text-lg font-semibold">
+                            {(app.last_name?.[0] || '') + (app.name?.[0] || '') || <User className="w-6 h-6" />}
                           </span>
                         </div>
                       )}
-                      <div className={`absolute -bottom-2 -right-2 p-1.5 rounded-xl border-4 border-white dark:border-slate-800 shadow-md ${getStatusColor(app.status)}`}>
-                        {app.status === 'APPROVED' || app.status === 'Qabul qilindi' ? (
-                          <CheckCircle className="w-4 h-4" />
-                        ) : app.status === 'REJECTED' || app.status === 'Rad etilgan' ? (
-                          <XCircle className="w-4 h-4" />
-                        ) : (
-                          <AlertCircle className="w-4 h-4" />
-                        )}
-                      </div>
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
                           {`${app.last_name || ''} ${app.name || ''}`.trim() || `Ariza #${app.id}`}
                         </h3>
-                        <span className="text-xs font-bold text-gray-400 dark:text-gray-500 whitespace-nowrap">
-                          ID: #{app.id}
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium border ${getStatusColor(app.status)}`}>
+                          {statusLabels[app.status] || app.status}
                         </span>
                       </div>
                       
-                      <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3">
-                        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                          <PhoneIcon className="w-3.5 h-3.5 text-blue-500" />
-                          <span className="text-sm font-semibold">{app.phone || 'Noma\'lum'}</span>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
+                        <div className="flex items-center gap-1.5">
+                          <PhoneIcon className="w-4 h-4 text-gray-400" />
+                          <span>{app.phone || 'Noma\'lum'}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                          <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                          <span className="text-sm font-semibold">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <span>
                             {app.created_at ? new Date(app.created_at).toLocaleDateString('uz-UZ') : 'Noma\'lum'}
                           </span>
                         </div>
                       </div>
-                    </div>
-                  </div>
 
-                  {/* Info Cards */}
-                  <div className="grid grid-cols-2 gap-3 mt-8">
-                    <div className="bg-gray-50 dark:bg-slate-700/50 p-4 rounded-2xl border border-gray-100 dark:border-slate-700 group-hover:bg-blue-50/50 dark:group-hover:bg-blue-900/10 transition-colors">
-                      <div className="flex items-center gap-2 mb-1 text-gray-400 dark:text-gray-500 uppercase tracking-widest text-[10px] font-black">
-                        <MapPin className="w-3 h-3" />
-                        <span>Hudud</span>
+                      <div className="flex gap-4 mt-3 text-sm">
+                        <div className="text-gray-600 dark:text-gray-400">
+                          <span className="text-gray-400 dark:text-gray-500">{app.province_name || app.province?.name || '-'}</span>
+                        </div>
+                        <div className="text-gray-400">|</div>
+                        <div className="text-gray-600 dark:text-gray-400">
+                          <span className="text-gray-400 dark:text-gray-500">{app.faculty || '-'}</span>
+                        </div>
                       </div>
-                      <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
-                        {app.province_name || app.province?.name || 'Noma\'lum'}
-                      </p>
-                    </div>
-                    <div className="bg-gray-50 dark:bg-slate-700/50 p-4 rounded-2xl border border-gray-100 dark:border-slate-700 group-hover:bg-blue-50/50 dark:group-hover:bg-blue-900/10 transition-colors">
-                      <div className="flex items-center gap-2 mb-1 text-gray-400 dark:text-gray-500 uppercase tracking-widest text-[10px] font-black">
-                        <GraduationCap className="w-3 h-3" />
-                        <span>Fakultet</span>
-                      </div>
-                      <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
-                        {app.faculty || 'Noma\'lum'}
-                      </p>
                     </div>
                   </div>
 
                   {/* Actions Section */}
-                  <div className="flex items-center gap-3 mt-8 pt-6 border-t border-gray-100 dark:border-slate-700">
+                  <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100 dark:border-slate-700">
                     <Link
                       to={`/applications/${app.id}`}
-                      className="flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98]"
+                      className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
                     >
                       <span>Ko'rish</span>
-                      <ChevronRight className="w-5 h-5" />
+                      <ChevronRight className="w-4 h-4" />
                     </Link>
 
                     {(app.status === 'PENDING' || app.status === 'Yangi') && (
                       <button
                         onClick={() => openConvertModal(app)}
                         disabled={convertingApp === app.id}
-                        className="p-4 rounded-2xl bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-600 hover:text-white transition-all active:scale-95 disabled:opacity-50"
+                        className="px-3 py-2 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-600 hover:text-white transition-colors disabled:opacity-50"
                         title="Talabalar ro'yhatiga qo'shish"
                       >
                         {convertingApp === app.id ? (
-                          <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                         ) : (
-                          <UserPlus className="w-5 h-5" />
+                          <UserPlus className="w-4 h-4" />
                         )}
                       </button>
                     )}
@@ -707,13 +771,13 @@ const Applications: React.FC = () => {
                     <button
                       onClick={() => setShowDeleteConfirm({ show: true, id: app.id })}
                       disabled={deletingApp === app.id}
-                      className="p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-600 hover:text-white transition-all active:scale-95 disabled:opacity-50"
+                      className="px-3 py-2 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-600 hover:text-white transition-colors disabled:opacity-50"
                       title="O'chirish"
                     >
                       {deletingApp === app.id ? (
-                        <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                       ) : (
-                        <Trash2 className="w-5 h-5" />
+                        <Trash2 className="w-4 h-4" />
                       )}
                     </button>
                   </div>

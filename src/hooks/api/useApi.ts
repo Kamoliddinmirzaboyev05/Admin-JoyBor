@@ -112,6 +112,5 @@ export const useRooms = (floorId?: number | string) => {
   return useQuery({
     queryKey: ['rooms', floorId],
     queryFn: () => api.getRooms(floorId),
-    enabled: !!floorId,
   });
 };

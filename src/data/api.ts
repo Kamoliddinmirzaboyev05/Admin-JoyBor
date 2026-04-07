@@ -161,23 +161,7 @@ export const api = {
   // Floor Leaders
   getFloorLeaders: () => get('/floor-leaders/'),
   getFloorLeader: (id: number) => get(`/floor-leaders/${id}/`),
-  createFloorLeader: (data: {
-    floor: number;
-    user?: number;
-    user_info?: {
-      username: string;
-      password?: string;
-      role?: string;
-      email?: string;
-      first_name?: string;
-      last_name?: string;
-      phone?: string;
-    };
-    floor_info?: {
-      name: string;
-      gender: string;
-    };
-  }) => post('/floor-leaders/', data),
+  createFloorLeader: (data: any) => post('/floor-leaders/', data),
   updateFloorLeader: (id: number, data: Record<string, unknown>) => patch(`/floor-leaders/${id}/`, data),
   deleteFloorLeader: (id: number) => del(`/floor-leaders/${id}/`),
   
@@ -270,16 +254,8 @@ export const api = {
     const queryString = searchParams.toString();
     return get(`/staff/${queryString ? `?${queryString}` : ''}`);
   },
-  createStaff: (data: {
-    name: string;
-    last_name: string;
-    position: string;
-    phone: string;
-    salary: number;
-    hired_date: string;
-    is_active: boolean;
-  }) => post('/staff/', data),
-  updateStaff: (id: number | string, data: Record<string, unknown>) => patch(`/staff/${id}/`, data),
+  createStaff: (data: FormData) => post('/staff/', data),
+  updateStaff: (id: number | string, data: FormData | Record<string, unknown>) => patch(`/staff/${id}/`, data),
   deleteStaff: (id: number | string) => del(`/staff/${id}/`),
   
   // Additional Notification Methods

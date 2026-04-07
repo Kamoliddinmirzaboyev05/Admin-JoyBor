@@ -3,7 +3,7 @@ import DataTable from '../components/UI/DataTable';
 import { toast } from 'sonner';
 import Select from 'react-select';
 import { Link, useLocation } from 'react-router-dom';
-import { useStudents } from '../hooks/api/useApi';
+import { useStudents, useFloors, useRooms } from '../hooks/api/useApi';
 import { link } from '../data/config';
 
 // react-select custom styles for dark mode
@@ -20,6 +20,7 @@ const selectStyles = {
     ...base,
     backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
     color: document.documentElement.classList.contains('dark') ? '#fff' : '#111827',
+    zIndex: 9999,
   }),
   singleValue: (base: Record<string, unknown>) => ({
     ...base,
@@ -93,7 +94,20 @@ const Students: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
 
-  // Demo ma'lumotlar (API vaqtincha o'chirilgan)
+
+
+  const location = useLocation();
+
+  // Fetch students using custom hook with caching
+  const { data: studentsData, isLoading, error: fetchError, refetch } = useStudents({ is_active: true });
+  
+  // Extract results and filter active students
+  const students = React.useMemo(() => {
+    const results = Array.isArray(studentsData?.results) ? studentsData.results : [];
+    return results.filter((student: Record<string, unknown>) => student.is_active !== false);
+  }, [studentsData]);
+
+  // Demo ma'lumotlar (Modal uchun)
   const provincesData = [
     { id: 1, name: 'Toshkent' },
     { id: 2, name: 'Samarqand' },
@@ -109,18 +123,6 @@ const Students: React.FC = () => {
     { id: 4, name: 'Yakkasaroy', province: Number(formData.region) },
   ] : [];
 
-  const location = useLocation();
-
-  // Fetch students using custom hook with caching
-  const { data: studentsData, isLoading, error: fetchError, refetch } = useStudents({ is_active: true });
-  
-  // Extract results and filter active students
-  const students = React.useMemo(() => {
-    const results = Array.isArray(studentsData?.results) ? studentsData.results : [];
-    return results.filter((student: Record<string, unknown>) => student.is_active !== false);
-  }, [studentsData]);
-
-  // Demo floors ma'lumotlari
   const floorsData = [
     { id: 1, name: '1-qavat', available_rooms: 5 },
     { id: 2, name: '2-qavat', available_rooms: 3 },
@@ -128,7 +130,6 @@ const Students: React.FC = () => {
     { id: 4, name: '4-qavat', available_rooms: 2 },
   ];
 
-  // Demo rooms ma'lumotlari
   const roomsData = formData.floor ? [
     { id: 1, name: '101', capacity: 4, occupied_beds: 2, floor: Number(formData.floor) },
     { id: 2, name: '102', capacity: 4, occupied_beds: 1, floor: Number(formData.floor) },
@@ -136,28 +137,20 @@ const Students: React.FC = () => {
     { id: 4, name: '104', capacity: 4, occupied_beds: 0, floor: Number(formData.floor) },
   ] : [];
 
-  // Demo all rooms data
-  const allRoomsData = [
-    { id: 1, name: '101', floor: 1 },
-    { id: 2, name: '102', floor: 1 },
-    { id: 3, name: '201', floor: 2 },
-    { id: 4, name: '202', floor: 2 },
-  ];
-
   const regionOptions = Array.isArray(provincesData)
-    ? provincesData.map((p) => ({ value: String(p.id), label: p.name }))
+    ? provincesData.map((p: any) => ({ value: String(p.id), label: p.name }))
     : [];
   const districtOptions = Array.isArray(districtsData)
-    ? districtsData.map((d) => ({ value: String(d.id), label: d.name }))
+    ? districtsData.map((d: any) => ({ value: String(d.id), label: d.name }))
     : [];
   const floorOptions = Array.isArray(floorsData)
-    ? floorsData.map((f) => ({
+    ? floorsData.map((f: any) => ({
       value: String(f.id),
       label: `${f.name.endsWith('-qavat') ? f.name : `${f.name}-qavat`} ${(f as { gender?: string }).gender === 'male' ? '(Yigitlar)' : '(Qizlar)'}`
     }))
     : [];
   const roomOptions = Array.isArray(roomsData)
-    ? roomsData
+    ? (roomsData as any[])
       .sort((a, b) => {
         // Xona nomlarini raqam bo'yicha saralash
         const aNum = parseInt(a.name.replace(/\D/g, '')) || 0;
@@ -167,9 +160,7 @@ const Students: React.FC = () => {
       .map((r) => ({ value: String(r.id), label: r.name }))
     : [];
 
-  const allRoomOptions = Array.isArray(allRoomsData)
-    ? allRoomsData.map((r) => ({ value: String(r.id), label: r.name }))
-    : [];
+
 
   const columns = [
     {
@@ -201,6 +192,34 @@ const Students: React.FC = () => {
       key: "floor_name",
       title: "Qavat",
       render: (value: unknown) => <span className="text-sm text-gray-700 dark:text-gray-300">{value ? String(value) : "-"}</span>,
+    },
+    {
+      key: "payment_summary",
+      title: "To'lov holati",
+      render: (value: any) => {
+        const isDebtor = value?.is_debtor;
+        return (
+          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+            !isDebtor 
+              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+              : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+          }`}>
+            {!isDebtor ? 'Haqdor' : 'Qarzdor'}
+          </span>
+        );
+      },
+    },
+    {
+      key: "payment_summary",
+      title: "Jami to'lov",
+      render: (value: any) => (
+        <div className="flex flex-col">
+          <span className="text-sm font-bold text-gray-900 dark:text-white">
+            {value?.total_amount ? Number(value.total_amount).toLocaleString() : '0'}
+          </span>
+          <span className="text-[10px] text-gray-400 font-bold uppercase">UZS</span>
+        </div>
+      ),
     },
   ];
 
@@ -436,18 +455,38 @@ const Students: React.FC = () => {
     }
   };
 
-  // Add filter states for gender, payment status, and room
+  // Add filter states for gender, payment status, room, and floor
   const [genderFilter, setGenderFilter] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
   const [roomFilter, setRoomFilter] = useState("");
+  const [floorFilter, setFloorFilter] = useState("");
+
+  // Fetch real data for filters
+  const { data: floorsDataAPI } = useFloors();
+  const { data: roomsDataAPI } = useRooms();
+
+  const floorFilterOptions = React.useMemo(() => {
+    const results = Array.isArray(floorsDataAPI?.results) ? floorsDataAPI.results : (Array.isArray(floorsDataAPI) ? floorsDataAPI : []);
+    return results.map((f: any) => ({ value: String(f.id), label: f.name }));
+  }, [floorsDataAPI]);
+
+  const allRoomOptions = React.useMemo(() => {
+    const results = Array.isArray(roomsDataAPI?.results) ? roomsDataAPI.results : (Array.isArray(roomsDataAPI) ? roomsDataAPI : []);
+    // If floor filter is selected, filter rooms by floor
+    const filtered = floorFilter 
+      ? results.filter((r: any) => String(r.floor) === floorFilter)
+      : results;
+    
+    return filtered.map((r: any) => ({ value: String(r.id), label: r.name }));
+  }, [roomsDataAPI, floorFilter]);
 
   // Debug: API dan kelayotgan ma'lumotlarni ko'rish
   React.useEffect(() => {
     if (students.length > 0) {
       console.log('Students data sample:', students.slice(0, 2).map((s: any) => ({
         name: s.name,
-        total_payment: (s as { total_payment?: unknown }).total_payment,
-        tarif: (s as { tarif?: unknown }).tarif,
+        total_amount: s.payment_summary?.total_amount,
+        is_debtor: s.payment_summary?.is_debtor,
         gender: s.gender
       })));
     }
@@ -487,30 +526,10 @@ const Students: React.FC = () => {
       let matchesPayment = true;
 
       if (paymentStatusFilter) {
-        // Total payment ni olish
-        const totalPayment = Number((s as { total_payment?: unknown }).total_payment) || 0;
-
-        // Tarif qiymatini olish
-        const tarifValue = (s as { tarif?: unknown }).tarif;
-        let tarif = 0;
-        if (tarifValue !== undefined && tarifValue !== null) {
-          if (typeof tarifValue === 'number') {
-            tarif = tarifValue;
-          } else if (typeof tarifValue === 'string') {
-            // String dan barcha raqamlarni olish
-            const numStr = tarifValue.replace(/[^\d]/g, '');
-            tarif = numStr ? Number(numStr) : 0;
-          }
-        }
-
-        // Agar tarif hali ham 0 yoki yo'q bo'lsa, default qiymat
-        if (tarif <= 0) {
-          tarif = 1200000; // Default oylik tarif
-        }
-
-        // Haqdor/qarzdor logikasi
-        const isHaqdor = totalPayment >= tarif;
-        const isQarzdor = totalPayment < tarif;
+        // payment_summary.is_debtor field logic: false -> Haqdor, true -> Qarzdor
+        const isDebtor = Boolean(s.payment_summary?.is_debtor);
+        const isHaqdor = !isDebtor;
+        const isQarzdor = isDebtor;
 
         // Filter bo'yicha tekshirish
         if (paymentStatusFilter === "haqdor") {
@@ -522,9 +541,7 @@ const Students: React.FC = () => {
         // Debug payment filter (faqat birinchi 3 ta talaba uchun)
         if (paymentStatusFilter && students.indexOf(s) < 3) {
           console.log(`Payment filter debug for ${s.name || s.last_name}:`, {
-            originalTarif: tarifValue,
-            parsedTarif: tarif,
-            totalPayment,
+            isDebtor,
             isHaqdor,
             isQarzdor,
             filter: paymentStatusFilter,
@@ -540,14 +557,22 @@ const Students: React.FC = () => {
         matchesRoom = studentRoomId ? String(studentRoomId) === roomFilter : false;
       }
 
-      const finalMatch = matchesGender && matchesPayment && matchesRoom;
+      // Floor filter
+      let matchesFloor = true;
+      if (floorFilter) {
+        const studentFloorId = s.floor as number | undefined;
+        matchesFloor = studentFloorId ? String(studentFloorId) === floorFilter : false;
+      }
+
+      const finalMatch = matchesGender && matchesPayment && matchesRoom && matchesFloor;
 
       // Debug final filter result
-      if ((genderFilter || paymentStatusFilter || roomFilter) && students.indexOf(s) < 3) {
+      if ((genderFilter || paymentStatusFilter || roomFilter || floorFilter) && students.indexOf(s) < 3) {
         console.log(`Final filter result for ${s.name}:`, {
           matchesGender,
           matchesPayment,
           matchesRoom,
+          matchesFloor,
           finalMatch
         });
       }
@@ -747,7 +772,7 @@ const Students: React.FC = () => {
               { value: "female", label: "Ayol" },
             ]}
             value={genderFilter ? { value: genderFilter, label: genderFilter === "male" ? "Erkak" : "Ayol" } : null}
-            onChange={opt => setGenderFilter(opt ? String(opt.value) : "")}
+            onChange={(opt: any) => setGenderFilter(opt ? String(opt.value) : "")}
             isClearable
             placeholder="Jins"
             styles={selectStyles}
@@ -760,7 +785,7 @@ const Students: React.FC = () => {
               { value: "qarzdor", label: "Qarzdor" },
             ]}
             value={paymentStatusFilter ? { value: paymentStatusFilter, label: paymentStatusFilter === "haqdor" ? "Haqdor" : "Qarzdor" } : null}
-            onChange={opt => setPaymentStatusFilter(opt ? String(opt.value) : "")}
+            onChange={(opt: any) => setPaymentStatusFilter(opt ? String(opt.value) : "")}
             isClearable
             placeholder="To'lov holati"
             styles={selectStyles}
@@ -768,9 +793,22 @@ const Students: React.FC = () => {
             className="min-w-[140px]"
           />
           <Select
+            options={floorFilterOptions}
+            value={floorFilter ? floorFilterOptions.find((opt: any) => opt.value === floorFilter) || null : null}
+            onChange={(opt: any) => {
+              setFloorFilter(opt ? String(opt.value) : "");
+              setRoomFilter(""); // Reset room when floor changes
+            }}
+            isClearable
+            placeholder="Qavat"
+            styles={selectStyles}
+            classNamePrefix="react-select"
+            className="min-w-[120px]"
+          />
+          <Select
             options={allRoomOptions}
-            value={roomFilter ? allRoomOptions.find(opt => opt.value === roomFilter) || null : null}
-            onChange={opt => setRoomFilter(opt ? String(opt.value) : "")}
+            value={roomFilter ? allRoomOptions.find((opt: any) => opt.value === roomFilter) || null : null}
+            onChange={(opt: any) => setRoomFilter(opt ? String(opt.value) : "")}
             isClearable
             placeholder="Xona"
             styles={selectStyles}
@@ -779,12 +817,13 @@ const Students: React.FC = () => {
           />
 
           {/* Filter reset button */}
-          {(genderFilter || paymentStatusFilter || roomFilter) && (
+          {(genderFilter || paymentStatusFilter || roomFilter || floorFilter) && (
             <button
               onClick={() => {
                 setGenderFilter("");
                 setPaymentStatusFilter("");
                 setRoomFilter("");
+                setFloorFilter("");
               }}
               className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
@@ -794,7 +833,7 @@ const Students: React.FC = () => {
         </div>
 
         {/* Filter results info */}
-        {(genderFilter || paymentStatusFilter || roomFilter) && (
+        {(genderFilter || paymentStatusFilter || roomFilter || floorFilter) && (
           <div className="text-sm text-gray-600 dark:text-gray-400">
             <span className="font-medium text-blue-600 dark:text-blue-400">
               {filteredStudents.length}
@@ -812,9 +851,14 @@ const Students: React.FC = () => {
                 {paymentStatusFilter === "haqdor" ? "Haqdor" : "Qarzdor"}
               </span>
             )}
+            {floorFilter && (
+              <span className="ml-2 px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded text-xs">
+                {floorFilterOptions.find((opt: any) => opt.value === floorFilter)?.label || floorFilter}
+              </span>
+            )}
             {roomFilter && (
               <span className="ml-2 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded text-xs">
-                {allRoomOptions.find(opt => opt.value === roomFilter)?.label || roomFilter}
+                {allRoomOptions.find((opt: any) => opt.value === roomFilter)?.label || roomFilter}
               </span>
             )}
           </div>
@@ -825,7 +869,7 @@ const Students: React.FC = () => {
       <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         <DataTable
           data={filteredStudents.map((s: any, idx: number) => ({ ...s, _idx: idx }))}
-          columns={columnsWithActions}
+          columns={columns}
           actions={null}
           searchable={true}
           filterable={false}

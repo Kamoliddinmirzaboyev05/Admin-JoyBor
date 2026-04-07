@@ -4,7 +4,7 @@ import BackButton from '../components/UI/BackButton';
 import { get } from '../data/api';
 import api from '../data/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { X, MoreVertical, Filter, UserCog } from 'lucide-react';
+import { X, MoreVertical, Filter, UserCog, Eye, EyeOff } from 'lucide-react';
 import { IoManSharp, IoWomanSharp } from 'react-icons/io5';
 import { AnimatePresence, motion } from 'framer-motion';
 import axios from 'axios';
@@ -70,9 +70,14 @@ const FloorDetail: React.FC = () => {
   const [showLeaderModal, setShowLeaderModal] = useState(false);
   const [floorLeader, setFloorLeader] = useState<{ id: number; user_info: { username: string; email: string }; floor_info: { name: string } } | null>(null);
   const [leaderForm, setLeaderForm] = useState({
-    student_id: '',
+    username: '',
+    password: '',
+    first_name: '',
+    last_name: '',
+    phone: '',
   });
   const [addingLeader, setAddingLeader] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Close room menu on outside click or Esc
   React.useEffect(() => {
@@ -105,7 +110,7 @@ const FloorDetail: React.FC = () => {
     error: floorsError
   } = useQuery({
     queryKey: ['floors'],
-    queryFn: () => get('/floors/'),
+    queryFn: () => api.getFloors(),
     staleTime: 1000 * 60 * 5,
   });
 
@@ -113,19 +118,19 @@ const FloorDetail: React.FC = () => {
   const floor = floors.find((f: Floor) => String(f.id) === String(floorId)) as Floor | undefined;
   
   // Fetch floor leader
+  const fetchFloorLeader = async () => {
+    if (!floorId) return;
+    try {
+      const leaders = await api.getFloorLeaders();
+      const leadersArray = leaders.results || leaders;
+      const leader = leadersArray.find((l: { floor: number }) => String(l.floor) === String(floorId));
+      setFloorLeader(leader || null);
+    } catch (error) {
+      console.error('Failed to fetch floor leader:', error);
+    }
+  };
+
   React.useEffect(() => {
-    const fetchFloorLeader = async () => {
-      if (!floorId) return;
-      try {
-        const leaders = await api.getFloorLeaders();
-        const leadersArray = leaders.results || leaders;
-        const leader = leadersArray.find((l: { floor: number }) => String(l.floor) === String(floorId));
-        setFloorLeader(leader || null);
-      } catch (error) {
-        console.error('Failed to fetch floor leader:', error);
-      }
-    };
-    
     fetchFloorLeader();
   }, [floorId]);
 
@@ -138,7 +143,7 @@ const FloorDetail: React.FC = () => {
     queryKey: ['rooms', floor?.id],
     queryFn: async () => {
       if (!floor) return [];
-      const response = await get(`/rooms/?floor=${floor.id}`);
+      const response = await api.getRooms(floor.id);
       console.log('Rooms API response:', response);
       // API returns paginated data with results array
       if (response && response.results && Array.isArray(response.results)) {
@@ -167,18 +172,11 @@ const FloorDetail: React.FC = () => {
 
   const sortedRooms = React.useMemo(() => {
     const roomsCopy = Array.isArray(rooms) ? [...rooms] : [];
-    const getRoomOrderKey = (name: string) => {
-      const digitsOnly = (name || '').replace(/[^\d]/g, '');
-      const numericPart = digitsOnly ? parseInt(digitsOnly, 10) : Number.POSITIVE_INFINITY;
-      return { numericPart, nameKey: (name || '').toLowerCase() };
-    };
-    roomsCopy.sort((a: Room, b: Room) => {
-      const ka = getRoomOrderKey(a.name);
-      const kb = getRoomOrderKey(b.name);
-      if (ka.numericPart !== kb.numericPart) return ka.numericPart - kb.numericPart;
-      return ka.nameKey.localeCompare(kb.nameKey);
+    return roomsCopy.sort((a, b) => {
+      const aNum = parseInt(a.name.replace(/\D/g, '')) || 0;
+      const bNum = parseInt(b.name.replace(/\D/g, '')) || 0;
+      return aNum - bNum;
     });
-    return roomsCopy;
   }, [rooms]);
 
   const handleAddRoom = async (e: React.FormEvent) => {
@@ -247,8 +245,8 @@ const FloorDetail: React.FC = () => {
 
   // Floor Leader handlers
   const handleAddLeader = async () => {
-    if (!leaderForm.student_id || !floorId) {
-      toast.error('Talaba IDsini kiriting!');
+    if (!leaderForm.username || !leaderForm.password || !floorId || !floor) {
+      toast.error('Barcha maydonlarni to\'ldiring!');
       return;
     }
     
@@ -256,21 +254,31 @@ const FloorDetail: React.FC = () => {
     try {
       await api.createFloorLeader({
         floor: parseInt(floorId),
-        user: parseInt(leaderForm.student_id),
+        floor_info: {
+          name: floor.name,
+          gender: floor.gender
+        },
+        username: leaderForm.username,
+        password: leaderForm.password,
+        first_name: leaderForm.first_name,
+        last_name: leaderForm.last_name,
+        phone: leaderForm.phone,
       });
       
       toast.success('Qavat sardori muvaffaqiyatli qo\'shildi!');
       setShowLeaderModal(false);
-      setLeaderForm({ student_id: '' });
+      setLeaderForm({ 
+        username: '',
+        password: '',
+        first_name: '',
+        last_name: '',
+        phone: '',
+      });
       
-      // Refresh floor leader
-      const leaders = await api.getFloorLeaders();
-      const leadersArray = leaders.results || leaders;
-      const leader = leadersArray.find((l: { floor: number }) => String(l.floor) === String(floorId));
-      setFloorLeader(leader || null);
+      fetchFloorLeader();
     } catch (error) {
       console.error('Add leader error:', error);
-      toast.error((error as Error)?.message || 'Sardor qo\'shishda xatolik!');
+      toast.error((error as any)?.response?.data?.detail || (error as Error)?.message || 'Sardor qo\'shishda xatolik!');
     } finally {
       setAddingLeader(false);
     }
@@ -482,96 +490,182 @@ const FloorDetail: React.FC = () => {
       {/* Floor Leader Modal */}
       <AnimatePresence>
         {showLeaderModal && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-            onClick={() => {
-              setShowLeaderModal(false);
-              setLeaderForm({ student_id: '' });
-            }}
-          >
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 40 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => {
+                setShowLeaderModal(false);
+                setLeaderForm({
+                  username: '',
+                  password: '',
+                  first_name: '',
+                  last_name: '',
+                  phone: '',
+                });
+              }}
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 40 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 relative"
-              onClick={e => e.stopPropagation()}
+              exit={{ opacity: 0, scale: 0.98, y: 10 }}
+              className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-hidden border border-gray-200 dark:border-gray-700"
             >
               <button
-                className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded transition-colors"
+                className="absolute top-4 right-4 text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all z-10"
                 onClick={() => {
                   setShowLeaderModal(false);
-                  setLeaderForm({ student_id: '' });
+                  setLeaderForm({
+                    username: '',
+                    password: '',
+                    first_name: '',
+                    last_name: '',
+                    phone: '',
+                  });
                 }}
               >
-                <X size={22} />
+                <X size={20} />
               </button>
-              
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                  <UserCog className="w-6 h-6 text-green-600 dark:text-green-400" />
+
+              <div className="flex items-center gap-3 p-5 border-b border-gray-100 dark:border-gray-700">
+                <div className="p-2 bg-blue-600 rounded-lg text-white shadow-lg shadow-blue-500/20">
+                  <UserCog className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Qavat sardorini tayinlash</h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Talaba IDsini kiriting</p>
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">Qavat sardorini tayinlash</h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Sardor uchun tizimda yangi profil yaratish</p>
                 </div>
               </div>
-              
-              <form
-                onSubmit={e => {
-                  e.preventDefault();
-                  handleAddLeader();
-                }}
-                className="space-y-4"
-              >
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Talaba ID raqami
-                  </label>
-                  <input
-                    type="number"
-                    value={leaderForm.student_id}
-                    onChange={e => setLeaderForm({ student_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Masalan: 1, 2, 3..."
-                    min="1"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Talabalar ro'yxatidan talaba IDsini topishingiz mumkin
-                  </p>
-                </div>
-                
-                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowLeaderModal(false);
-                      setLeaderForm({ student_id: '' });
-                    }}
-                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full sm:w-auto"
-                  >
-                    Bekor qilish
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={addingLeader}
-                    className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors disabled:opacity-60 w-full sm:w-auto flex items-center justify-center gap-2"
-                  >
-                    {addingLeader ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Tayinlanmoqda...
-                      </>
-                    ) : (
-                      <>
-                        <UserCog className="w-4 h-4" />
-                        Sardor qilish
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
+
+              <div className="overflow-y-auto max-h-[calc(90vh-140px)] p-6">
+                <form
+                  onSubmit={e => {
+                    e.preventDefault();
+                    handleAddLeader();
+                  }}
+                  className="space-y-5"
+                >
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 ml-1">
+                        Ism *
+                      </label>
+                      <input
+                        type="text"
+                        value={leaderForm.first_name}
+                        onChange={e => setLeaderForm(prev => ({ ...prev, first_name: e.target.value }))}
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        placeholder="Ism"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 ml-1">
+                        Familiya *
+                      </label>
+                      <input
+                        type="text"
+                        value={leaderForm.last_name}
+                        onChange={e => setLeaderForm(prev => ({ ...prev, last_name: e.target.value }))}
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        placeholder="Familiya"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 ml-1">
+                        Telefon raqam *
+                      </label>
+                      <input
+                        type="text"
+                        value={leaderForm.phone}
+                        onChange={e => setLeaderForm(prev => ({ ...prev, phone: e.target.value }))}
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        placeholder="+998"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 ml-1">
+                        Username *
+                      </label>
+                      <input
+                        type="text"
+                        value={leaderForm.username}
+                        onChange={e => setLeaderForm(prev => ({ ...prev, username: e.target.value }))}
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        placeholder="Username"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 ml-1">
+                      Parol *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={leaderForm.password}
+                        onChange={e => setLeaderForm(prev => ({ ...prev, password: e.target.value }))}
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                        placeholder="Parol"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-blue-500 transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowLeaderModal(false);
+                        setLeaderForm({
+                          username: '',
+                          password: '',
+                          first_name: '',
+                          last_name: '',
+                          phone: '',
+                        });
+                      }}
+                      className="flex-1 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all active:scale-[0.98]"
+                    >
+                      Bekor qilish
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={addingLeader}
+                      className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+                    >
+                      {addingLeader ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Saqlanmoqda...
+                        </>
+                      ) : (
+                        <>
+                          <UserCog className="w-4 h-4" />
+                          Sardorni saqlash
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </motion.div>
           </div>
         )}

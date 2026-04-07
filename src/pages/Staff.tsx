@@ -45,12 +45,16 @@ const Staff: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<any>({
     name: '',
     last_name: '',
     position: ROLES_OPTIONS[0].value,
     phone: '',
     salary: '',
+    hired_date: new Date().toISOString().split('T')[0],
+    is_active: true,
+    photo: null,
+    file: null,
   });
 
   const [search, setSearch] = useState('');
@@ -65,28 +69,51 @@ const Staff: React.FC = () => {
   const staffList = Array.isArray(staffData?.results) ? staffData.results : [];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target as HTMLInputElement;
+    if (type === 'checkbox') {
+      setFormData((prev: any) => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
+    } else if (type === 'file') {
+      setFormData((prev: any) => ({ ...prev, [name]: (e.target as HTMLInputElement).files?.[0] }));
+    } else {
+      setFormData((prev: any) => ({ ...prev, [name]: value }));
+    }
   };
 
   // Add/Edit mutation
   const saveMutation = useMutation({
     mutationFn: (data: any) => {
+      const form = new FormData();
+      form.append('name', data.name);
+      form.append('last_name', data.last_name);
+      form.append('position', data.position);
+      form.append('phone', data.phone);
+      form.append('salary', data.salary.toString().replace(/[^0-9]/g, ''));
+      form.append('hired_date', data.hired_date);
+      form.append('is_active', data.is_active.toString());
+      
+      if (data.photo instanceof File) form.append('photo', data.photo);
+      if (data.file instanceof File) form.append('file', data.file);
+
       if (editStaff) {
-        return api.updateStaff(editStaff.id, data);
+        return api.updateStaff(editStaff.id, form);
       }
-      return api.createStaff({
-        ...data,
-        salary: Number(data.salary.replace(/[^0-9]/g, '')),
-        hired_date: new Date().toISOString().split('T')[0],
-        is_active: true
-      });
+      return api.createStaff(form);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff'] });
       setIsModalOpen(false);
       setEditStaff(null);
-      setFormData({ name: '', last_name: '', position: ROLES_OPTIONS[0].value, phone: '', salary: '' });
+      setFormData({ 
+        name: '', 
+        last_name: '', 
+        position: ROLES_OPTIONS[0].value, 
+        phone: '', 
+        salary: '',
+        hired_date: new Date().toISOString().split('T')[0],
+        is_active: true,
+        photo: null,
+        file: null,
+      });
       toast.success(editStaff ? "Xodim ma'lumotlari yangilandi" : "Yangi xodim muvaffaqiyatli qo'shildi");
     },
     onError: (error: any) => {
@@ -125,6 +152,10 @@ const Staff: React.FC = () => {
       position: staff.position,
       phone: staff.phone,
       salary: staff.salary.toString(),
+      hired_date: staff.hired_date || new Date().toISOString().split('T')[0],
+      is_active: staff.is_active,
+      photo: null,
+      file: null,
     });
     setIsModalOpen(true);
   };
@@ -136,9 +167,17 @@ const Staff: React.FC = () => {
       sortable: true,
       render: (_: unknown, row: any) => (
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold border border-blue-200 dark:border-blue-800">
-            {row.name[0]}{row.last_name?.[0]}
-          </div>
+          {row.photo ? (
+            <img 
+              src={row.photo} 
+              alt={row.name} 
+              className="w-10 h-10 rounded-lg object-cover border border-gray-200 dark:border-slate-700"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold border border-blue-200 dark:border-blue-800">
+              {row.name[0]}{row.last_name?.[0]}
+            </div>
+          )}
           <div className="flex flex-col">
             <span className="font-bold text-gray-900 dark:text-white text-sm sm:text-base">{row.name} {row.last_name}</span>
             <span className="text-xs text-gray-500 dark:text-gray-400">{row.phone}</span>
@@ -298,40 +337,38 @@ const Staff: React.FC = () => {
             
             {/* Modal Content */}
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative bg-white dark:bg-slate-800 w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-gray-100 dark:border-slate-700 overflow-hidden"
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="relative bg-white dark:bg-slate-800 w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 dark:border-slate-700 overflow-hidden"
             >
-              <div className="p-8">
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-4">
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-2xl text-blue-600 dark:text-blue-400 shadow-inner">
-                      {editStaff ? <Edit2 className="w-6 h-6" /> : <UserPlus className="w-6 h-6" />}
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6 border-b border-gray-100 dark:border-slate-700 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                      {editStaff ? <Edit2 className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
                     </div>
                     <div>
-                      <h3 className="text-2xl font-black text-slate-900 dark:text-white">
-                        {editStaff ? "Xodimni tahrirlash" : "Xodim qo'shish"}
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                        {editStaff ? "Xodimni tahrirlash" : "Yangi xodim qo'shish"}
                       </h3>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-                        {editStaff ? "Xodim ma'lumotlarini yangilang" : "Yangi xodim ma'lumotlarini kiriting"}
-                      </p>
                     </div>
                   </div>
                   <button 
                     onClick={() => setIsModalOpen(false)}
-                    className="p-3 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-2xl transition-all text-slate-400 hover:text-red-500"
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all text-slate-400 hover:text-red-500"
                   >
-                    <X className="w-6 h-6" />
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="space-y-5">
-                    <div className="grid grid-cols-2 gap-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Basic Info */}
+                    <div className="space-y-4">
                       <div>
-                        <label className="flex items-center gap-2 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">
-                          Ismi
+                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">
+                          Ismi *
                         </label>
                         <input 
                           required
@@ -339,96 +376,134 @@ const Staff: React.FC = () => {
                           name="name"
                           value={formData.name}
                           onChange={handleInputChange}
-                          placeholder="Ali"
-                          className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-transparent focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl text-slate-900 dark:text-white placeholder-slate-400 focus:ring-0 transition-all outline-none font-semibold"
+                          placeholder="Ism"
+                          className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
                         />
                       </div>
                       <div>
-                        <label className="flex items-center gap-2 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">
                           Familiyasi
                         </label>
                         <input 
-                          required
                           type="text" 
                           name="last_name"
                           value={formData.last_name}
                           onChange={handleInputChange}
-                          placeholder="Valiyev"
-                          className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-transparent focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl text-slate-900 dark:text-white placeholder-slate-400 focus:ring-0 transition-all outline-none font-semibold"
+                          placeholder="Familiya"
+                          className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
                         />
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="flex items-center gap-2 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">
-                        <Briefcase className="w-3.5 h-3.5" />
-                        Lavozim
-                      </label>
-                      <div className="relative">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">
+                          Lavozimi
+                        </label>
                         <select 
                           name="position"
                           value={formData.position}
                           onChange={handleInputChange}
-                          className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-transparent focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl text-slate-900 dark:text-white focus:ring-0 transition-all outline-none cursor-pointer appearance-none font-semibold"
+                          className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
                         >
                           {ROLES_OPTIONS.map(opt => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                           ))}
                         </select>
-                        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                          <ChevronRight className="w-5 h-5 rotate-90" />
-                        </div>
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
-                        <label className="flex items-center gap-2 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">
-                          <Phone className="w-3.5 h-3.5" />
-                          Telefon
+                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">
+                          Telefon raqami
                         </label>
                         <input 
-                          required
                           type="text" 
                           name="phone"
                           value={formData.phone}
                           onChange={handleInputChange}
-                          placeholder="+998 90 123 45 67"
-                          className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-transparent focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl text-slate-900 dark:text-white placeholder-slate-400 focus:ring-0 transition-all outline-none font-semibold"
+                          placeholder="+998"
+                          className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
                         />
                       </div>
+                    </div>
+
+                    {/* Additional Info & Files */}
+                    <div className="space-y-4">
                       <div>
-                        <label className="flex items-center gap-2 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">
-                          <DollarSign className="w-3.5 h-3.5" />
-                          Maosh
+                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">
+                          Maoshi (UZS)
                         </label>
                         <input 
-                          required
-                          type="text" 
+                          type="number" 
                           name="salary"
                           value={formData.salary}
                           onChange={handleInputChange}
-                          placeholder="4,500,000"
-                          className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-transparent focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl text-slate-900 dark:text-white placeholder-slate-400 focus:ring-0 transition-all outline-none font-semibold"
+                          placeholder="0"
+                          className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">
+                          Ishga kirgan sanasi
+                        </label>
+                        <input 
+                          type="date" 
+                          name="hired_date"
+                          value={formData.hired_date}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">
+                          Rasmi (Photo)
+                        </label>
+                        <input 
+                          type="file" 
+                          name="photo"
+                          onChange={handleInputChange}
+                          accept="image/*"
+                          className="w-full text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-400 hover:file:bg-blue-100 transition-all cursor-pointer"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 ml-1">
+                          Hujjat (File)
+                        </label>
+                        <input 
+                          type="file" 
+                          name="file"
+                          onChange={handleInputChange}
+                          className="w-full text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-400 hover:file:bg-blue-100 transition-all cursor-pointer"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex gap-4 pt-6">
+                  <div className="flex items-center gap-2 py-2">
+                    <input 
+                      type="checkbox" 
+                      id="is_active"
+                      name="is_active"
+                      checked={formData.is_active}
+                      onChange={handleInputChange}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 transition-all"
+                    />
+                    <label htmlFor="is_active" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Hozirda faol (Ishda)
+                    </label>
+                  </div>
+
+                  <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-slate-700">
                     <button
                       type="button"
                       onClick={() => setIsModalOpen(false)}
-                      className="flex-1 py-5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-black hover:bg-slate-200 dark:hover:bg-slate-600 transition-all active:scale-95"
+                      className="flex-1 py-2.5 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 rounded-lg font-bold hover:bg-gray-200 dark:hover:bg-slate-600 transition-all active:scale-[0.98] text-sm"
                     >
                       Bekor qilish
                     </button>
                     <button
                       type="submit"
                       disabled={saveMutation.isPending}
-                      className="flex-1 py-5 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
+                      className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98] text-sm disabled:opacity-50"
                     >
-                      {saveMutation.isPending ? "Saqlanmoqda..." : (editStaff ? "Yangilash" : "Qo'shish")}
+                      {saveMutation.isPending ? "Saqlanmoqda..." : (editStaff ? "Yangilash" : "Xodimni saqlash")}
                     </button>
                   </div>
                 </form>
