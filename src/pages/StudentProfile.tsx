@@ -117,6 +117,17 @@ const StudentProfile: React.FC = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+  // States for file uploads
+  const [pictureFile, setPictureFile] = useState<File | null>(null);
+  const [passportFirstFile, setPassportFirstFile] = useState<File | null>(null);
+  const [passportSecondFile, setPassportSecondFile] = useState<File | null>(null);
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+
+  // Previews for file uploads
+  const [passportFirstPreview, setPassportFirstPreview] = useState<string | null>(null);
+  const [passportSecondPreview, setPassportSecondPreview] = useState<string | null>(null);
+  const [documentPreview, setDocumentPreview] = useState<string | null>(null);
+
   // States for dropdown data
   const [provinces, setProvinces] = useState<{ id: number; name: string }[]>([]);
   const [districts, setDistricts] = useState<{ id: number; name: string; province: number }[]>([]);
@@ -267,6 +278,32 @@ const StudentProfile: React.FC = () => {
   }, [form?.floor]);
 
   // Create options for dropdowns
+  const statusOptions = [
+    { value: 'Tekshirilmaydi', label: 'Tekshirilmaydi' },
+    { value: 'Tekshirilmoqda', label: 'Tekshirilmoqda' },
+    { value: 'Tasdiqlandi', label: 'Tasdiqlandi' },
+    { value: 'Rad etildi', label: 'Rad etildi' }
+  ];
+
+  const placementStatusOptions = [
+    { value: 'Qabul qilindi', label: 'Qabul qilindi' },
+    { value: 'Joylashdi', label: 'Joylashdi' }
+  ];
+
+  const courseOptions = [
+    { value: '1-kurs', label: '1-kurs' },
+    { value: '2-kurs', label: '2-kurs' },
+    { value: '3-kurs', label: '3-kurs' },
+    { value: '4-kurs', label: '4-kurs' },
+    { value: '5-kurs', label: '5-kurs' },
+    { value: '6-kurs', label: '6-kurs' }
+  ];
+
+  const genderOptions = [
+    { value: 'Erkak', label: 'Erkak' },
+    { value: 'Ayol', label: 'Ayol' }
+  ];
+
   const provinceOptions = provinces.map(p => ({ value: p.id, label: p.name }));
   const districtOptions = districts.map(d => ({ value: d.id, label: d.name }));
   const floorOptions = floors.map(f => ({ value: f.id, label: f.name }));
@@ -296,6 +333,7 @@ const StudentProfile: React.FC = () => {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setPictureFile(file);
       const reader = new FileReader();
       reader.onload = () => {
         setImagePreview(reader.result as string);
@@ -304,12 +342,48 @@ const StudentProfile: React.FC = () => {
     }
   };
 
-  const removeImage = () => {
-    setImagePreview(null);
-    setForm(f => f ? { ...f, picture: null } : f);
+  const handlePassportFirstChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPassportFirstFile(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setPassportFirstPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  const handleSelectChange = (field: string, option: { value: number | boolean; label: string } | null) => {
+  const handlePassportSecondChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPassportSecondFile(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setPassportSecondPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setDocumentFile(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setDocumentPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setImagePreview(null);
+    setPictureFile(null);
+  };
+
+  const handleSelectChange = (field: string, option: { value: number | boolean | string; label: string } | null) => {
     if (!option) {
       setForm(f => f ? { ...f, [field]: null } : f);
       return;
@@ -332,54 +406,53 @@ const StudentProfile: React.FC = () => {
 
     try {
       const token = sessionStorage.getItem('access');
-      
-      // Prepare payload matching API structure
-      const payload: Record<string, unknown> = {};
+      const formDataPayload = new FormData();
 
       // Basic string fields
-      if (form.name !== undefined) payload.name = String(form.name || '');
-      if (form.last_name !== undefined) payload.last_name = String(form.last_name || '');
-      if (form.middle_name !== undefined) payload.middle_name = String(form.middle_name || '');
-      if (form.phone !== undefined) payload.phone = String(form.phone || '');
-      if (form.faculty !== undefined) payload.faculty = String(form.faculty || '');
-      if (form.direction !== undefined) payload.direction = String(form.direction || '');
-      if (form.group !== undefined) payload.group = String(form.group || '');
-      if (form.passport !== undefined) payload.passport = String(form.passport || '');
+      if (form.name !== undefined) formDataPayload.append('name', String(form.name || ''));
+      if (form.last_name !== undefined) formDataPayload.append('last_name', String(form.last_name || ''));
+      if (form.middle_name !== undefined) formDataPayload.append('middle_name', String(form.middle_name || ''));
+      if (form.phone !== undefined) formDataPayload.append('phone', String(form.phone || ''));
+      if (form.faculty !== undefined) formDataPayload.append('faculty', String(form.faculty || ''));
+      if (form.direction !== undefined) formDataPayload.append('direction', String(form.direction || ''));
+      if (form.group !== undefined) formDataPayload.append('group', String(form.group || ''));
+      if (form.passport !== undefined) formDataPayload.append('passport', String(form.passport || ''));
+      if (form.jshshir !== undefined) formDataPayload.append('jshshir', String(form.jshshir || ''));
 
-      // Course - must be one of: "1-kurs", "2-kurs", "3-kurs", "4-kurs", "5-kurs", "6-kurs"
+      // Course
       if (form.course !== undefined) {
-        payload.course = String(form.course || '1-kurs');
+        formDataPayload.append('course', String(form.course || '1-kurs'));
       }
 
-      // Gender - must be "Erkak" or "Ayol"
+      // Gender
       if (form.gender !== undefined) {
-        payload.gender = String(form.gender || 'Erkak');
+        formDataPayload.append('gender', String(form.gender || 'Erkak'));
       }
 
       // Boolean fields
       if (form.privilege !== undefined) {
-        payload.privilege = Boolean(form.privilege);
+        formDataPayload.append('privilege', String(Boolean(form.privilege)));
       }
       
       if (form.is_active !== undefined) {
-        payload.is_active = Boolean(form.is_active);
+        formDataPayload.append('is_active', String(Boolean(form.is_active)));
       }
 
-      // Privilege share - only if privilege is true
+      // Privilege share
       if (form.privilege && form.privilege_share !== undefined) {
-        payload.privilege_share = Number(form.privilege_share) || 0;
+        formDataPayload.append('privilege_share', String(Number(form.privilege_share) || 0));
       }
 
       // Status fields
       if (form.status !== undefined) {
-        payload.status = String(form.status || 'Tekshirilmaydi');
+        formDataPayload.append('status', String(form.status || 'Tekshirilmaydi'));
       }
       
       if (form.placement_status !== undefined) {
-        payload.placement_status = String(form.placement_status || 'Qabul qilindi');
+        formDataPayload.append('placement_status', String(form.placement_status || 'Qabul qilindi'));
       }
 
-      // ID fields - extract IDs from objects or use direct values
+      // ID fields
       const extractId = (value: any): number | undefined => {
         if (!value) return undefined;
         if (typeof value === 'number') return value;
@@ -388,32 +461,46 @@ const StudentProfile: React.FC = () => {
       };
 
       const provinceId = extractId(form.province);
-      if (provinceId !== undefined) payload.province = provinceId;
+      if (provinceId !== undefined) formDataPayload.append('province', String(provinceId));
 
       const districtId = extractId(form.district);
-      if (districtId !== undefined) payload.district = districtId;
+      if (districtId !== undefined) formDataPayload.append('district', String(districtId));
 
       const dormitoryId = extractId(form.dormitory);
-      if (dormitoryId !== undefined) payload.dormitory = dormitoryId;
+      if (dormitoryId !== undefined) formDataPayload.append('dormitory', String(dormitoryId));
 
       const floorId = extractId(form.floor);
-      if (floorId !== undefined) payload.floor = floorId;
+      if (floorId !== undefined) formDataPayload.append('floor', String(floorId));
 
       const roomId = extractId(form.room);
-      if (roomId !== undefined) payload.room = roomId;
+      if (roomId !== undefined) formDataPayload.append('room', String(roomId));
 
       const userId = extractId(form.user);
-      if (userId !== undefined) payload.user = userId;
+      if (userId !== undefined) formDataPayload.append('user', String(userId));
 
-      console.log('Updating student with payload:', payload);
+      // Files
+      if (pictureFile) {
+        formDataPayload.append('picture', pictureFile);
+      }
+      if (passportFirstFile) {
+        formDataPayload.append('passport_image_first', passportFirstFile);
+      }
+      if (passportSecondFile) {
+        formDataPayload.append('passport_image_second', passportSecondFile);
+      }
+      if (documentFile) {
+        formDataPayload.append('document', documentFile);
+      }
+
+      console.log('Updating student with FormData');
 
       const response = await fetch(`${link}/students/${studentId}/`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          // No Content-Type header - browser will set it to multipart/form-data
         },
-        body: JSON.stringify(payload),
+        body: formDataPayload,
       });
 
       if (!response.ok) {
@@ -427,8 +514,15 @@ const StudentProfile: React.FC = () => {
 
       toast.success('Talaba maʼlumotlari saqlandi!');
       setEditMode(false);
-      setHasEdited(true); // Tahrirlanganligini belgilash
+      setHasEdited(true);
       setImagePreview(null);
+      setPassportFirstPreview(null);
+      setPassportSecondPreview(null);
+      setDocumentPreview(null);
+      setPictureFile(null);
+      setPassportFirstFile(null);
+      setPassportSecondFile(null);
+      setDocumentFile(null);
 
       // Barcha bog'liq cache larni yangilash
       await invalidateStudentCaches(queryClient);
@@ -572,6 +666,7 @@ const StudentProfile: React.FC = () => {
                 <EditableInput label="Familiya" value={(form as Record<string, any>)?.last_name as string} onChange={v => handleChange('last_name', v)} />
                 <EditableInput label="Otasining ismi" value={(form as Record<string, any>)?.middle_name as string} onChange={v => handleChange('middle_name', v)} />
                 <EditableInput label="Telefon" value={(form as Record<string, any>)?.phone as string} onChange={v => handleChange('phone', v)} />
+                <EditableInput label="JSHSHIR" value={(form as Record<string, any>)?.jshshir as string} onChange={v => handleChange('jshshir', v)} />
               </>
             ) : (
               <>
@@ -579,6 +674,7 @@ const StudentProfile: React.FC = () => {
                 <ReadOnlyInput label="Familiya" value={(form as Record<string, any>)?.last_name as string} />
                 <ReadOnlyInput label="Otasining ismi" value={(form as Record<string, any>)?.middle_name as string} />
                 <ReadOnlyInput label="Telefon" value={(form as Record<string, any>)?.phone as string} />
+                <ReadOnlyInput label="JSHSHIR" value={(form as Record<string, any>)?.jshshir as string} />
               </>
             )}
           </div>
@@ -589,6 +685,35 @@ const StudentProfile: React.FC = () => {
               <EditableInput label="Fakultet" value={(form as Record<string, any>).faculty} onChange={v => handleChange('faculty', v)} />
               <EditableInput label="Yo'nalish" value={(form as Record<string, any>).direction} onChange={v => handleChange('direction', v)} />
               <EditableInput label="Guruh" value={(form as Record<string, any>).group || ''} onChange={v => handleChange('group', v)} />
+              
+              {/* Course Select */}
+              <div className="flex flex-col gap-1 w-full">
+                <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Kurs</label>
+                <Select
+                  options={courseOptions}
+                  value={courseOptions.find(opt => opt.value === (form as Record<string, any>).course) || null}
+                  onChange={opt => handleSelectChange('course', opt)}
+                  isClearable
+                  placeholder="Kursni tanlang..."
+                  styles={selectStyles}
+                  classNamePrefix="react-select"
+                />
+              </div>
+
+              {/* Gender Select */}
+              <div className="flex flex-col gap-1 w-full">
+                <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Jins</label>
+                <Select
+                  options={genderOptions}
+                  value={genderOptions.find(opt => opt.value === (form as Record<string, any>).gender) || null}
+                  onChange={opt => handleSelectChange('gender', opt)}
+                  isClearable
+                  placeholder="Jinsni tanlang..."
+                  styles={selectStyles}
+                  classNamePrefix="react-select"
+                />
+              </div>
+
               <div className="flex flex-col gap-1 w-full">
                 <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Qavat</label>
                 <Select
@@ -657,6 +782,34 @@ const StudentProfile: React.FC = () => {
               </div>
               <EditableInput label="Pasport" value={(form as Record<string, any>).passport || ''} onChange={v => handleChange('passport', v)} />
 
+              {/* Status Select */}
+              <div className="flex flex-col gap-1 w-full">
+                <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Holati</label>
+                <Select
+                  options={statusOptions}
+                  value={statusOptions.find(opt => opt.value === (form as Record<string, any>).status) || null}
+                  onChange={opt => handleSelectChange('status', opt)}
+                  isClearable
+                  placeholder="Holatni tanlang..."
+                  styles={selectStyles}
+                  classNamePrefix="react-select"
+                />
+              </div>
+
+              {/* Placement Status Select */}
+              <div className="flex flex-col gap-1 w-full">
+                <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Joylashish holati</label>
+                <Select
+                  options={placementStatusOptions}
+                  value={placementStatusOptions.find(opt => opt.value === (form as Record<string, any>).placement_status) || null}
+                  onChange={opt => handleSelectChange('placement_status', opt)}
+                  isClearable
+                  placeholder="Joylashish holatini tanlang..."
+                  styles={selectStyles}
+                  classNamePrefix="react-select"
+                />
+              </div>
+
               {/* Imtiyoz Select */}
               <div className="flex flex-col gap-1 w-full">
                 <label className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Imtiyoz</label>
@@ -701,11 +854,15 @@ const StudentProfile: React.FC = () => {
               <ReadOnlyInput label="Fakultet" value={(form as Record<string, any>).faculty} />
               <ReadOnlyInput label="Yo'nalish" value={(form as Record<string, any>).direction} />
               <ReadOnlyInput label="Guruh" value={(form as Record<string, any>).group} />
+              <ReadOnlyInput label="Kurs" value={(form as Record<string, any>).course} />
+              <ReadOnlyInput label="Jins" value={(form as Record<string, any>).gender} />
               <ReadOnlyInput label="Xona" value={(form as Record<string, any>).room_name} />
               <ReadOnlyInput label="Qavat" value={(form as Record<string, any>).floor_name} />
               <ReadOnlyInput label="Viloyat" value={(form as Record<string, any>).province_name} />
               <ReadOnlyInput label="Tuman" value={(form as Record<string, any>).district_name} />
               <ReadOnlyInput label="Pasport" value={(form as Record<string, any>).passport} />
+              <ReadOnlyInput label="Holati" value={(form as Record<string, any>).status} />
+              <ReadOnlyInput label="Joylashish holati" value={(form as Record<string, any>).placement_status} />
               <ReadOnlyInput
                 label="Imtiyoz"
                 value={(form as Record<string, any>).privilege ? 'Imtiyozli' : 'Imtiyozsiz'}
@@ -730,7 +887,57 @@ const StudentProfile: React.FC = () => {
         </div>
 
         {/* Hujjatlar bo'limi */}
-        {!editMode && form && (
+        {editMode ? (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 sm:p-6 border mt-6 border-gray-200 dark:border-slate-700 w-full">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 flex items-center gap-2">
+              <BadgeCheck className="w-5 h-5 text-blue-500" />
+              Hujjatlarni tahrirlash
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Pasport (old) */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Pasport (old tomoni)</label>
+                <div className="relative aspect-video bg-gray-100 dark:bg-slate-900 rounded-xl overflow-hidden border border-dashed border-gray-300 dark:border-slate-600 flex items-center justify-center">
+                  {passportFirstPreview || (form as any).passport_image_first ? (
+                    <img src={passportFirstPreview || (form as any).passport_image_first} className="w-full h-full object-contain" alt="Pasport old" />
+                  ) : (
+                    <FileText className="w-8 h-8 text-gray-400" />
+                  )}
+                  <input type="file" accept="image/*" onChange={handlePassportFirstChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+                </div>
+              </div>
+
+              {/* Pasport (orqa) */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Pasport (orqa tomoni)</label>
+                <div className="relative aspect-video bg-gray-100 dark:bg-slate-900 rounded-xl overflow-hidden border border-dashed border-gray-300 dark:border-slate-600 flex items-center justify-center">
+                  {passportSecondPreview || (form as any).passport_image_second ? (
+                    <img src={passportSecondPreview || (form as any).passport_image_second} className="w-full h-full object-contain" alt="Pasport orqa" />
+                  ) : (
+                    <FileText className="w-8 h-8 text-gray-400" />
+                  )}
+                  <input type="file" accept="image/*" onChange={handlePassportSecondChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+                </div>
+              </div>
+
+              {/* Qo'shimcha hujjat */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Qo'shimcha hujjat</label>
+                <div className="relative aspect-video bg-gray-100 dark:bg-slate-900 rounded-xl overflow-hidden border border-dashed border-gray-300 dark:border-slate-600 flex items-center justify-center">
+                  {documentPreview || (form as any).document ? (
+                    <div className="flex flex-col items-center gap-1">
+                      <FileText className="w-8 h-8 text-blue-500" />
+                      <span className="text-[10px] text-gray-500">Hujjat tanlangan</span>
+                    </div>
+                  ) : (
+                    <FileText className="w-8 h-8 text-gray-400" />
+                  )}
+                  <input type="file" onChange={handleDocumentChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : form && (
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 sm:p-6 border mt-6 border-gray-200 dark:border-slate-700 w-full">
             <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 flex items-center gap-2">
               <BadgeCheck className="w-5 h-5 text-blue-500" />

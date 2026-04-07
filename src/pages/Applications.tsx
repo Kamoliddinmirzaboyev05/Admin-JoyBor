@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trash2, ChevronRight, X, Filter, Search, ChevronDown, User, CheckCircle, XCircle, AlertCircle, UserPlus, SlidersHorizontal, Calendar, Phone as PhoneIcon, MapPin, GraduationCap } from 'lucide-react';
+import { Trash2, Building, Home, ChevronRight, X, Filter, Search, ChevronDown, User, CheckCircle, XCircle, AlertCircle, UserPlus, SlidersHorizontal, Calendar, Phone as PhoneIcon, MapPin, GraduationCap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Select, { SingleValue, StylesConfig } from 'react-select';
 import { toast } from 'sonner';
@@ -94,20 +94,6 @@ const statusColors: StatusColors = {
   'Rad etilgan': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
   'Qabul qilindi': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
 } as const;
-
-// Status tarjima funksiyasi
-const getStatusText = (status: string) => {
-  const statusMap: { [key: string]: string } = {
-    'PENDING': 'Yangi',
-    'APPROVED': 'Qabul qilindi',
-    'REJECTED': 'Rad etilgan',
-    // O'zbek tilidagi statuslar
-    'Yangi': 'Yangi',
-    'Rad etilgan': 'Rad etilgan',
-    'Qabul qilindi': 'Qabul qilindi',
-  };
-  return statusMap[status] || status;
-};
 
 // Status rangini olish funksiyasi
 const getStatusColor = (status: string) => {
@@ -217,11 +203,17 @@ const districtOptions: Record<string, { value: string; label: string }[]> = {
 const Applications: React.FC = () => {
   const [search, setSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
-  const [showModal, setShowModal] = useState<boolean>(false);
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [selectedAppForConvert, setSelectedAppForConvert] = useState<Application | null>(null);
+  const [convertForm, setConvertForm] = useState({
+    floor: '',
+    room: ''
+  });
   const [convertingApp, setConvertingApp] = useState<string | number | null>(null);
   const [deletingApp, setDeletingApp] = useState<string | number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ show: boolean; id: string | number | null }>({ show: false, id: null });
 
+  const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -245,7 +237,22 @@ const Applications: React.FC = () => {
 
   const queryClient = useQueryClient();
 
-  // Listen for application updates
+  // Fetch floors for convert modal
+  const { data: floorsData } = useQuery({
+    queryKey: ['floors'],
+    queryFn: () => api.getFloors(),
+  });
+
+  const floors = floorsData?.results || floorsData || [];
+
+  // Fetch rooms based on selected floor
+  const { data: roomsData } = useQuery({
+    queryKey: ['rooms', convertForm.floor],
+    queryFn: () => api.getRooms(convertForm.floor),
+    enabled: !!convertForm.floor,
+  });
+
+  const rooms = roomsData?.results || roomsData || [];
   React.useEffect(() => {
     const handleApplicationUpdate = () => {
       queryClient.invalidateQueries({ queryKey: ['applications'] });
@@ -333,9 +340,31 @@ const Applications: React.FC = () => {
     };
   }, [refetch]);
 
-  // Convert application to student function - Updated to use FormData
-  const handleConvertToStudent = async (applicationId: string | number) => {
-    setConvertingApp(applicationId);
+  // Open convert modal with application data
+  const openConvertModal = (app: Application) => {
+    setSelectedAppForConvert(app);
+    setConvertForm({ floor: '', room: '' });
+    setShowConvertModal(true);
+  };
+
+  // Handle floor selection
+  const handleFloorChange = (floorId: string) => {
+    setConvertForm(prev => ({ ...prev, floor: floorId, room: '' }));
+  };
+
+  // Handle room selection  
+  const handleRoomChange = (roomId: string) => {
+    setConvertForm(prev => ({ ...prev, room: roomId }));
+  };
+
+  // Convert application to student with floor and room
+  const handleConvertToStudent = async () => {
+    if (!selectedAppForConvert || !convertForm.floor || !convertForm.room) {
+      toast.error('Qavat va xona tanlash shart!');
+      return;
+    }
+
+    setConvertingApp(selectedAppForConvert.id);
     try {
       const token = sessionStorage.getItem('access');
       if (!token) {
@@ -343,16 +372,19 @@ const Applications: React.FC = () => {
         return;
       }
 
-      // Create FormData instead of JSON
+      // Create FormData with application_id, floor, room and is_active
       const formData = new FormData();
-      formData.append('application_id', String(applicationId));
+      formData.append('application_id', String(selectedAppForConvert.id));
+      formData.append('floor', convertForm.floor);
+      formData.append('room', convertForm.room);
+      formData.append('is_active', 'true');
 
-      const response = await fetch('https://joyborv1.pythonanywhere.com/student/create/', {
+      const response = await fetch(`${link}/student/create/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
-        body: formData, // Send FormData instead of JSON
+        body: formData,
       });
 
       if (!response.ok) {
@@ -362,6 +394,11 @@ const Applications: React.FC = () => {
 
       const result = await response.json();
       toast.success('Ariza muvaffaqiyatli talabaga aylantirildi!');
+      
+      // Close modal and refresh
+      setShowConvertModal(false);
+      setSelectedAppForConvert(null);
+      setConvertForm({ floor: '', room: '' });
       
       // Refresh applications and students list
       await queryClient.invalidateQueries({ queryKey: ['applications'] });
@@ -654,10 +691,10 @@ const Applications: React.FC = () => {
 
                     {(app.status === 'PENDING' || app.status === 'Yangi') && (
                       <button
-                        onClick={() => handleConvertToStudent(app.id)}
+                        onClick={() => openConvertModal(app)}
                         disabled={convertingApp === app.id}
                         className="p-4 rounded-2xl bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-600 hover:text-white transition-all active:scale-95 disabled:opacity-50"
-                        title="Talabaga aylantirish"
+                        title="Talabalar ro'yhatiga qo'shish"
                       >
                         {convertingApp === app.id ? (
                           <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
@@ -721,6 +758,141 @@ const Applications: React.FC = () => {
                   className="flex-1 py-4 rounded-2xl bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg shadow-red-500/30 transition-all active:scale-95"
                 >
                   O'chirish
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Convert to Student Modal */}
+      <AnimatePresence>
+        {showConvertModal && selectedAppForConvert && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl p-8 w-full max-w-lg border border-gray-100 dark:border-slate-700"
+            >
+              {/* Header */}
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-16 h-16 bg-green-50 dark:bg-green-900/20 rounded-2xl flex items-center justify-center text-green-500">
+                  <UserPlus className="w-8 h-8" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900 dark:text-white">Talabaga aylantirish</h2>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    Ariza ma'lumotlarini tekshirib, qavat va xona tanlang
+                  </p>
+                </div>
+              </div>
+
+              {/* Application Info Card */}
+              <div className="bg-gray-50 dark:bg-slate-700/50 rounded-2xl p-4 mb-6 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-lg">
+                    {(selectedAppForConvert.last_name?.[0] || '') + (selectedAppForConvert.name?.[0] || '')}
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900 dark:text-white">
+                      {selectedAppForConvert.last_name} {selectedAppForConvert.name}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{selectedAppForConvert.phone}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
+                    <p className="text-gray-400 dark:text-gray-500 text-xs uppercase font-bold mb-1">Fakultet</p>
+                    <p className="text-gray-900 dark:text-white font-medium truncate">{selectedAppForConvert.faculty || '-'}</p>
+                  </div>
+                  <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
+                    <p className="text-gray-400 dark:text-gray-500 text-xs uppercase font-bold mb-1">Yo'nalish</p>
+                    <p className="text-gray-900 dark:text-white font-medium truncate">{selectedAppForConvert.direction || '-'}</p>
+                  </div>
+                  <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
+                    <p className="text-gray-400 dark:text-gray-500 text-xs uppercase font-bold mb-1">Guruh</p>
+                    <p className="text-gray-900 dark:text-white font-medium">{selectedAppForConvert.group || '-'}</p>
+                  </div>
+                  <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
+                    <p className="text-gray-400 dark:text-gray-500 text-xs uppercase font-bold mb-1">Kurs</p>
+                    <p className="text-gray-900 dark:text-white font-medium">{selectedAppForConvert.course || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Floor and Room Selection */}
+              <div className="space-y-4 mb-6">
+                {/* Floor Selection */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                    <Building className="w-4 h-4 inline mr-1" />
+                    Qavat *
+                  </label>
+                  <Select
+                    options={floors.map((f: any) => ({ value: String(f.id), label: f.name }))}
+                    value={floors.find((f: any) => String(f.id) === convertForm.floor) 
+                      ? { value: convertForm.floor, label: floors.find((f: any) => String(f.id) === convertForm.floor)?.name }
+                      : null
+                    }
+                    onChange={(opt) => handleFloorChange(opt?.value || '')}
+                    placeholder="Qavat tanlang"
+                    styles={selectStyles as any}
+                    classNamePrefix="react-select"
+                  />
+                </div>
+
+                {/* Room Selection */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                    <Home className="w-4 h-4 inline mr-1" />
+                    Xona *
+                  </label>
+                  <Select
+                    options={rooms.map((r: any) => ({ value: String(r.id), label: r.name }))}
+                    value={rooms.find((r: any) => String(r.id) === convertForm.room)
+                      ? { value: convertForm.room, label: rooms.find((r: any) => String(r.id) === convertForm.room)?.name }
+                      : null
+                    }
+                    onChange={(opt) => handleRoomChange(opt?.value || '')}
+                    placeholder={convertForm.floor ? "Xona tanlang" : "Avval qavat tanlang"}
+                    isDisabled={!convertForm.floor}
+                    styles={selectStyles as any}
+                    classNamePrefix="react-select"
+                  />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-4">
+                <button
+                  onClick={() => {
+                    setShowConvertModal(false);
+                    setSelectedAppForConvert(null);
+                    setConvertForm({ floor: '', room: '' });
+                  }}
+                  className="flex-1 py-4 rounded-2xl bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 font-bold hover:bg-gray-200 dark:hover:bg-slate-600 transition-all"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  onClick={handleConvertToStudent}
+                  disabled={!convertForm.floor || !convertForm.room || convertingApp === selectedAppForConvert.id}
+                  className="flex-1 py-4 rounded-2xl bg-green-600 text-white font-bold hover:bg-green-700 shadow-lg shadow-green-500/30 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {convertingApp === selectedAppForConvert.id ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Aylantirilmoqda...
+                    </span>
+                  ) : (
+                    "Talabalar ro'yhatiga qo'shish"
+                  )}
                 </button>
               </div>
             </motion.div>

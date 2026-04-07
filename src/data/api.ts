@@ -6,9 +6,14 @@ export const BASE_URL = link;
 export async function apiFetch(url: string, options: RequestInit = {}) {
   const token = sessionStorage.getItem('access');
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...((options.headers as Record<string, string>) || {}),
   };
+
+  // Only set 'Content-Type' if it's not FormData and not already set
+  if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -57,15 +62,15 @@ export async function apiFetch(url: string, options: RequestInit = {}) {
 export const get = (url: string) => apiFetch(url, { method: 'GET' });
 export const post = (url: string, data?: unknown) => apiFetch(url, {
   method: 'POST',
-  body: data ? JSON.stringify(data) : undefined,
+  body: data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined),
 });
 export const put = (url: string, data?: unknown) => apiFetch(url, {
   method: 'PUT',
-  body: data ? JSON.stringify(data) : undefined,
+  body: data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined),
 });
 export const patch = (url: string, data?: unknown) => apiFetch(url, {
   method: 'PATCH',
-  body: data ? JSON.stringify(data) : undefined,
+  body: data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined),
 });
 export const del = (url: string) => apiFetch(url, { method: 'DELETE' });
 
@@ -166,6 +171,7 @@ export const api = {
       email?: string;
       first_name?: string;
       last_name?: string;
+      phone?: string;
     };
     floor_info?: {
       name: string;
@@ -204,6 +210,25 @@ export const api = {
   
   updateAttendanceSession: (id: number, data: Record<string, unknown>) => patch(`/attendance-sessions/${id}/`, data),
   deleteAttendanceSession: (id: number) => del(`/attendance-sessions/${id}/`),
+  
+  // Attendance Records
+  getAttendanceRecords: (params?: {
+    session?: number;
+    student?: number;
+    status?: string;
+    page?: number;
+    page_size?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.session) searchParams.append('session', params.session.toString());
+    if (params?.student) searchParams.append('student', params.student.toString());
+    if (params?.status) searchParams.append('status', params.status);
+    if (params?.page) searchParams.append('page', params.page.toString());
+    if (params?.page_size) searchParams.append('page_size', params.page_size.toString());
+    
+    const queryString = searchParams.toString();
+    return get(`/attendance-records/${queryString ? `?${queryString}` : ''}`);
+  },
   
   // Reports
   getReports: (params?: {

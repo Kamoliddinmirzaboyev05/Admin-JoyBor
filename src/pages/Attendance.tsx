@@ -1,39 +1,34 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { 
   Users, 
   UserCheck, 
   UserX, 
-  Clock, 
   TrendingUp,
   Building,
-  Eye,
-  Calendar,
+  UserPlus,
   UserCog,
+  ChevronDown,
+  Clock,
+  ArrowRightLeft,
+  Calendar,
   X,
-  Search,
-  UserPlus
+  User,
+  Mail
 } from 'lucide-react';
 import StatsCard from '../components/UI/StatsCard';
 import api from '../data/api';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import Select from 'react-select';
 import AddLeaderModal from '../components/Modals/AddLeaderModal';
 
 const Attendance: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
-  const [showLeaderModal, setShowLeaderModal] = useState(false);
   const [showAddLeaderModal, setShowAddLeaderModal] = useState(false);
   const [floorLeaders, setFloorLeaders] = useState<Array<{ id: number; user_info: { username: string; email: string; id: number }; floor_info: { name: string; id: number }; floor: number; user: number }>>([]);
-  const [leaderForm, setLeaderForm] = useState({
-    floor_id: '',
-    student_id: '',
-  });
-  const [editingLeader, setEditingLeader] = useState<{ id: number; floor_id: string; student_id: string } | null>(null);
-  const [addingLeader, setAddingLeader] = useState(false);
-  const [studentSearch, setStudentSearch] = useState('');
+  const [showFloorFilter, setShowFloorFilter] = useState(false);
+  const [showLeadersModal, setShowLeadersModal] = useState(false);
   
   const queryClient = useQueryClient();
 
@@ -65,128 +60,25 @@ const Attendance: React.FC = () => {
     queryFn: () => api.getFloorLeaders()
   });
 
+  // Fetch attendance records
+  const { data: attendanceRecordsData } = useQuery({
+    queryKey: ['attendance-records'],
+    queryFn: () => api.getAttendanceRecords()
+  });
+
+  const attendanceRecords = attendanceRecordsData?.results || attendanceRecordsData || [];
+
   useEffect(() => {
     if (leadersData) {
       setFloorLeaders(leadersData.results || leadersData);
     }
   }, [leadersData]);
 
-  // Calculate statistics
+  // Calculate statistics from attendance records
   const totalStudents = students.length;
-  const totalPresent = 0; // Bu davomat sessiyalaridan hisoblanadi
+  const totalPresent = attendanceRecords.filter((r: any) => r.status === 'in').length;
   const totalAbsent = totalStudents - totalPresent;
   const attendanceRate = totalStudents > 0 ? ((totalPresent / totalStudents) * 100).toFixed(1) : '0';
-
-  // Floor leader handlers
-  const handleAddLeader = async () => {
-    if (!leaderForm.floor_id || !leaderForm.student_id) {
-      toast.error('Qavat va talabani tanlang!');
-      return;
-    }
-    
-    setAddingLeader(true);
-    try {
-      if (editingLeader) {
-        // Update existing leader
-        await api.updateFloorLeader(editingLeader.id, {
-          floor: parseInt(leaderForm.floor_id),
-          user: parseInt(leaderForm.student_id),
-        });
-        toast.success('Qavat sardori muvaffaqiyatli yangilandi!');
-      } else {
-        // Create new leader
-        await api.createFloorLeader({
-          floor: parseInt(leaderForm.floor_id),
-          user: parseInt(leaderForm.student_id),
-        });
-        toast.success('Qavat sardori muvaffaqiyatli qo\'shildi!');
-      }
-      
-      setShowLeaderModal(false);
-      setLeaderForm({ floor_id: '', student_id: '' });
-      setEditingLeader(null);
-      setStudentSearch('');
-      
-      // Refresh floor leaders
-      refetchLeaders();
-    } catch (error: any) {
-      console.error('Add/Edit leader error:', error);
-      if (error.response && error.response.data) {
-        const errorData = error.response.data;
-        const message = errorData.detail || errorData.message || JSON.stringify(errorData);
-        toast.error(`Xatolik: ${message}`);
-      } else {
-        toast.error((error as Error)?.message || (editingLeader ? 'Sardorni yangilashda xatolik!' : 'Sardor qo\'shishda xatolik!'));
-      }
-    } finally {
-      setAddingLeader(false);
-    }
-  };
-
-  const handleEditLeader = (leader: any) => {
-    setEditingLeader({
-      id: leader.id,
-      floor_id: String(leader.floor),
-      student_id: String(leader.user)
-    });
-    setLeaderForm({
-      floor_id: String(leader.floor),
-      student_id: String(leader.user)
-    });
-    setShowLeaderModal(true);
-  };
-
-  const handleRemoveLeader = async (leaderId: number) => {
-    if (!window.confirm('Haqiqatan ham bu qavat sardorini o\'chirmoqchimisiz?')) {
-      return;
-    }
-    
-    try {
-      await api.deleteFloorLeader(leaderId);
-      toast.success('Qavat sardori o\'chirildi!');
-      
-      // Refresh floor leaders
-      refetchLeaders();
-    } catch (error: any) {
-      console.error('Remove leader error:', error);
-      if (error.response && error.response.data) {
-        const errorData = error.response.data;
-        const message = errorData.detail || errorData.message || JSON.stringify(errorData);
-        toast.error(`Xatolik: ${message}`);
-      } else {
-        toast.error('Sardorni o\'chirishda xatolik!');
-      }
-    }
-  };
-
-  // Filter students for select
-  const studentOptions = students
-    .filter((s: any) => {
-      const firstName = s.first_name || s.name || '';
-      const lastName = s.last_name || '';
-      const fullName = `${firstName} ${lastName}`.trim();
-      return studentSearch === '' || fullName.toLowerCase().includes(studentSearch.toLowerCase());
-    })
-    .map((s: any) => {
-      // Check if student has a user field (ID or object)
-      // If s.user exists, use it. If not, fallback to s.id but log warning
-      let userId = s.id;
-      if (s.user) {
-         if (typeof s.user === 'object' && s.user.id) {
-             userId = s.user.id;
-         } else if (typeof s.user === 'number') {
-             userId = s.user;
-         }
-      }
-      
-      const firstName = s.first_name || s.name || '';
-      const lastName = s.last_name || '';
-      const fullName = `${firstName} ${lastName}`.trim();
-      return {
-        value: userId, // Use the determine User ID
-        label: `${fullName} (ID: ${userId})`
-      };
-    });
 
   const floorOptions = floors.map((f: { id: number; name: string }) => ({
     value: f.id,
@@ -207,29 +99,73 @@ const Attendance: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Chiroyli Filter */}
+          <div className="relative">
+            <button
+              onClick={() => setShowFloorFilter(!showFloorFilter)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
+                selectedFloor 
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-2 border-blue-300 dark:border-blue-700' 
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              <Building className="h-4 w-4" />
+              <span>{selectedFloor ? floorOptions.find((f: { value: number; label: string }) => f.value === selectedFloor)?.label : 'Barcha qavatlar'}</span>
+              <ChevronDown className={`h-4 w-4 transition-transform ${showFloorFilter ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {showFloorFilter && (
+              <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-20">
+                <div className="p-2">
+                  <button
+                    onClick={() => {
+                      setSelectedFloor(null);
+                      setShowFloorFilter(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                      !selectedFloor 
+                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' 
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Barcha qavatlar
+                  </button>
+                  {floorOptions.map((floor: { value: number; label: string }) => (
+                    <button
+                      key={floor.value}
+                      onClick={() => {
+                        setSelectedFloor(floor.value);
+                        setShowFloorFilter(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                        selectedFloor === floor.value 
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' 
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {floor.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
-            onClick={() => setShowLeaderModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+            onClick={() => setShowLeadersModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all shadow-sm hover:shadow-md"
           >
             <UserCog className="h-4 w-4" />
-            Sardor tayinlash
+            Sardorlarni ko&apos;rish
           </button>
+
           <button
             onClick={() => setShowAddLeaderModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-all shadow-sm hover:shadow-md"
           >
             <UserPlus className="h-4 w-4" />
-            Yangi sardor qo&apos;shish
+            Yangi sardor
           </button>
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-gray-500" />
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
         </div>
       </div>
 
@@ -261,102 +197,119 @@ const Attendance: React.FC = () => {
         />
       </div>
 
-      {/* Qavat sardorlari */}
+      {/* Davomat qaydlari jadvali */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Qavat sardorlari
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Har bir qavat uchun tayinlangan sardorlar
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <Clock className="h-5 w-5 text-blue-600" />
+                Davomat qaydlari
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Talabalarning kirish-chiqish vaqtlari
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Calendar className="h-4 w-4" />
+              <span>{new Date().toLocaleDateString('uz-UZ')}</span>
+            </div>
+          </div>
         </div>
         
-        <div className="p-6">
-          {floorLeaders.length === 0 ? (
-            <div className="text-center py-8">
-              <UserCog className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-500 dark:text-gray-400 mb-4">
-                Hozircha qavat sardorlari tayinlanmagan
+        <div className="overflow-x-auto">
+          {attendanceRecords.length === 0 ? (
+            <div className="text-center py-12">
+              <Clock className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-500 dark:text-gray-400">
+                Hozircha davomat qaydlari mavjud emas
               </p>
-              <div className="flex justify-center gap-4">
-                <button
-                  onClick={() => setShowLeaderModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-                >
-                  <UserCog className="h-4 w-4" />
-                  Sardor tayinlash
-                </button>
-                <button
-                  onClick={() => setShowAddLeaderModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Yangi sardor
-                </button>
-              </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {floorLeaders.map((leader) => (
-                <motion.div
-                  key={leader.id}
-                  whileHover={{ scale: 1.02 }}
-                  className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-6 border border-green-200 dark:border-green-700 transition-all duration-200 hover:shadow-md relative group"
-                >
-                  {/* Action buttons */}
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => handleEditLeader(leader)}
-                      className="p-1.5 bg-white dark:bg-gray-700 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 rounded-lg shadow-sm transition-colors"
-                      title="Sardorni tahrirlash"
-                    >
-                      <UserCog className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleRemoveLeader(leader.id)}
-                      className="p-1.5 bg-white dark:bg-gray-700 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 rounded-lg shadow-sm transition-colors"
-                      title="Sardorni o'chirish"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Leader header */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-green-600 dark:bg-green-700 rounded-lg">
-                      <Building className="h-5 w-5 text-white" />
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-700/50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    ID
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Talaba
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <div className="flex items-center gap-1">
+                      <ArrowRightLeft className="h-3 w-3" />
+                      Status
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white">
-                        {leader.floor_info?.name || `${leader.floor}-qavat`}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Qavat
-                      </p>
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Vaqt
                     </div>
-                  </div>
-
-                  {/* Sardor ma'lumoti */}
-                  <div className="p-3 bg-white dark:bg-gray-700/50 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <UserCog className="h-4 w-4 text-green-600 dark:text-green-400" />
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        Sardor
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Sessiya
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {attendanceRecords.map((record: any, index: number) => (
+                  <motion.tr
+                    key={record.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
+                      #{record.id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mr-3">
+                          <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                            {record.student_name?.charAt(0) || '?'}
+                          </span>
+                        </div>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {record.student_name || 'Noma\'lum'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+                        record.status === 'in' 
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                          : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                      }`}>
+                        {record.status === 'in' ? (
+                          <>
+                            <ArrowRightLeft className="h-3 w-3" />
+                            Kirish
+                          </>
+                        ) : (
+                          <>
+                            <ArrowRightLeft className="h-3 w-3" />
+                            Chiqish
+                          </>
+                        )}
                       </span>
-                    </div>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 font-semibold">
-                      {leader.user_info?.username || 'Noma\'lum'}
-                    </p>
-                    {leader.user_info?.email && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {leader.user_info.email}
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                      {new Date(record.created_at).toLocaleString('uz-UZ', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        day: '2-digit',
+                        month: '2-digit'
+                      })}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                      #{record.session}
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
@@ -371,129 +324,158 @@ const Attendance: React.FC = () => {
         floors={floorsForModal}
       />
 
-      {/* Floor Leader Modal (Linking existing) */}
-      <AnimatePresence>
-        {showLeaderModal && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-            onClick={() => {
-              setShowLeaderModal(false);
-              setLeaderForm({ floor_id: '', student_id: '' });
-              setEditingLeader(null);
-              setStudentSearch('');
-            }}
+      {/* Floor Leaders View Modal */}
+      {showLeadersModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowLeadersModal(false)}
+          />
+          
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden"
           >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 40 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 40 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto"
-              onClick={e => e.stopPropagation()}
-            >
-              <button
-                className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 rounded transition-colors"
-                onClick={() => {
-                  setShowLeaderModal(false);
-                  setLeaderForm({ floor_id: '', student_id: '' });
-                  setEditingLeader(null);
-                  setStudentSearch('');
-                }}
-              >
-                <X size={22} />
-              </button>
-              
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                  <UserCog className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-500 rounded-lg">
+                  <UserCog className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {editingLeader ? 'Sardorni tahrirlash' : 'Sardor tayinlash'}
+                    Qavat sardorlari
                   </h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Mavjud talabani tanlang</p>
-                </div>
-              </div>
-              
-              <form
-                onSubmit={e => {
-                  e.preventDefault();
-                  handleAddLeader();
-                }}
-                className="space-y-4"
-              >
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Qavat
-                  </label>
-                  <Select
-                    options={floorOptions}
-                    value={floorOptions.find((opt: { value: number; label: string }) => opt.value === parseInt(leaderForm.floor_id)) || null}
-                    onChange={(option: { value: number; label: string } | null) => setLeaderForm({ ...leaderForm, floor_id: option ? String(option.value) : '' })}
-                    placeholder="Qavatni tanlang..."
-                    className="react-select-container"
-                    classNamePrefix="react-select"
-                    isClearable
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Talaba
-                  </label>
-                  <Select
-                    options={studentOptions}
-                    value={studentOptions.find((opt: { value: number; label: string }) => opt.value === parseInt(leaderForm.student_id)) || null}
-                    onChange={(option: { value: number; label: string } | null) => setLeaderForm({ ...leaderForm, student_id: option ? String(option.value) : '' })}
-                    onInputChange={(value) => setStudentSearch(value)}
-                    placeholder="Talabani qidiring..."
-                    className="react-select-container"
-                    classNamePrefix="react-select"
-                    isClearable
-                    isSearchable
-                    noOptionsMessage={() => "Talaba topilmadi"}
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Mavjud talabalar ro'yxatidan tanlang
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Barcha qavat sardorlarining ro&apos;yxati
                   </p>
                 </div>
-                
-                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
+              </div>
+              <button
+                onClick={() => setShowLeadersModal(false)}
+                className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto max-h-[calc(85vh-140px)] p-6">
+              {floorLeaders.length === 0 ? (
+                <div className="text-center py-12">
+                  <UserCog className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400 text-lg mb-4">
+                    Hozircha qavat sardorlari tayinlanmagan
+                  </p>
                   <button
-                    type="button"
                     onClick={() => {
-                      setShowLeaderModal(false);
-                      setLeaderForm({ floor_id: '', student_id: '' });
-                      setEditingLeader(null);
-                      setStudentSearch('');
+                      setShowLeadersModal(false);
+                      setShowAddLeaderModal(true);
                     }}
-                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full sm:w-auto"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors"
                   >
-                    Bekor qilish
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={addingLeader}
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors disabled:opacity-60 w-full sm:w-auto flex items-center justify-center gap-2"
-                  >
-                    {addingLeader ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        {editingLeader ? 'Yangilanmoqda...' : 'Tayinlanmoqda...'}
-                      </>
-                    ) : (
-                      <>
-                        <UserCog className="w-4 h-4" />
-                        {editingLeader ? 'Saqlash' : 'Tayinlash'}
-                      </>
-                    )}
+                    <UserPlus className="h-5 w-5" />
+                    Yangi sardor qo&apos;shish
                   </button>
                 </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 dark:bg-gray-700/50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider rounded-l-lg">
+                          ID
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          <div className="flex items-center gap-1">
+                            <Building className="h-3 w-3" />
+                            Qavat
+                          </div>
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          <div className="flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            Username
+                          </div>
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          <div className="flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            Email
+                          </div>
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider rounded-r-lg">
+                          Holat
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {floorLeaders.map((leader, index) => (
+                        <motion.tr
+                          key={leader.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                        >
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                            #{leader.id}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-medium">
+                              <Building className="h-3.5 w-3.5" />
+                              {leader.floor_info?.name || `${leader.floor}-qavat`}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                                <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                                  {leader.user_info?.username?.charAt(0).toUpperCase() || '?'}
+                                </span>
+                              </div>
+                              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                {leader.user_info?.username || 'Noma\'lum'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                            {leader.user_info?.email || '-'}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">
+                              <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                              Faol
+                            </span>
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Jami: <span className="font-semibold text-gray-900 dark:text-white">{floorLeaders.length}</span> ta sardor
+              </p>
+              <button
+                onClick={() => setShowLeadersModal(false)}
+                className="px-6 py-2 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 rounded-xl font-medium transition-colors"
+              >
+                Yopish
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };

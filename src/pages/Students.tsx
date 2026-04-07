@@ -345,33 +345,33 @@ const Students: React.FC = () => {
       setLoading(true);
       try {
         const token = sessionStorage.getItem('access');
-        // Prepare payload according to API documentation
-        const payload: Record<string, unknown> = {
-          name: formData.firstName,
-          last_name: formData.lastName,
-          middle_name: formData.fatherName,
-          phone: formData.phone,
-          faculty: formData.faculty,
-          direction: formData.direction,
-          group: formData.group,
-          passport: formData.passport,
-          privilege: formData.isPrivileged, // Use 'privilege' as per API docs
-          course: formData.course,
-          gender: formData.gender,
-          province: formData.region ? Number(formData.region) : 0,
-          district: formData.district ? Number(formData.district) : 0,
-          floor: formData.floor ? Number(formData.floor) : 0,
-          room: formData.room ? Number(formData.room) : 0,
-        };
+        // Prepare payload according to API documentation using FormData
+        const formDataPayload = new FormData();
+        formDataPayload.append('name', formData.firstName);
+        formDataPayload.append('last_name', formData.lastName);
+        formDataPayload.append('middle_name', formData.fatherName);
+        formDataPayload.append('phone', formData.phone);
+        formDataPayload.append('faculty', formData.faculty);
+        formDataPayload.append('direction', formData.direction);
+        formDataPayload.append('group', formData.group);
+        formDataPayload.append('passport', formData.passport);
+        formDataPayload.append('privilege', String(formData.isPrivileged));
+        formDataPayload.append('course', formData.course);
+        formDataPayload.append('gender', formData.gender);
+        formDataPayload.append('province', formData.region ? String(Number(formData.region)) : '0');
+        formDataPayload.append('district', formData.district ? String(Number(formData.district)) : '0');
+        formDataPayload.append('floor', formData.floor ? String(Number(formData.floor)) : '0');
+        formDataPayload.append('room', formData.room ? String(Number(formData.room)) : '0');
+
         await fetch(
           `${link}/students/${editingStudent.id}/`,
           {
             method: 'PATCH',
             headers: {
               'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
+              // Content-Type is NOT set for FormData
             },
-            body: JSON.stringify(payload)
+            body: formDataPayload
           }
         );
         toast.success('Talaba maʼlumotlari yangilandi!');

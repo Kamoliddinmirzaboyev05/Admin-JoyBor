@@ -309,37 +309,35 @@ const ApplicationDetail: React.FC = () => {
       const studentId = matchingStudent.id as number;
       console.log('Found unassigned student ID:', studentId, 'for user:', userId);
 
-      // Update existing student with PATCH (only fields that need to be updated)
-      const updateData = {
-        name: studentForm.name || '',
-        last_name: studentForm.last_name || '',
-        middle_name: studentForm.middle_name || '',
-        passport: studentForm.passport || '',
-        faculty: studentForm.faculty || '',
-        direction: studentForm.direction || '',
-        group: studentForm.group || '',
-        course: studentForm.course || '1-kurs',
-        gender: studentForm.gender || 'Erkak',
-        phone: studentForm.phone || '',
-        placement_status: 'Qabul qilindi', // API expected format
-        is_active: true,
-        floor: selectedFloor,
-        room: selectedRoom,
-      };
+      // Update existing student with FormData
+      const formData = new FormData();
+      formData.append('name', studentForm.name || '');
+      formData.append('last_name', studentForm.last_name || '');
+      formData.append('middle_name', studentForm.middle_name || '');
+      formData.append('passport', studentForm.passport || '');
+      formData.append('faculty', studentForm.faculty || '');
+      formData.append('direction', studentForm.direction || '');
+      formData.append('group', studentForm.group || '');
+      formData.append('course', studentForm.course || '1-kurs');
+      formData.append('gender', studentForm.gender || 'Erkak');
+      formData.append('phone', studentForm.phone || '');
+      formData.append('placement_status', 'Qabul qilindi');
+      formData.append('is_active', 'true');
+      formData.append('floor', String(selectedFloor));
+      formData.append('room', String(selectedRoom));
 
-      console.log('Updating student:', {
+      console.log('Updating student with FormData:', {
         studentId: studentId,
         url: `${link}/students/${studentId}/`,
-        data: updateData
       });
 
       const response = await fetch(`${link}/students/${studentId}/`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          // Don't set Content-Type, browser will set it to multipart/form-data with boundary
         },
-        body: JSON.stringify(updateData),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -348,7 +346,6 @@ const ApplicationDetail: React.FC = () => {
           status: response.status,
           statusText: response.statusText,
           errorData,
-          sentData: updateData
         });
         
         // Show detailed error message
