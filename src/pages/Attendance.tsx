@@ -21,6 +21,7 @@ import api from '../data/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import AddLeaderModal from '../components/Modals/AddLeaderModal';
+import ModernDatePicker from '../components/UI/ModernDatePicker';
 
 const Attendance: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -46,34 +47,48 @@ const Attendance: React.FC = () => {
     name: f.name
   }));
 
-  // Fetch students
+  // 1. Barcha talabalarni olish (Qavatlar statistikasi uchun)
   const { data: studentsData } = useQuery({
-    queryKey: ['students', selectedFloor], // Add selectedFloor to queryKey
-    queryFn: () => api.getStudents({ floor: selectedFloor || undefined }), // Pass selectedFloor to API
+    queryKey: ['students-all'], 
+    queryFn: () => api.getStudents(),
   });
 
-  const students = studentsData?.results || studentsData || [];
+  const allStudents = studentsData?.results || studentsData || [];
 
-  // Fetch floor leaders
-  const { data: leadersData, refetch: refetchLeaders } = useQuery({
-    queryKey: ['floor-leaders'],
-    queryFn: () => api.getFloorLeaders()
-  });
-
-  // Fetch attendance records
+  // 2. Kunlik barcha davomat qaydlarini olish
   const { data: attendanceRecordsData, isLoading: isAttendanceLoading } = useQuery({
-    queryKey: ['attendance-records', selectedDate, selectedFloor],
-    queryFn: () => api.getAttendanceRecords({ date: selectedDate, floor: selectedFloor || undefined })
+    queryKey: ['attendance-records-daily', selectedDate],
+    queryFn: () => api.getAttendanceRecords({ date: selectedDate })
   });
 
-  const attendanceRecords = attendanceRecordsData?.results || attendanceRecordsData || [];
+  const allDailyRecords = React.useMemo(() => {
+    const rawRecords = attendanceRecordsData?.results || attendanceRecordsData || [];
+    // Sana bo'yicha qat'iy filtrlash (API noto'g'ri sana qaytarsa ham frontend to'g'irlaydi)
+    return rawRecords.filter((record: any) => !selectedDate || record.session_date === selectedDate);
+  }, [attendanceRecordsData, selectedDate]);
 
-  // Statistika hisoblash (latest status bo'yicha)
+  // 3. Tanlangan qavat va sana bo'yicha filtrlangan records (Jadval uchun)
+  const attendanceRecords = React.useMemo(() => {
+    return allDailyRecords.filter((record: any) => {
+      let floorMatch = true;
+      if (selectedFloor) {
+        const selectedFloorName = floors.find((f: any) => f.id === selectedFloor)?.name;
+        floorMatch = record.floor_name === selectedFloorName;
+      }
+      return floorMatch;
+    });
+  }, [allDailyRecords, selectedFloor, floors]);
+
+  // 4. Statistika hisoblash
   const stats = React.useMemo(() => {
-    // 1. Tanlangan qavatdagi jami talabalar
-    const totalCount = students.length;
+    // Tanlangan qavatdagi talabalar
+    const filteredStudents = selectedFloor
+      ? allStudents.filter((s: any) => s.floor === selectedFloor)
+      : allStudents;
 
-    // 2. Har bir talabaning eng oxirgi holatini topish
+    const totalCount = filteredStudents.length;
+
+    // Har bir talabaning eng oxirgi holatini topish (faqat tanlangan qavat/barcha uchun)
     const latestStudentStatuses: Record<number, string> = {};
     const sortedRecords = [...attendanceRecords].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -83,22 +98,43 @@ const Attendance: React.FC = () => {
       latestStudentStatuses[record.student] = record.status;
     });
 
-    // 3. Hozir bor talabalar (oxirgi holati 'in')
     const presentCount = Object.values(latestStudentStatuses).filter(status => status === 'in').length;
-
-    // 4. Yo'qlar
     const absentCount = totalCount - presentCount;
-
-    // 5. Foiz
     const rate = totalCount > 0 ? ((presentCount / totalCount) * 100).toFixed(1) : '0';
 
-    return {
-      total: totalCount,
-      present: presentCount,
-      absent: absentCount,
-      rate: rate
-    };
-  }, [students, attendanceRecords]);
+    return { total: totalCount, present: presentCount, absent: absentCount, rate: rate };
+  }, [allStudents, attendanceRecords, selectedFloor]);
+
+  // 5. Har bir qavat uchun alohida statistika (Grid uchun)
+  const floorStats = React.useMemo(() => {
+    const statsMap: Record<number, { total: number; present: number }> = {};
+    
+    // Barcha talabalarning kunlik oxirgi holatlarini hisoblash
+    const globalLatestStatuses: Record<number, string> = {};
+    [...allDailyRecords]
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      .forEach((record: any) => {
+        globalLatestStatuses[record.student] = record.status;
+      });
+
+    floors.forEach((floor: any) => {
+      const floorStudents = allStudents.filter((s: any) => s.floor === floor.id);
+      const presentOnFloor = floorStudents.filter((s: any) => globalLatestStatuses[s.id] === 'in').length;
+      
+      statsMap[floor.id] = {
+        total: floorStudents.length,
+        present: presentOnFloor
+      };
+    });
+
+    return statsMap;
+  }, [allStudents, allDailyRecords, floors]);
+
+  // Fetch floor leaders
+  const { data: leadersData, refetch: refetchLeaders } = useQuery({
+    queryKey: ['floor-leaders'],
+    queryFn: () => api.getFloorLeaders()
+  });
 
   useEffect(() => {
     if (leadersData) {
@@ -192,45 +228,76 @@ const Attendance: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {floors.map((floor: any) => {
-            const floorRecords = attendanceRecords.filter((record: any) => record.floor_name === floor.name);
+            const floorRecords = allDailyRecords.filter((record: any) => record.floor_name === floor.name);
             const hasAttendance = floorRecords.length > 0;
+            const stats = floorStats[floor.id] || { total: 0, present: 0 };
             
             return (
               <motion.div
                 key={floor.id}
-                whileHover={{ y: -2 }}
+                whileHover={{ y: -4, shadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)" }}
                 onClick={() => {
                   setSelectedFloor(floor.id);
                   const element = document.getElementById('attendance-records-section');
                   element?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className={`flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer ${
+                className={`flex flex-col gap-4 p-5 rounded-2xl border transition-all cursor-pointer ${
                   selectedFloor === floor.id
-                    ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 ring-2 ring-blue-500/20'
+                    ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 ring-4 ring-blue-500/10'
                     : hasAttendance
-                    ? 'border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-900/30'
-                    : 'border-red-200 bg-red-50/50 dark:bg-red-900/10 dark:border-red-900/30'
+                    ? 'border-green-200 bg-white dark:bg-gray-800/50 dark:border-green-900/30 hover:border-green-400'
+                    : 'border-red-100 bg-white dark:bg-gray-800/50 dark:border-red-900/20 hover:border-red-300'
                 }`}
               >
-                <div className="flex flex-col gap-1">
-                  <span className="font-bold text-gray-900 dark:text-white">
-                    {floor.name}
-                  </span>
-                  {hasAttendance && (
-                    <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">
-                      {floorRecords.length} ta qayd mavjud
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-2 rounded-lg ${hasAttendance ? 'bg-green-100 dark:bg-green-900/30 text-green-600' : 'bg-red-100 dark:bg-red-900/30 text-red-600'}`}>
+                      <Building className="h-4 w-4" />
+                    </div>
+                    <span className="font-black text-gray-900 dark:text-white text-base">
+                      {floor.name}
                     </span>
-                  )}
+                  </div>
+                  <span
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                      hasAttendance
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                        : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                    }`}
+                  >
+                    {hasAttendance ? 'Qayd etilgan' : 'Yo\'q'}
+                  </span>
                 </div>
-                <span
-                  className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${
-                    hasAttendance
-                      ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                      : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                  }`}
-                >
-                  {hasAttendance ? 'Qayd etilgan' : 'Yo\'q'}
-                </span>
+
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between items-end">
+                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Davomat ko'rsatkichi</span>
+                    <span className="text-sm font-black text-gray-900 dark:text-white">
+                      {stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0}%
+                    </span>
+                  </div>
+                  <div className="h-2 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${stats.total > 0 ? (stats.present / stats.total) * 100 : 0}%` }}
+                      className={`h-full rounded-full ${hasAttendance ? 'bg-green-500' : 'bg-red-500'}`}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center mt-1">
+                    <div className="flex items-center gap-1.5">
+                      <Users className="h-3 w-3 text-gray-400" />
+                      <span className="text-[11px] font-black text-gray-500 dark:text-gray-400">
+                        JAMI: <span className="text-gray-900 dark:text-white ml-0.5">{stats.total} ta</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <UserCheck className="h-3 w-3 text-green-500" />
+                      <span className="text-[11px] font-black text-gray-500 dark:text-gray-400">
+                        BOR: <span className="text-green-600 dark:text-green-400 ml-0.5">{stats.present} ta</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </motion.div>
             );
           })}
@@ -255,72 +322,75 @@ const Attendance: React.FC = () => {
           </div>
           
           <div className="flex flex-wrap items-center gap-3">
-            {/* Zamonaviy Sana tanlash */}
-            <div className="relative group">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-hover:text-blue-500 transition-colors z-10" />
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer hover:bg-white dark:hover:bg-gray-900 w-[160px]"
-              />
-            </div>
+            {/* React Aria uslubidagi zamonaviy DatePicker */}
+            <ModernDatePicker 
+              selectedDate={selectedDate}
+              onChange={(date) => setSelectedDate(date)}
+              label="Sana"
+            />
 
-            {/* Zamonaviy Qavat Filter */}
-            <div className="relative">
+            {/* Qavat Filter - Z-index to'g'rilandi */}
+            <div className="relative z-[100] flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
+                Qavat
+              </label>
               <button
                 onClick={() => setShowFloorFilter(!showFloorFilter)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 border ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-sm transition-all duration-300 border shadow-sm h-[44px] ${
                   selectedFloor 
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20' 
-                    : 'bg-gray-50 dark:bg-gray-900/50 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-900'
+                    ? 'bg-blue-600 text-white border-blue-600 ring-4 ring-blue-500/10' 
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
-                <Building className={`h-4 w-4 ${selectedFloor ? 'text-white' : 'text-gray-400'}`} />
+                <Building className={`h-4 w-4 ${selectedFloor ? 'text-white' : 'text-blue-500'}`} />
                 <span className="truncate max-w-[120px]">
                   {selectedFloor ? floorOptions.find((f: any) => f.value === selectedFloor)?.label : 'Barcha qavatlar'}
                 </span>
-                <ChevronDown className={`h-4 w-4 transition-transform ${showFloorFilter ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${showFloorFilter ? 'rotate-180' : ''}`} />
               </button>
               
               {showFloorFilter && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowFloorFilter(false)} />
+                  <div className="fixed inset-0 z-[-1]" onClick={() => setShowFloorFilter(false)} />
                   <motion.div 
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    className="absolute bottom-full mb-2 sm:top-full sm:mt-2 right-0 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden z-20 p-1.5"
+                    className="absolute top-full mt-2 right-0 w-64 bg-white dark:bg-gray-900 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-gray-100 dark:border-gray-800 overflow-hidden z-[101] p-2"
                   >
                     <button
                       onClick={() => {
                         setSelectedFloor(null);
                         setShowFloorFilter(false);
                       }}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-bold transition-colors mb-1 ${
+                      className={`w-full text-left px-4 py-3 rounded-xl text-sm font-black transition-all mb-1 flex items-center justify-between ${
                         !selectedFloor 
-                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' 
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900'
+                          ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' 
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
                       }`}
                     >
-                      Barcha qavatlar
+                      <span>Barcha qavatlar</span>
+                      {!selectedFloor && <div className="w-2 h-2 rounded-full bg-white animate-pulse" />}
                     </button>
-                    <div className="h-px bg-gray-100 dark:bg-gray-700 my-1 mx-2" />
-                    {floorOptions.map((floor: any) => (
-                      <button
-                        key={floor.value}
-                        onClick={() => {
-                          setSelectedFloor(floor.value);
-                          setShowFloorFilter(false);
-                        }}
-                        className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-bold transition-colors ${
-                          selectedFloor === floor.value 
-                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' 
-                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900'
-                        }`}
-                      >
-                        {floor.label}
-                      </button>
-                    ))}
+                    <div className="h-px bg-gray-100 dark:bg-gray-800 my-2 mx-2" />
+                    <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                      {floorOptions.map((floor: any) => (
+                        <button
+                          key={floor.value}
+                          onClick={() => {
+                            setSelectedFloor(floor.value);
+                            setShowFloorFilter(false);
+                          }}
+                          className={`w-full text-left px-4 py-3 rounded-xl text-sm font-black transition-all mb-1 flex items-center justify-between ${
+                            selectedFloor === floor.value 
+                              ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' 
+                              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                          }`}
+                        >
+                          <span>{floor.label}</span>
+                          {selectedFloor === floor.value && <div className="w-2 h-2 rounded-full bg-white animate-pulse" />}
+                        </button>
+                      ))}
+                    </div>
                   </motion.div>
                 </>
               )}
@@ -354,7 +424,7 @@ const Attendance: React.FC = () => {
                   <thead className="bg-gray-50 dark:bg-gray-900/40">
                     <tr>
                       <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
-                        ID
+                        #
                       </th>
                       <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
                         Talaba
@@ -379,8 +449,8 @@ const Attendance: React.FC = () => {
                         transition={{ delay: index * 0.03 }}
                         className="hover:bg-gray-50/80 dark:hover:bg-gray-900/30 transition-colors"
                       >
-                        <td className="px-6 py-5 whitespace-nowrap text-sm font-bold text-gray-400">
-                          #{record.id}
+                        <td className="px-6 py-5 whitespace-nowrap text-sm font-black text-gray-400">
+                          {index + 1}
                         </td>
                         <td className="px-6 py-5 whitespace-nowrap">
                           <div className="flex items-center">
@@ -485,7 +555,7 @@ const Attendance: React.FC = () => {
                         </span>
                       </div>
                       <div className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg">
-                        Qayd #{record.id}
+                        T/R #{index + 1}
                       </div>
                     </div>
                   </motion.div>
