@@ -1,5 +1,5 @@
 import React from 'react';
-import {  DivideIcon as LucideIcon } from 'lucide-react';
+import { LucideIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface StatsCardProps {
@@ -15,6 +15,7 @@ interface StatsCardProps {
 
 const StatsCard: React.FC<StatsCardProps> = ({
   title,
+  value,
   change,
   changeType = 'neutral',
   icon: Icon,
@@ -45,7 +46,14 @@ const StatsCard: React.FC<StatsCardProps> = ({
       <div className={`w-12 h-12 bg-gradient-to-br ${colorClasses[color]} rounded-full flex items-center justify-center mb-2`}>
         <Icon className="w-6 h-6 text-white" />
       </div>
-      <h3 className="text-lg font-bold text-gray-900 dark:text-white text-center mb-4 tracking-wide uppercase">{title}</h3>
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white text-center mb-2 tracking-wide uppercase">{title}</h3>
+      
+      {value !== undefined && (
+        <div className="text-3xl font-black text-gray-900 dark:text-white my-2">
+          {value}
+        </div>
+      )}
+
       <div className="w-full flex-1 flex flex-col justify-center gap-2">
         {subStats && subStats.length > 0 && (
           <div className="flex flex-col gap-2 w-full">

@@ -192,7 +192,7 @@ const Attendance: React.FC = () => {
           title="Hozir"
           value={stats.present}
           icon={UserCheck}
-          color="accent"
+          color="warning"
         />
         <StatsCard
           title="Yo&apos;q"
@@ -204,7 +204,7 @@ const Attendance: React.FC = () => {
           title="Davomat foizi"
           value={`${stats.rate}%`}
           icon={TrendingUp}
-          color="secondary"
+          color="accent"
         />
       </div>
 
