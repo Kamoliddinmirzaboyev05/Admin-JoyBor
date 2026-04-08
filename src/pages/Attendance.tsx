@@ -48,8 +48,8 @@ const Attendance: React.FC = () => {
 
   // Fetch students
   const { data: studentsData } = useQuery({
-    queryKey: ['students'],
-    queryFn: () => api.getStudents(),
+    queryKey: ['students', selectedFloor], // Add selectedFloor to queryKey
+    queryFn: () => api.getStudents({ floor: selectedFloor || undefined }), // Pass selectedFloor to API
   });
 
   const students = studentsData?.results || studentsData || [];
@@ -61,24 +61,50 @@ const Attendance: React.FC = () => {
   });
 
   // Fetch attendance records
-  const { data: attendanceRecordsData } = useQuery({
-    queryKey: ['attendance-records'],
-    queryFn: () => api.getAttendanceRecords()
+  const { data: attendanceRecordsData, isLoading: isAttendanceLoading } = useQuery({
+    queryKey: ['attendance-records', selectedDate, selectedFloor],
+    queryFn: () => api.getAttendanceRecords({ date: selectedDate, floor: selectedFloor || undefined })
   });
 
   const attendanceRecords = attendanceRecordsData?.results || attendanceRecordsData || [];
+
+  // Statistika hisoblash (latest status bo'yicha)
+  const stats = React.useMemo(() => {
+    // 1. Tanlangan qavatdagi jami talabalar
+    const totalCount = students.length;
+
+    // 2. Har bir talabaning eng oxirgi holatini topish
+    const latestStudentStatuses: Record<number, string> = {};
+    const sortedRecords = [...attendanceRecords].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+
+    sortedRecords.forEach((record: any) => {
+      latestStudentStatuses[record.student] = record.status;
+    });
+
+    // 3. Hozir bor talabalar (oxirgi holati 'in')
+    const presentCount = Object.values(latestStudentStatuses).filter(status => status === 'in').length;
+
+    // 4. Yo'qlar
+    const absentCount = totalCount - presentCount;
+
+    // 5. Foiz
+    const rate = totalCount > 0 ? ((presentCount / totalCount) * 100).toFixed(1) : '0';
+
+    return {
+      total: totalCount,
+      present: presentCount,
+      absent: absentCount,
+      rate: rate
+    };
+  }, [students, attendanceRecords]);
 
   useEffect(() => {
     if (leadersData) {
       setFloorLeaders(leadersData.results || leadersData);
     }
   }, [leadersData]);
-
-  // Calculate statistics from attendance records
-  const totalStudents = students.length;
-  const totalPresent = attendanceRecords.filter((r: any) => r.status === 'in').length;
-  const totalAbsent = totalStudents - totalPresent;
-  const attendanceRate = totalStudents > 0 ? ((totalPresent / totalStudents) * 100).toFixed(1) : '0';
 
   const floorOptions = floors.map((f: { id: number; name: string }) => ({
     value: f.id,
@@ -88,228 +114,384 @@ const Attendance: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <UserCheck className="h-6 w-6 text-blue-600" />
             Davomat nazorati
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
             Talabalarning qavatlar bo'yicha davomat holati
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Chiroyli Filter */}
-          <div className="relative">
-            <button
-              onClick={() => setShowFloorFilter(!showFloorFilter)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
-                selectedFloor 
-                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-2 border-blue-300 dark:border-blue-700' 
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
-            >
-              <Building className="h-4 w-4" />
-              <span>{selectedFloor ? floorOptions.find((f: { value: number; label: string }) => f.value === selectedFloor)?.label : 'Barcha qavatlar'}</span>
-              <ChevronDown className={`h-4 w-4 transition-transform ${showFloorFilter ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {showFloorFilter && (
-              <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-20">
-                <div className="p-2">
-                  <button
-                    onClick={() => {
-                      setSelectedFloor(null);
-                      setShowFloorFilter(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                      !selectedFloor 
-                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' 
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    Barcha qavatlar
-                  </button>
-                  {floorOptions.map((floor: { value: number; label: string }) => (
-                    <button
-                      key={floor.value}
-                      onClick={() => {
-                        setSelectedFloor(floor.value);
-                        setShowFloorFilter(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                        selectedFloor === floor.value 
-                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' 
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      {floor.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             onClick={() => setShowLeadersModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all shadow-sm hover:shadow-md"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-medium transition-all hover:bg-gray-200 dark:hover:bg-gray-700 text-sm sm:text-base border border-gray-200 dark:border-gray-700"
           >
-            <UserCog className="h-4 w-4" />
-            Sardorlarni ko&apos;rish
+            <UserCog className="h-4 w-4 text-blue-500" />
+            <span className="sm:inline">Sardorlar</span>
           </button>
 
           <button
             onClick={() => setShowAddLeaderModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-all shadow-sm hover:shadow-md"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all shadow-lg shadow-blue-500/25 text-sm sm:text-base"
           >
             <UserPlus className="h-4 w-4" />
-            Yangi sardor
+            <span className="sm:inline">Yangi</span>
           </button>
         </div>
       </div>
 
       {/* Umumiy statistika */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <StatsCard
           title="Jami talabalar"
-          value={totalStudents.toString()}
+          value={stats.total}
           icon={Users}
           color="primary"
         />
         <StatsCard
           title="Hozir"
-          value={totalPresent.toString()}
+          value={stats.present}
           icon={UserCheck}
           color="accent"
         />
         <StatsCard
           title="Yo&apos;q"
-          value={totalAbsent.toString()}
+          value={stats.absent}
           icon={UserX}
           color="danger"
         />
         <StatsCard
           title="Davomat foizi"
-          value={`${attendanceRate}%`}
+          value={`${stats.rate}%`}
           icon={TrendingUp}
           color="secondary"
         />
       </div>
 
-      {/* Davomat qaydlari jadvali */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
+      {/* Qavatlar bo'yicha davomat holati */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6 overflow-hidden relative">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <Building className="h-5 w-5 text-blue-600" />
+            </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <Clock className="h-5 w-5 text-blue-600" />
-                Davomat qaydlari
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                Qavatlar bo&apos;yicha davomat holati
               </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Talabalarning kirish-chiqish vaqtlari
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {new Date(selectedDate).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Calendar className="h-4 w-4" />
-              <span>{new Date().toLocaleDateString('uz-UZ')}</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {floors.map((floor: any) => {
+            const floorRecords = attendanceRecords.filter((record: any) => record.floor_name === floor.name);
+            const hasAttendance = floorRecords.length > 0;
+            
+            return (
+              <motion.div
+                key={floor.id}
+                whileHover={{ y: -2 }}
+                onClick={() => {
+                  setSelectedFloor(floor.id);
+                  const element = document.getElementById('attendance-records-section');
+                  element?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className={`flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer ${
+                  selectedFloor === floor.id
+                    ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 ring-2 ring-blue-500/20'
+                    : hasAttendance
+                    ? 'border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-900/30'
+                    : 'border-red-200 bg-red-50/50 dark:bg-red-900/10 dark:border-red-900/30'
+                }`}
+              >
+                <div className="flex flex-col gap-1">
+                  <span className="font-bold text-gray-900 dark:text-white">
+                    {floor.name}
+                  </span>
+                  {hasAttendance && (
+                    <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">
+                      {floorRecords.length} ta qayd mavjud
+                    </span>
+                  )}
+                </div>
+                <span
+                  className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${
+                    hasAttendance
+                      ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                      : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                  }`}
+                >
+                  {hasAttendance ? 'Qayd etilgan' : 'Yo\'q'}
+                </span>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Davomat qaydlari jadvali */}
+      <div id="attendance-records-section" className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-blue-600 rounded-xl shadow-lg shadow-blue-500/20">
+              <Clock className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                Davomat qaydlari
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-medium">
+                Tanlangan sana va qavat bo'yicha ma'lumotlar
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Zamonaviy Sana tanlash */}
+            <div className="relative group">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-hover:text-blue-500 transition-colors z-10" />
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer hover:bg-white dark:hover:bg-gray-900 w-[160px]"
+              />
+            </div>
+
+            {/* Zamonaviy Qavat Filter */}
+            <div className="relative">
+              <button
+                onClick={() => setShowFloorFilter(!showFloorFilter)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 border ${
+                  selectedFloor 
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20' 
+                    : 'bg-gray-50 dark:bg-gray-900/50 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-900'
+                }`}
+              >
+                <Building className={`h-4 w-4 ${selectedFloor ? 'text-white' : 'text-gray-400'}`} />
+                <span className="truncate max-w-[120px]">
+                  {selectedFloor ? floorOptions.find((f: any) => f.value === selectedFloor)?.label : 'Barcha qavatlar'}
+                </span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${showFloorFilter ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {showFloorFilter && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowFloorFilter(false)} />
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    className="absolute bottom-full mb-2 sm:top-full sm:mt-2 right-0 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden z-20 p-1.5"
+                  >
+                    <button
+                      onClick={() => {
+                        setSelectedFloor(null);
+                        setShowFloorFilter(false);
+                      }}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-bold transition-colors mb-1 ${
+                        !selectedFloor 
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' 
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900'
+                      }`}
+                    >
+                      Barcha qavatlar
+                    </button>
+                    <div className="h-px bg-gray-100 dark:bg-gray-700 my-1 mx-2" />
+                    {floorOptions.map((floor: any) => (
+                      <button
+                        key={floor.value}
+                        onClick={() => {
+                          setSelectedFloor(floor.value);
+                          setShowFloorFilter(false);
+                        }}
+                        className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-bold transition-colors ${
+                          selectedFloor === floor.value 
+                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' 
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900'
+                        }`}
+                      >
+                        {floor.label}
+                      </button>
+                    ))}
+                  </motion.div>
+                </>
+              )}
             </div>
           </div>
         </div>
         
         <div className="overflow-x-auto">
-          {attendanceRecords.length === 0 ? (
-            <div className="text-center py-12">
-              <Clock className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-500 dark:text-gray-400">
-                Hozircha davomat qaydlari mavjud emas
+          {isAttendanceLoading ? (
+            <div className="text-center py-20">
+              <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-gray-400 font-bold">Ma&apos;lumotlar yuklanmoqda...</p>
+            </div>
+          ) : attendanceRecords.length === 0 ? (
+            <div className="text-center py-24">
+              <div className="bg-gray-50 dark:bg-gray-900/50 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 rotate-12">
+                <Clock className="h-10 w-10 text-gray-300" />
+              </div>
+              <p className="text-gray-500 dark:text-gray-400 font-bold text-lg">
+                Bu qavat yoki sana uchun ma'lumot topilmadi
+              </p>
+              <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
+                Filtrlarni o'zgartirib ko'ring
               </p>
             </div>
           ) : (
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700/50">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    ID
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Talaba
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    <div className="flex items-center gap-1">
-                      <ArrowRightLeft className="h-3 w-3" />
-                      Status
-                    </div>
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      Vaqt
-                    </div>
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Sessiya
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden sm:block">
+                <table className="w-full">
+                  <thead className="bg-gray-50 dark:bg-gray-900/40">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                        ID
+                      </th>
+                      <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                        Talaba
+                      </th>
+                      <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                        Status
+                      </th>
+                      <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                        Vaqt
+                      </th>
+                      <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                        Qavat
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {attendanceRecords.map((record: any, index: number) => (
+                      <motion.tr
+                        key={record.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                        className="hover:bg-gray-50/80 dark:hover:bg-gray-900/30 transition-colors"
+                      >
+                        <td className="px-6 py-5 whitespace-nowrap text-sm font-bold text-gray-400">
+                          #{record.id}
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-600/10 dark:from-blue-500/20 dark:to-blue-600/20 flex items-center justify-center mr-3.5 border border-blue-100/50 dark:border-blue-800/50 shadow-sm">
+                              <span className="text-sm font-black text-blue-600 dark:text-blue-400">
+                                {record.student_name?.charAt(0) || '?'}
+                              </span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-black text-gray-900 dark:text-white">
+                                {record.student_name} {record.student_last_name}
+                              </span>
+                              <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                                ID: {record.student}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <span className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
+                            record.status === 'in' 
+                              ? 'bg-green-100/80 text-green-700 dark:bg-green-900/20 dark:text-green-400 border border-green-200/50 dark:border-green-800/50' 
+                              : 'bg-red-100/80 text-red-700 dark:bg-red-900/20 dark:text-red-400 border border-red-200/50 dark:border-red-800/50'
+                          }`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${record.status === 'in' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
+                            {record.status === 'in' ? 'Bor' : 'Yo\'q'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-black text-gray-700 dark:text-gray-300">
+                              {new Date(record.created_at).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <span className="text-[10px] font-bold text-gray-400">
+                              {new Date(record.created_at).toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit' })}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg text-[11px] font-black uppercase tracking-wider border border-gray-200/50 dark:border-gray-700/50">
+                            <Building className="h-3 w-3" />
+                            {record.floor_name || 'Noma\'lum'}
+                          </span>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="sm:hidden divide-y divide-gray-100 dark:divide-gray-800/50">
                 {attendanceRecords.map((record: any, index: number) => (
-                  <motion.tr
+                  <motion.div
                     key={record.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    className="p-5 active:bg-gray-50 dark:active:bg-gray-900/50 transition-colors"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                      #{record.id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mr-3">
-                          <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3.5">
+                        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-500/10 to-blue-600/10 dark:from-blue-500/20 dark:to-blue-600/20 flex items-center justify-center border border-blue-100 dark:border-blue-800 shadow-sm">
+                          <span className="text-lg font-black text-blue-600 dark:text-blue-400">
                             {record.student_name?.charAt(0) || '?'}
                           </span>
                         </div>
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">
-                          {record.student_name || 'Noma\'lum'}
-                        </span>
+                        <div>
+                          <p className="text-sm font-black text-gray-900 dark:text-white leading-tight">
+                            {record.student_name} {record.student_last_name}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                              ID: {record.student}
+                            </span>
+                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-0.5">
+                              <Building className="h-2.5 w-2.5" />
+                              {record.floor_name}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
                         record.status === 'in' 
                           ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
                           : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                       }`}>
-                        {record.status === 'in' ? (
-                          <>
-                            <ArrowRightLeft className="h-3 w-3" />
-                            Kirish
-                          </>
-                        ) : (
-                          <>
-                            <ArrowRightLeft className="h-3 w-3" />
-                            Chiqish
-                          </>
-                        )}
+                        <div className={`w-1.5 h-1.5 rounded-full ${record.status === 'in' ? 'bg-green-500' : 'bg-red-500'}`} />
+                        {record.status === 'in' ? 'Bor' : 'Yo\'q'}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                      {new Date(record.created_at).toLocaleString('uz-UZ', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        day: '2-digit',
-                        month: '2-digit'
-                      })}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                      #{record.session}
-                    </td>
-                  </motion.tr>
+                    </div>
+                    <div className="flex items-center justify-between bg-gray-50/80 dark:bg-gray-900/60 p-3 rounded-xl border border-gray-100/50 dark:border-gray-800/50">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-3.5 w-3.5 text-blue-500" />
+                        <span className="text-[11px] font-black text-gray-700 dark:text-gray-300">
+                          {new Date(record.created_at).toLocaleString('uz-UZ', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            day: '2-digit',
+                            month: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      <div className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-lg">
+                        Qayd #{record.id}
+                      </div>
+                    </div>
+                  </motion.div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -365,7 +547,7 @@ const Attendance: React.FC = () => {
             </div>
 
             {/* Content */}
-            <div className="overflow-y-auto max-h-[calc(85vh-140px)] p-6">
+            <div className="overflow-y-auto max-h-[calc(85vh-140px)] p-4 sm:p-6">
               {floorLeaders.length === 0 ? (
                 <div className="text-center py-12">
                   <UserCog className="h-16 w-16 text-gray-300 mx-auto mb-4" />
@@ -384,80 +566,128 @@ const Attendance: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 dark:bg-gray-700/50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider rounded-l-lg">
-                          ID
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          <div className="flex items-center gap-1">
-                            <Building className="h-3 w-3" />
-                            Qavat
-                          </div>
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          <div className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            Username
-                          </div>
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                          <div className="flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
-                            Email
-                          </div>
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider rounded-r-lg">
-                          Holat
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                      {floorLeaders.map((leader, index) => (
-                        <motion.tr
-                          key={leader.id}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                          className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                        >
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                            #{leader.id}
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-medium">
-                              <Building className="h-3.5 w-3.5" />
-                              {leader.floor_info?.name || `${leader.floor}-qavat`}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                                <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                                  {leader.user_info?.username?.charAt(0).toUpperCase() || '?'}
+                <>
+                  {/* Desktop Table View */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 dark:bg-gray-700/50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider rounded-l-lg">
+                            ID
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            <div className="flex items-center gap-1">
+                              <Building className="h-3 w-3" />
+                              Qavat
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            <div className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              Username
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            <div className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              Email
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider rounded-r-lg">
+                            Holat
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {floorLeaders.map((leader, index) => (
+                          <motion.tr
+                            key={leader.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                          >
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                              #{leader.id}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-medium">
+                                <Building className="h-3.5 w-3.5" />
+                                {leader.floor_info?.name || `${leader.floor}-qavat`}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                                  <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                                    {leader.user_info?.username?.charAt(0).toUpperCase() || '?'}
+                                  </span>
+                                </div>
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                  {leader.user_info?.username || 'Noma\'lum'}
                                 </span>
                               </div>
-                              <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                {leader.user_info?.username || 'Noma\'lum'}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                              {leader.user_info?.email || '-'}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">
+                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                                Faol
+                              </span>
+                            </td>
+                          </motion.tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile Card View */}
+                  <div className="sm:hidden space-y-3">
+                    {floorLeaders.map((leader, index) => (
+                      <motion.div
+                        key={leader.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl border border-gray-100 dark:border-gray-700"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                              <span className="text-base font-medium text-green-600 dark:text-green-400">
+                                {leader.user_info?.username?.charAt(0).toUpperCase() || '?'}
                               </span>
                             </div>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                {leader.user_info?.username || 'Noma\'lum'}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                #{leader.id}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-medium">
+                            <Building className="h-3.5 w-3.5" />
+                            {leader.floor_info?.name || `${leader.floor}-qavat`}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs pt-3 border-t border-gray-100 dark:border-gray-700">
+                          <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
+                            <Mail className="h-3 w-3" />
                             {leader.user_info?.email || '-'}
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">
-                              <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                              Faol
-                            </span>
-                          </td>
-                        </motion.tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          </div>
+                          <span className="inline-flex items-center gap-1 text-green-700 dark:text-green-400 font-medium">
+                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                            Faol
+                          </span>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
 

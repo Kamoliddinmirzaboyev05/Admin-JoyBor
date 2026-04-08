@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import BackButton from '../components/UI/BackButton';
-import { get } from '../data/api';
 import api from '../data/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { X, MoreVertical, Filter, UserCog, Eye, EyeOff } from 'lucide-react';

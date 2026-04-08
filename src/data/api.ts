@@ -202,6 +202,8 @@ export const api = {
     status?: string;
     page?: number;
     page_size?: number;
+    date?: string; // Added date parameter
+    floor?: number; // Added floor parameter
   }) => {
     const searchParams = new URLSearchParams();
     if (params?.session) searchParams.append('session', params.session.toString());
@@ -209,6 +211,8 @@ export const api = {
     if (params?.status) searchParams.append('status', params.status);
     if (params?.page) searchParams.append('page', params.page.toString());
     if (params?.page_size) searchParams.append('page_size', params.page_size.toString());
+    if (params?.date) searchParams.append('date', params.date); // Append date to search params
+    if (params?.floor) searchParams.append('floor', params.floor.toString()); // Append floor to search params
     
     const queryString = searchParams.toString();
     return get(`/attendance-records/${queryString ? `?${queryString}` : ''}`);
